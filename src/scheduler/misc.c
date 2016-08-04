@@ -523,65 +523,6 @@ filter_array(void **ptrarr, int (*filter_func)(void*, void*),
 
 /**
  * @brief
- * 		break apart a comma delimited string into an array of strings
- *
- * @param[in]	strlist	-	the comma delimited string
- *
- * @return	char **
- *
- */
-char **
-break_comma_list(char *strlist)
-{
-	int num_words = 1;			/* number of words delimited by commas*/
-	char **arr = NULL;			/* the array of words */
-	char *list;
-	char *tok;				/* used with strtok() */
-	char *end;
-	int i;
-
-	if (strlist == NULL)
-		return NULL;
-
-	list = string_dup(strlist);
-
-	if (list != NULL) {
-		for (i = 0; list[i] != '\0'; i++)
-			if (list[i] == ',')
-				num_words++;
-
-		if ((arr = (char **) malloc(sizeof(char*)  * (num_words + 1))) == NULL) {
-			log_err(errno, __func__, MEM_ERR_MSG);
-			free(list);
-			return NULL;
-		}
-
-		tok = strtok(list, ",");
-
-		for (i = 0; tok != NULL; i++) {
-			while (isspace((int) *tok))
-				tok++;
-
-			end = &tok[strlen(tok)-1];
-
-			while (isspace((int) *end)) {
-				*end = '\0';
-				end--;
-			}
-
-			arr[i] = string_dup(tok);
-			tok = strtok(NULL, ",");
-		}
-		arr[i] = NULL;
-	}
-	if (list != NULL)
-		free(list);
-
-	return arr;
-}
-
-/**
- * @brief
  *		free_string_array - free an array of strings with a NULL as a sentinal
  *
  * @param[in,out]	arr	-	the array to free

@@ -1580,52 +1580,6 @@ next:
 	}
 }
 
-/*
- *
- *	attropl2attrl - convert an attropl struct to an attrl struct
- *
- *	  from - the attropl struct to convert
- *
- *	returns newly converted attrl struct
- *
- */
-struct attrl *
-attropl2attrl(struct attropl *from)
-{
-	struct attrl *ap = NULL, *rattrl = NULL;
-
-	while (from != NULL) {
-		if (ap == NULL) {
-			Mstruct(ap, struct attrl);
-			rattrl = ap;
-		}
-		else  {
-			Mstruct(ap->next, struct attrl);
-			ap = ap->next;
-		}
-
-		ap->name = NULL;
-		ap->resource = NULL;
-		ap->value = NULL;
-		ap->next = NULL;
-		if (from->name != NULL) {
-			Mstring(ap->name, strlen(from->name) + 1);
-			strcpy(ap->name, from->name);
-		}
-		if (from->resource != NULL) {
-			Mstring(ap->resource, strlen(from->resource) + 1);
-			strcpy(ap->resource, from->resource);
-		}
-		if (from->value != NULL) {
-			Mstring(ap->value, strlen(from->value) + 1);
-			strcpy(ap->value, from->value);
-		}
-		from = from->next;
-	}
-
-	return rattrl;
-}
-
 
 /**
  * @brief

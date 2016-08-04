@@ -1334,3 +1334,500 @@ strtok_quoted(char *source, const char *delimiters)
 	prune_quotes(stok);
 	return (stok);
 }
+
+/*
+ *
+ *	attropl2attrl - convert an attropl struct to an attrl struct
+ *
+ *	  from - the attropl struct to convert
+ *
+ *	returns newly converted attrl struct
+ *
+ */
+struct attrl *
+attropl2attrl(struct attropl *from)
+{
+	struct attrl *ap = NULL, *rattrl = NULL;
+
+	while (from != NULL) {
+		if (ap == NULL) {
+			if ((ap = (struct attrl*) malloc(sizeof(struct attrl))) == NULL) {
+				perror("Out of memory");
+				return NULL;
+			}
+			rattrl = ap;
+		}
+		else  {
+			if ((ap->next = (struct attrl*) malloc(sizeof(struct attrl))) == NULL) {
+				perror("Out of memory");
+				return NULL;
+			}
+			ap = ap->next;
+		}
+
+		ap->name = NULL;
+		ap->resource = NULL;
+		ap->value = NULL;
+		ap->next = NULL;
+		if (from->name != NULL) {
+			if ((ap->name = (char*) malloc(strlen(from->name) + 1)) == NULL) {
+				perror("Out of memory");
+				free_attrl(ap);
+				return NULL;
+			}
+			strcpy(ap->name, from->name);
+		}
+		if (from->resource != NULL) {
+			if ((ap->resource = (char*) malloc(strlen(from->resource) + 1)) == NULL) {
+				perror("Out of memory");
+				free_attrl(ap);
+				return NULL;
+			}
+			strcpy(ap->resource, from->resource);
+		}
+		if (from->value != NULL) {
+			if ((ap->value = (char*) malloc(strlen(from->value) + 1)) == NULL) {
+				perror("Out of memory");
+				free_attrl(ap);
+				return NULL;
+			}
+			strcpy(ap->value, from->value);
+		}
+		from = from->next;
+	}
+
+	return rattrl;
+}
+
+/**
+ *	@brief is the name and value a time attribute.  A time
+ *			attribute is an attribute whose name is of the form
+ *			Xtime (e.g., etime or stime) and the value is
+ *			from the output of ctime() wday mon mday HH:MM:SS YYYY
+ *
+ *	  @param[in] name - name of attribute
+ *	  @param[in] value - value of attribute
+ *
+ *	@return return int
+ *	@retval 1 if attribute is a time attribute
+ *	@retval 0 if not
+ *
+ */
+int
+is_time_attr(char *name, char *value)
+{
+	if (name == NULL || value == NULL)
+		return 0;
+
+	if (strcmp(name + 1, "time") == 0 || strcmp(name, ATTR_resv_start) == 0
+			|| strcmp(name, ATTR_resv_end) == 0 || strcmp(name, ATTR_a) == 0) {
+
+		if (!strncmp(value, "Mon", 3) || !strncmp(value, "Tue", 3)
+				|| !strncmp(value, "Wed", 3) || !strncmp(value, "Thu", 3)
+				|| !strncmp(value, "Fri", 3) || !strncmp(value, "Sat", 3)
+				|| !strncmp(value, "Sun", 3))
+			return 1;
+	}
+
+	return 0;
+}
+
+
+/**
+ *  @brief attrl copy constructor
+ *
+ *  @param[in] oattr - attrl to dup
+ *
+ *  @return dup'd attrl
+ */
+
+struct attrl *
+dup_attrl(struct attrl *oattr)
+{
+	struct attrl *nattr;
+
+	if (oattr == NULL)
+		return NULL;
+
+	nattr = new_attrl();
+	if (nattr == NULL)
+		return NULL;
+	if (oattr->name != NULL)
+		nattr->name = strdup(oattr->name);
+	if (oattr->resource != NULL)
+		nattr->resource = strdup(oattr->resource);
+	if (oattr->value != NULL)
+		nattr->value = strdup(oattr->value);
+
+	nattr->op = oattr->op;
+	return nattr;
+}
+
+/**
+ * @brief copy constructor for attrl list
+ * @param oattr_list - list to dup
+ * @return dup'd attrl list
+ */
+
+struct attrl *
+dup_attrl_list(struct attrl *oattr_list)
+{
+	struct attrl *nattr_head = NULL;
+	struct attrl *nattr;
+	struct attrl *nattr_prev = NULL;
+	struct attrl *oattr;
+
+	if (oattr_list == NULL)
+		return NULL;
+
+	for (oattr = oattr_list; oattr != NULL; oattr = oattr->next) {
+		nattr = dup_attrl(oattr);
+		if (nattr_prev == NULL) {
+			nattr_head = nattr;
+			nattr_prev = nattr_head;
+		} else {
+			nattr_prev->next = nattr;
+			nattr_prev = nattr;
+		}
+	}
+	return nattr_head;
+}
+
+/**
+ *	@brief create a new attrl structure and initialize it
+ */
+struct attrl *
+new_attrl()
+{
+	struct attrl *at;
+
+	if ((at = malloc(sizeof(struct attrl))) == NULL)
+		return NULL;
+
+	at->next = NULL;
+	at->name = NULL;
+	at->resource = NULL;
+	at->value = NULL;
+	at->op = SET;
+
+	return at;
+}
+
+/**
+ *
+ * @brief locate a attribute (attrl) by name/res and return it
+ *
+ * @param[in] pattrl - attrl list to search
+ * @param[in] name   - name of attribute to search for
+ * @param[in] resc   - name of resources to search for (may be NULL of none)
+ *
+ * @return found attrl
+ * @retval NULL if not found
+ */
+
+struct attrl *
+find_attrl(struct attrl *pattrl, char *name, char *resc)
+{
+	while (pattrl) {
+		if (strcmp(name, pattrl->name) == 0) {
+			if (resc) {
+				if (strcmp(resc, pattrl->resource) == 0) {
+					return pattrl;
+				}
+			} else {
+				return pattrl;
+			}
+		}
+		pattrl = pattrl->next;
+	}
+	return ((struct attrl *) 0);
+}
+
+/**
+ *
+ * @brief locate a attribute (attrl) by name/resource and return it's value
+ *
+ * @param[in] pattrl - attrl list to search
+ * @param[in] name   - name of attribute to search for
+ * @param[in] resc   - name of resources to search for (may be NULL of none)
+ *
+ * @return char *
+ * @retval attrl's value
+ * @retval NULL if not found
+ */
+
+char *find_attrlv (struct attrl *pattrl, char *name, char *resc)
+{
+	struct attrl *attrp;
+
+	attrp = find_attrl(pattrl, name, resc);
+
+	if (attrp)
+		return attrp -> value;
+
+	return (char *)NULL;
+}
+
+/**
+ * @brief frees attrl structure
+ *
+ * @param [in] at - attrl to free
+ * @return nothing
+ */
+void
+free_attrl(struct attrl *at)
+{
+	if (at == NULL)
+		return;
+
+	if (at->name != NULL)
+		free(at->name);
+	if (at->resource != NULL)
+		free(at->resource);
+	if (at->value != NULL)
+		free(at->value);
+	free(at);
+}
+
+/**
+ * @brief frees attrl list
+ *
+ * @param[in] at_list - attrl list to free
+ * @return nothing
+ */
+void free_attrl_list(struct attrl *at_list)
+{
+	struct attrl *cur, *tmp;
+	if(at_list == NULL )
+		return;
+
+	for(cur = at_list; cur != NULL; cur = tmp) {
+		tmp = cur->next;
+		free_attrl(cur);
+	}
+
+}
+
+/**
+ *
+ * @brief locate an attribute (attropl) by name/res and return it
+ *
+ * @param[in] pattrl - attropl list to search
+ * @param[in] name   - name of attribute to search for
+ * @param[in] resc   - name of resources to search for (may be NULL of none)
+ *
+ * @return found attropl
+ * @retval NULL if not found
+ */
+
+struct attropl *
+find_attropl(struct attropl *pattrl, char *name, char *resc)
+{
+	while (pattrl) {
+		if (strcmp(name, pattrl->name) == 0) {
+			if (resc) {
+				if (strcmp(resc, pattrl->resource) == 0) {
+					return pattrl;
+				}
+			} else {
+				return pattrl;
+			}
+		}
+		pattrl = pattrl->next;
+	}
+	return ((struct attropl *) 0);
+}
+
+
+/**
+ * @brief frees attropl structure
+ *
+ * @param [in] at - attropl to free
+ * @return nothing
+ */
+void
+free_attropl(struct attropl *at)
+{
+	if (at == NULL)
+		return;
+
+	if (at->name != NULL)
+		free(at->name);
+	if (at->resource != NULL)
+		free(at->resource);
+	if (at->value != NULL)
+		free(at->value);
+	free(at);
+}
+
+/**
+ * @brief frees attropl list
+ *
+ * @param[in] at_list - attropl list to free
+ * @return nothing
+ */
+void
+free_attropl_list(struct attropl *at_list)
+{
+	struct attropl *cur, *tmp;
+	if (at_list == NULL)
+		return;
+
+	for (cur = at_list; cur != NULL; cur = tmp) {
+		tmp = cur->next;
+		free_attropl(cur);
+	}
+
+}
+
+
+/*
+ * @brief	Allocate a new attropl struct
+ *
+ * @return struct attropl*
+ * @retval a newly allocated attropl struct
+ */
+struct attropl*
+new_attropl(void)
+{
+	struct attropl* new_attr = NULL;
+
+	if ((new_attr = (struct attropl*) malloc(sizeof(struct attropl))) == NULL) {
+		perror("Out of memory");
+		return NULL;
+	}
+
+	new_attr->name = NULL;
+	new_attr->resource = NULL;
+	new_attr->value = NULL;
+	new_attr->next = NULL;
+	return new_attr;
+}
+
+/*
+ * @brief	Create a new attrl struct using the given information
+ *
+ * @param[in]	name	string name of the attrl to create
+ * @param[in]	value	string value of the attrl to create
+ * @param[in]	resource	string resource of the attrl to create
+ *
+ * @return struct attrl*
+ * @retval a newly created attrol struct
+ */
+struct attrl*
+create_attrl(char* name, char* value, char* resource)
+{
+	struct attrl* new_attr = NULL;
+
+	if ((new_attr = new_attrl()) == NULL) {
+		return NULL;
+	}
+
+	if (name != NULL) {
+		if ((new_attr->name = strdup(name)) == NULL) {
+			free_attrl(new_attr);
+			return NULL;
+		}
+	} else
+		new_attr->name = NULL;
+
+	if (resource != NULL) {
+		if ((new_attr->resource = strdup(resource)) == NULL) {
+			free_attrl(new_attr);
+			return NULL;
+		}
+	} else
+		new_attr->resource = NULL;
+
+	if (value != NULL) {
+		if ((new_attr->value = strdup(value)) == NULL) {
+			free_attrl(new_attr);
+			return NULL;
+		}
+	} else
+		new_attr->value = NULL;
+
+	new_attr->next = NULL;
+
+	return new_attr;
+}
+
+/*
+ * @brief	Create a new attropl struct using the given information
+ *
+ * @param[in]	name	string name of the attropl to create
+ * @param[in]	value	string value of the attropl to create
+ * @param[in]	resource	string resource of the attropl to create
+ *
+ * @return struct attropl*
+ * @retval a newly created attropl struct
+ */
+struct attropl*
+create_attropl(char* name, char* value, char* resource)
+{
+	struct attropl* new_attr;
+
+	if ((new_attr = (struct attropl*) malloc(sizeof(struct attropl))) == NULL) {
+		return NULL;
+	}
+
+	if (name != NULL) {
+		if ((new_attr->name = strdup(name)) == NULL) {
+			free_attropl(new_attr);
+			return NULL;
+		}
+	} else
+		new_attr->name = NULL;
+
+	if (resource != NULL) {
+		if ((new_attr->resource = strdup(resource)) == NULL) {
+			free_attropl(new_attr);
+			return NULL;
+		}
+	} else
+		new_attr->resource = NULL;
+
+	if (value != NULL) {
+		if ((new_attr->value = strdup(value)) == NULL) {
+			free_attropl(new_attr);
+			return NULL;
+		}
+	} else
+		new_attr->value = NULL;
+
+	new_attr->next = NULL;
+
+	return new_attr;
+}
+
+/*
+ * @brief	This function takes an int/long/char* value and converts it to an attrval_t
+ *
+ * @param[in]	val - the value to be converted
+ * @param[in]	type - the type that 'val' should be converted to
+ *
+ * @return	attrval_t
+ * @retval	An attrval_t with 'val' set to the corresponding union value.
+ */
+attrval_t
+cvt_to_attrval_t(void* val, enum attr_type type)
+{
+	attrval_t ret_attrval;
+
+	switch(type) {
+	case ATTR_TYPE_INT:
+		ret_attrval.type_int = *(int*) val;
+		break;
+	case ATTR_TYPE_LONG:
+		ret_attrval.type_long = *(long*) val;
+		break;
+	case ATTR_TYPE_STR:
+		ret_attrval.type_str = (char*) val;
+		break;
+	default:
+		; /* No-op */
+	}
+
+	return ret_attrval;
+}
+

@@ -44,6 +44,7 @@ extern "C" {
 #include "pbs_internal.h"
 #include "Long.h"
 #include "grunt.h"
+#include "list_link.h"
 
 #ifndef _TIME_H
 #include <sys/types.h>
@@ -140,6 +141,17 @@ struct size_value {
 struct attr_entity {
 	void	*ae_tree;	/* root of tree */
 	time_t	 ae_newlimittm;	/* time last limit added */
+};
+
+union attrval {
+	int type_int;
+	long type_long;
+	char *type_str;
+};
+typedef union attrval attrval_t;
+
+enum attr_type {
+	ATTR_TYPE_LONG, ATTR_TYPE_INT, ATTR_TYPE_STR,
 };
 
 union attr_val {	      /* the attribute value	*/
@@ -284,7 +296,22 @@ struct array_strings {
 /*
  * specific attribute value function prototypes
  */
-
+extern struct attrl *attropl2attrl(struct attropl *from);
+extern struct attropl* create_attropl(char* name, char* value, char* resource);
+struct attrl *new_attrl(void);
+struct attrl *dup_attrl(struct attrl *oattr);
+struct attrl *dup_attrl_list(struct attrl *oattr_list);
+void free_attrl(struct attrl *at);
+void free_attrl_list(struct attrl *at_list);
+extern struct attrl* create_attrl(char* name, char* value, char* resource);
+extern struct attropl* new_attropl(void);
+extern void free_attropl_list(struct attropl *at_list);
+extern void free_attropl(struct attropl *at);
+extern struct attrl *find_attrl(struct attrl *pattrl, char *name, char *resc);
+extern struct attropl *find_attropl(struct attropl *pattrl, char *name, char *resc);
+extern char *find_attrlv (struct attrl *pattrl, char *name, char *resc);
+extern int is_time_attr(char *name, char *value);
+extern attrval_t cvt_to_attrval_t(void* val, enum attr_type type);
 extern void clear_attr(attribute *pattr, attribute_def *pdef);
 extern int  find_attr  (attribute_def *attrdef, char *name, int limit);
 extern int  recov_attr_fs(int fd, void *parent, attribute_def *padef,

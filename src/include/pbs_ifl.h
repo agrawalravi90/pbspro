@@ -604,7 +604,13 @@ extern int pbs_alterjob(int, char *, struct attrl *, char *);
 
 extern int pbs_connect(char *);
 
+#ifdef __GNUC__
 extern int pbs_connect_extend(char *, char *);
+extern int pbs_manager(int, int, int, char *, struct attropl *, char *);
+#else
+extern int pbs_connect_extend(char *, char *);
+extern int pbs_manager(int, int, int, char *, struct attropl *, char *);
+#endif
 
 extern char *pbs_default(void);
 
@@ -617,8 +623,6 @@ extern char *pbs_geterrmsg(int);
 extern int pbs_holdjob(int, char *, char *, char *);
 
 extern char *pbs_locjob(int, char *, char *);
-
-extern int pbs_manager(int, int, int, char *, struct attropl *, char *);
 
 extern int pbs_movejob(int, char *, char *, char *);
 

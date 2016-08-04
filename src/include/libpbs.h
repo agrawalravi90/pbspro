@@ -315,8 +315,15 @@ extern int PBSD_copyhookfile(int connect, char *hook_filepath, int rpp, char **m
 extern int PBSD_delhookfile(int connect, char *hook_filename, int rpp, char **msgid);
 extern int PBSD_mgr_put(int connect, int func, int cmd, int objtype,
 	char *objname, struct attropl *al, char *extend, int rpp, char **msgid);
+
+#ifdef __GNUC__
 extern int PBSD_manager  (int connect, int func, int cmd,
 	int objtype, char *objname, struct attropl *al, char *extend);
+#else
+extern int PBSD_manager  (int connect, int func, int cmd,
+	int objtype, char *objname, struct attropl *al, char *extend);
+#endif
+
 extern int PBSD_msg_put(int connect, char *jobid, int fileopt,
 	char *msg, char *extend, int rpp, char **msgid);
 extern int PBSD_py_spawn_put(int connect, char *jobid,

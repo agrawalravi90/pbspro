@@ -455,8 +455,11 @@ extern int pbs_decrypt_pwd(char *, int, size_t, char **);
 extern char *pbs_submit_with_cred(int, struct attropl *, char *,
 	char *, char *, int, size_t , char *);
 
-
+#ifdef __GNUC__
+extern int pbs_loadconf(int) __attribute__((weak));
+#else
 extern int pbs_loadconf(int);
+#endif
 
 extern char *pbs_get_tmpdir(void);
 
