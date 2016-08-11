@@ -52,9 +52,6 @@
 extern "C" {
 #endif
 
-
-#include <pbs_config.h>
-
 #include <time.h>
 #include <pbs_ifl.h>
 #include <libutil.h>
@@ -89,7 +86,6 @@ struct resdef;
 struct event_list;
 struct status;
 struct fairshare_head;
-struct sim_info;
 struct node_scratch;
 
 typedef struct state_count state_count;
@@ -118,7 +114,6 @@ typedef struct timed_event timed_event;
 typedef struct event_list event_list;
 typedef struct status status;
 typedef struct fairshare_head fairshare_head;
-typedef struct sim_info sim_info;
 typedef struct node_scratch node_scratch;
 #ifdef NAS
 /* localmod 034 */
@@ -204,14 +199,6 @@ struct selspec
 	int total_cpus;		/* # of cpus requested in this select spec */
 	resdef **defs;                /* the resources requested by this select spec*/
 	chunk **chunks;
-};
-
-struct sim_info
-{
-	enum sim_info_id id;		/* what we are doing */
-	char info[1024];		/* extra information about that call */
-	void *simobj;			/* the object which was acted upon */
-	sim_info *next;
 };
 
 /* for description of these bits, check the PBS admin guide or scheduler IDS */

@@ -1278,7 +1278,7 @@ main(int argc, char *argv[])
 	/*
 	 *  Local initialization stuff
 	 */
-	if (schedinit(argc, argv)) {
+	if (schedinit()) {
 		(void) sprintf(log_buffer,
 			"local initialization failed, terminating");
 		log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_INFO,

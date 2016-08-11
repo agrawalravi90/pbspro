@@ -45,7 +45,6 @@
  * 	query_queues()
  * 	query_queue_info()
  * 	new_queue_info()
- * 	print_queue_info()
  * 	free_queues()
  * 	update_queue_on_run()
  * 	update_queue_on_end()
@@ -541,38 +540,6 @@ new_queue_info(int limallocflag)
 #endif
 
 	return qinfo;
-}
-
-/**
- * @brief
- *		print_queue_info - print all information in a queue_info struct
- *
- * @param[in]	qinfo	-	queue to print
- * @param[in]	brief	-	only print queue name
- * @param[in]	deep	-	print jobs in queue also
- *
- * @return	nothing
- *
- */
-void
-print_queue_info(queue_info *qinfo, char brief, char deep)
-{
-	if (qinfo == NULL)
-		return;
-	if (qinfo->name != NULL)
-		printf("\n%sQueue name: %s\n", brief ? "    ": "", qinfo->name);
-	if (!brief) {
-		printf("is_started: %s\n", qinfo->is_started ? "TRUE" : "FALSE");
-		printf("is_exec: %s\n", qinfo->is_exec ? "TRUE" : "FALSE");
-		printf("is_route: %s\n", qinfo->is_route ? "TRUE" : "FALSE");
-		printf("is_ded_queue: %s\n", qinfo->is_ded_queue ? "TRUE" : "FALSE");
-		printf("is_prime_queue: %s\n", qinfo->is_prime_queue ? "TRUE" : "FALSE");
-		printf("is_nonprime_queue: %s\n", qinfo->is_nonprime_queue ? "TRUE" : "FALSE");
-		printf("is_ok_to_run: %s\n", qinfo->is_ok_to_run ? "TRUE" : "FALSE");
-		printf("liminfo: %p\n", qinfo->liminfo);
-		printf("priority: %d\n", qinfo->priority);
-		print_state_count(&(qinfo->sc));
-	}
 }
 
 /**

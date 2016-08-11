@@ -60,7 +60,6 @@
  * 	add_resource_value()
  * 	add_resource_str_arr()
  * 	add_resource_bool()
- * 	print_server_info()
  * 	free_server()
  * 	update_server_on_run()
  * 	update_server_on_end()
@@ -1435,44 +1434,6 @@ add_resource_bool(resource *r1, resource *r2)
 		r1->avail = TRUE_FALSE;
 
 	return 1;
-}
-
-
-/**
- * @brief
- * 		print_server_info - print server_info structure
- *
- * @param[in]	sinfo	-	server_info struct to print
- * @param[in]	brief	-	if zero, only print the name of the server
- *
- * @return	void
- *
- * @par MT-Safe:	no
- */
-void
-print_server_info(server_info *sinfo, char brief)
-{
-	resource *resp;	/* used in printing the resources */
-
-	if (sinfo == NULL)
-		return;
-	if (sinfo->name != NULL)
-		printf("Server name: %s\n", sinfo->name);
-
-	if (!brief) {
-		printf("liminfo: %p\n", sinfo->liminfo);
-		printf("num_nodes: %d\n", sinfo->num_nodes);
-		printf("num_queues: %d\n", sinfo->num_queues);
-		print_state_count(&sinfo->sc);
-
-		resp = sinfo->res;
-		while (resp != NULL) {
-			printf("res %s avail: %-10f assigned: %-10f\n",
-				resp->name, resp->avail, resp->assigned);
-
-			resp = resp->next;
-		}
-	}
 }
 
 /**

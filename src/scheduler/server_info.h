@@ -122,12 +122,6 @@ resource *new_resource(void);
 resource *create_resource(char *name, char *value, enum resource_fields field);
 
 /*
- *      print_server_info - print server_info structure
- */
-void print_server_info(server_info *sinfo, char brief);
-
-
-/*
  *	free_server - free a list of server_info structs
  */
 void free_server(server_info *sinfo, int free_queues_too);

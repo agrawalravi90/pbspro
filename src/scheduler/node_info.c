@@ -87,7 +87,6 @@
  * 	node_state_to_str()
  * 	combine_nspec_array()
  * 	create_node_array_from_nspec()
- * 	calc_nodes_needed()
  * 	reorder_nodes()
  * 	ok_break_chunk()
  * 	is_excl()
@@ -4303,44 +4302,6 @@ create_node_array_from_nspec(nspec **nspec_arr)
 	ninfo_arr[j] = NULL;
 
 	return ninfo_arr;
-}
-
-/**
- * @brief
- *		calc_nodes_needed - calculate the number of nodes needed in a nodespec
- *
- * @param[in]	spec	-	the spec
- *
- * @return number of nodes needed
- * @retval	-1	: on error
- *
- */
-int
-calc_nodes_needed(char *spec)
-{
-	char *str;
-	char *endp;
-	int nodes_needed = 0;
-
-	if (spec == NULL)
-		return -1;
-
-	str = spec;
-	do {
-		/* get rid of the '+' and any whitespace */
-		while (isspace(*str) || *str == '+')
-			str++;
-
-		/* if no number, default is 1 node */
-		if (!isdigit(*str))
-			nodes_needed++;
-		else
-			nodes_needed += strtol(str, &endp, 10);
-
-		str = strstr(str, "+");
-	} while (str != NULL);
-
-	return nodes_needed;
 }
 
 /**
