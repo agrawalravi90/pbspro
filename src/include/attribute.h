@@ -572,6 +572,7 @@ extern int cred_name_okay(attribute *pattr, void *pobject, int actmode);
 extern int action_resc_dflt_queue(attribute *pattr, void *pobj, int actmode);
 /* Extern functions (at_action) called  from resv_attr_def */
 extern int action_resc_resv(attribute *pattr, void *pobject, int actmode);
+extern int is_attr(int, char *, int);
 
 /* "type" to pass to acl_check() */
 #define ACL_Host  1

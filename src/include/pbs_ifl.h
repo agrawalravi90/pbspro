@@ -50,6 +50,11 @@ extern "C" {
 #include <stdio.h>
 #include <time.h>
 
+/* types of attributes: read only, public, all */
+#define TYPE_ATTR_READONLY      1
+#define TYPE_ATTR_PUBLIC        2
+#define TYPE_ATTR_ALL           TYPE_ATTR_READONLY | TYPE_ATTR_PUBLIC
+
 /* Attribute Names used by user commands */
 
 #define ATTR_a "Execution_Time"
@@ -604,19 +609,15 @@ extern int pbs_alterjob(int, char *, struct attrl *, char *);
 
 extern int pbs_connect(char *);
 
-#ifdef __GNUC__
 extern int pbs_connect_extend(char *, char *);
+
+extern int pbs_disconnect(int);
+
 extern int pbs_manager(int, int, int, char *, struct attropl *, char *);
-#else
-extern int pbs_connect_extend(char *, char *);
-extern int pbs_manager(int, int, int, char *, struct attropl *, char *);
-#endif
 
 extern char *pbs_default(void);
 
 extern int pbs_deljob(int, char *, char *);
-
-extern int pbs_disconnect(int);
 
 extern char *pbs_geterrmsg(int);
 
