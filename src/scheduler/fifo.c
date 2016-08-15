@@ -143,7 +143,7 @@ schedinit(void)
 	struct tm *tmptr;
 
 #ifdef PYTHON
-	char errMsg[MAX_BUF_SIZE];
+	char errMsg[LOG_BUF_SIZE];
 	char buf[MAXPATHLEN];
 	char *errstr;
 	
@@ -512,7 +512,7 @@ schedule(int cmd, int sd, char *runjobid)
 			reset_global_resource_ptrs();
 			free(conf.prime_sort);
 			free(conf.non_prime_sort);
-			if(schedinit(0, NULL) != 0)
+			if(schedinit() != 0)
 				return 0;
 			break;
 		case SCH_QUIT:
