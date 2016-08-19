@@ -396,8 +396,8 @@ int add_dedtime_events(event_list *elist, struct status *policy);
  *	return static pointer to amount of resources available during
  *	return the entire length from now to end
  */
-resource *
-simulate_resmin(resource *reslist, time_t end, event_list *calendar,
+schd_resource *
+simulate_resmin(schd_resource *reslist, time_t end, event_list *calendar,
 	resource_resv **incl_arr, resource_resv *exclude);
 
 /*

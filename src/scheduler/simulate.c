@@ -1505,17 +1505,17 @@ add_dedtime_events(event_list *elist, status *policy)
  *
  * @par MT-safe: No
  */
-resource *
-simulate_resmin(resource *reslist, time_t end, event_list *calendar,
+schd_resource *
+simulate_resmin(schd_resource *reslist, time_t end, event_list *calendar,
 	resource_resv **incl_arr, resource_resv *exclude)
 {
-	static resource *retres = NULL;	/* return pointer */
+	static schd_resource *retres = NULL;	/* return pointer */
 
-	resource *cur_res;
-	resource *cur_resmin;
+	schd_resource *cur_res;
+	schd_resource *cur_resmin;
 	resource_req *req;
-	resource *res;
-	resource *resmin = NULL;
+	schd_resource *res;
+	schd_resource *resmin = NULL;
 	timed_event *te;
 	resource_resv *resresv;
 	unsigned int event_mask = (TIMED_RUN_EVENT | TIMED_END_EVENT);

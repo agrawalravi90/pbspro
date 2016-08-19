@@ -354,21 +354,21 @@ create_node_partitions(status *policy, node_info **nodes, char **resnames, unsig
 	char *str;
 	int free_str = 0;
 	int np_arr_size = 0;
-	resource *res;
+	schd_resource *res;
 
 	int num_nodes;
 	int reslen;
 	int i;
 
-	resource *hostres;
-	resource *tmpres;
+	schd_resource *hostres;
+	schd_resource *tmpres;
 
 	int res_i;		/* index of placement set resource name (resnames) */
 	int val_i;		/* index of placement set resource value */
 	int node_i;		/* index into nodes array */
 	int np_i;		/* index into node partition array we are creating */
 
-	resource unset_res;
+	schd_resource unset_res;
 	char *unsetarr[] = {"\"\"", NULL};
 
 	resdef *def;
@@ -605,7 +605,7 @@ node_partition_update(status *policy, node_partition *np)
 {
 	int i;
 	int rc = 1;
-	resource *res;
+	schd_resource *res;
 	unsigned int arl_flags = USE_RESOURCE_LIST;
 
 	if (np == NULL)
@@ -1074,7 +1074,7 @@ create_placement_sets(status *policy, server_info *sinfo)
 		if (sinfo->hostsets != NULL) {
 			sinfo->num_hostsets = num;
 			for (i = 0; sinfo->nodes[i] != NULL; i++) {
-				resource *hostres;
+				schd_resource *hostres;
 				char hostbuf[256];
 
 				hostres = find_resource(sinfo->nodes[i]->res, getallres(RES_HOST));

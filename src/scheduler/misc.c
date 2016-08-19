@@ -1483,7 +1483,7 @@ char *
 res_to_str_c(sch_resource_t amount, resdef *def, enum resource_fields fld,
 	char *buf, int bufsize)
 {
-	resource res = {0};
+	schd_resource res = {0};
 	resource_req req = {0};
 	char *unknown[] = {"unknown", NULL};
         
@@ -1560,7 +1560,7 @@ char *
 res_to_str_re(void *p, enum resource_fields fld, char **buf,
 	int *bufsize, unsigned int flags)
 {
-	resource *res = NULL;
+	schd_resource *res = NULL;
 	resource_req *req = NULL;
 	struct resource_type *rt;
 	char *str;
@@ -1604,7 +1604,7 @@ res_to_str_re(void *p, enum resource_fields fld, char **buf,
 			break;
 
 		case RF_DIRECT_AVAIL:
-			res = (resource *) p;
+			res = (schd_resource *) p;
 			if (res->indirect_res != NULL) {
 				if (flags & NOEXPAND)
 					snprintf(*buf, *bufsize, "@");
@@ -1623,7 +1623,7 @@ res_to_str_re(void *p, enum resource_fields fld, char **buf,
 			}
 			/* if not indirect, fall through normally */
 		case RF_AVAIL:
-			res = (resource *) p;
+			res = (schd_resource *) p;
 			if (res->indirect_res != NULL)
 				res = res->indirect_res;
 			rt = &(res->type);
@@ -1632,7 +1632,7 @@ res_to_str_re(void *p, enum resource_fields fld, char **buf,
 			break;
 
 		case RF_ASSN:
-			res = (resource *) p;
+			res = (schd_resource *) p;
 			rt = &(res->type);
 			str = res->str_assigned;
 			amount = res->assigned;

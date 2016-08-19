@@ -4234,7 +4234,7 @@ preemption_similarity(resource_resv *hjob, resource_resv *pjob, schd_error *full
 {
 	schd_error *cur_err;
 	int match = 0;
-	resource *res;
+	schd_resource *res;
 	int j;
 
 	for (cur_err = full_err; match == 0 && cur_err != NULL; cur_err = cur_err->next) {

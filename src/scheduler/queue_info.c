@@ -342,7 +342,7 @@ query_queue_info(struct batch_status *queue, server_info *sinfo)
 {
 	struct attrl *attrp;		/* linked list of attributes from server */
 	struct queue_info *qinfo;	/* queue_info being created */
-	resource *resp;               /* resource in resource qres list */
+	schd_resource *resp;               /* resource in resource qres list */
 	char *endp;			/* used with strtol() */
 	sch_resource_t count;		/* used to convert string -> num */
 
@@ -586,7 +586,7 @@ void
 update_queue_on_run(queue_info *qinfo, resource_resv *resresv)
 {
 	resource_req *resreq;
-	resource *res;
+	schd_resource *res;
 	counts *cts;
 	counts *allcts;
 
@@ -676,7 +676,7 @@ void
 update_queue_on_end(queue_info *qinfo, resource_resv *resresv,
 	char *job_state)
 {
-	resource *res;			/* resource from queue */
+	schd_resource *res;			/* resource from queue */
 	resource_req *req;			/* resource request from job */
 	counts *cts;				/* update user/group counts */
 

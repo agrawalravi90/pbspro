@@ -83,6 +83,7 @@
 #include "constant.h"
 #include "node_partition.h"
 #include "pbs_internal.h"
+#include "pbs_error.h"
 
 
 /**
@@ -152,7 +153,7 @@ query_reservations(server_info *sinfo, struct batch_status *resvs)
 	resource_resv *rjob;
 
 	/* used to calculate the resources assigned per node */
-	resource *res;
+	schd_resource *res;
 	resource_req *req;
 	nspec *ns;
 	node_info *resvnode;
@@ -1683,7 +1684,7 @@ node_info **
 create_resv_nodes(nspec **nspec_arr, server_info *sinfo)
 {
 	node_info **nodes = NULL;
-	resource *res;
+	schd_resource *res;
 	resource_req *req;
 	int i;
 

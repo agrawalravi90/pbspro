@@ -149,8 +149,8 @@ int
 cmp_placement_sets(const void *v1, const void *v2)
 {
 	node_partition *np1, *np2;
-	resource *ncpus1, *ncpus2;
-	resource *mem1, *mem2;
+	schd_resource *ncpus1, *ncpus2;
+	schd_resource *mem1, *mem2;
 	int rc = 0;
 
 
@@ -832,7 +832,7 @@ sch_resource_t
 find_nodepart_amount(node_partition *np, char *res, resdef *def,
 	enum resource_fields res_type) 
 {
-	resource *nres;
+	schd_resource *nres;
 
 	if (def != NULL)
 		nres = find_resource(np->res, def);
@@ -872,7 +872,7 @@ find_node_amount(node_info *ninfo, char *res, resdef *def,
 {
 	/* def is NULL on special case sort keys */
 	if(def != NULL) {
-		resource*nres;
+		schd_resource*nres;
 		nres = find_resource(ninfo->res, def);
 
 		if (nres != NULL) {
@@ -958,8 +958,8 @@ find_resresv_amount(resource_resv *resresv, char *res, resdef *def)
 int
 cmp_node_host(const void *v1, const void *v2)
 {
-	resource *res1;
-	resource *res2;
+	schd_resource *res1;
+	schd_resource *res2;
 	node_info **n1;
 	node_info **n2;
 	int rc = 0;
