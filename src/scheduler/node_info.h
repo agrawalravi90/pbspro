@@ -290,11 +290,6 @@ nspec *find_nspec_by_rank(nspec **nspec_arr, unsigned int rank);
 void update_nodes_for_running_resvs(resource_resv **resvs, node_info **nodes);
 
 /*
- *	calc_nodes_needed - calculate the number of nodes needed in a nodespec
- */
-int calc_nodes_needed(char *spec);
-
-/*
  *	global_spec_size - calculate how large a the spec will be
  *			   after the global
  *			   '#' operator has been expanded
@@ -469,10 +464,6 @@ check_resources_for_node(resource_req *resreq, node_info *ninfo,
  *	returns new node_info array or NULL on error
  */
 node_info **create_node_array_from_nspec(nspec **nspec_arr);
-/*
- *	calc_nodes_needed - calculate the number of nodes needed in a nodespec
- */
-int calc_nodes_needed(char *spec);
 
 /*
  *	reorder_nodes - reorder nodes for smp_cluster_dist or
