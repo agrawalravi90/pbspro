@@ -142,7 +142,6 @@ struct objname *default_server_name();
 struct objname *temp_objname(char *, char *, struct server *);
 int parse_request(char *, char ***);
 void clean_up_and_exit(int);
-void freeattrl(struct attrl *);
 void freeattropl(struct attropl *);
 void pstderr(const char *);
 void pstderr_big(char *, char *, char *);

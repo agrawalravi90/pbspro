@@ -778,7 +778,7 @@ query_sched_obj(status *policy, struct batch_status *sched, server_info *sinfo)
  * @param[in]	resplist	- 	the resource list
  * @param[in]	name 		-	the name of the resource
  *
- * @return	resource
+ * @return	schd_resource
  * @retval	NULL	: error
  *
  * @par MT-Safe:	no
@@ -820,7 +820,7 @@ find_alloc_resource(schd_resource *resplist, resdef *def)
  * @param[in]	resplist 	- 	the resource list
  * @param[in]	name 		- 	the name of the resource
  *
- * @return	resource
+ * @return	schd_resource
  * @retval	NULL :	Error
  *
  * @par MT-Safe:	no
@@ -857,7 +857,7 @@ find_alloc_resource_by_str(schd_resource *resplist, char *name)
  * @param[in]	reslist - 	the resource list
  * @param[in]	name	- 	the name of the resource
  *
- * @return	resource
+ * @return	schd_resource
  * @retval	NULL	: if not found
  *
  * @par MT-Safe:	no
@@ -1140,7 +1140,7 @@ new_server_info(int limallocflag)
  * @brief
  * 		new_resource - allocate and initialize new resource struct
  *
- * @return	resource
+ * @return	schd_resource
  * @retval	NULL	: Error
  *
  * @par MT-Safe:	yes
@@ -1181,7 +1181,7 @@ new_resource()
  *
  * @see	set_resource()
  *
- * @return resource *
+ * @return schd_resource *
  * @retval newly created resource
  * @retval NULL	: on error
  */

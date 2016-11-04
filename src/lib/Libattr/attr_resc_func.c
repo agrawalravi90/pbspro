@@ -255,7 +255,7 @@ decode_select(struct attribute *patr, char *name, char *rescn, char *val)
  * @retval -1 if resource name does not start with an alpha character
  * @retval -2 if resource name, past first character does not follow the
  * required format
- * @retval 0 if resource name name matches required format
+ * @retval 0 if resource name matches required format
  */
 int
 verify_resc_name(char *name)

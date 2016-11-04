@@ -992,6 +992,8 @@ break_comma_list(char *strlist)
 	list = strdup(strlist);
 
 	if (list != NULL) {
+		char* saveptr = NULL;
+
 		for (i = 0; list[i] != '\0'; i++)
 			if (list[i] == ',')
 				num_words++;
@@ -1002,7 +1004,7 @@ break_comma_list(char *strlist)
 			return NULL;
 		}
 
-		tok = strtok(list, ",");
+		tok = strtok_r(list, ",", &saveptr);
 
 		for (i = 0; tok != NULL; i++) {
 			while (isspace((int) *tok))
@@ -1016,7 +1018,7 @@ break_comma_list(char *strlist)
 			}
 
 			arr[i] = strdup(tok);
-			tok = strtok(NULL, ",");
+			tok = strtok_r(NULL, ",", &saveptr);
 		}
 		arr[i] = NULL;
 	}

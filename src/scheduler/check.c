@@ -1754,7 +1754,7 @@ check_prime_boundary(status *policy, resource_resv  *resresv, struct schd_error 
  * 		return a boolean resource that is False
  *         It is up to the caller to set the name and def fields
  *
- * @return	resource * (set to False)
+ * @return	schd_resource * (set to False)
  *
  * @par MT-safe: No
  */
@@ -1786,7 +1786,7 @@ false_res()
  * 		return a string resource that is "unset" (set to "")
  *         It is up to the caller to set the name and def fields
  *
- * @return	resource *
+ * @return	schd_resource *
  * @retval	NULL	: fail
  *
  * @par MT-safe: No
@@ -1827,7 +1827,7 @@ unset_str_res()
  * 		return a numeric resource that is 0
  *         It is up to the caller to set the name and def fields
  *
- * @return	resource *
+ * @return	schd_resource *
  * @retval	NULL	: fail
  */
 schd_resource *

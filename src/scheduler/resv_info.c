@@ -83,7 +83,6 @@
 #include "constant.h"
 #include "node_partition.h"
 #include "pbs_internal.h"
-#include "pbs_error.h"
 
 
 /**

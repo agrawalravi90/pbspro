@@ -2436,7 +2436,7 @@ check_server_max_res_soft(server_info *si, queue_info *qi, resource_resv *rr)
 /**
  * @brief
  *		check_queue_max_res_soft	soft limit checking function for overall
- *					queue resouschd_resourcets
+ *					queue resource limits
  *
  * @param[in]	si	-	server_info structure to use for limit evaluation
  * @param[in]	qi	-	queue_info structure to use for limit evaluation

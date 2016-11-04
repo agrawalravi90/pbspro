@@ -1336,14 +1336,14 @@ strtok_quoted(char *source, const char *delimiters)
 	return (stok);
 }
 
-/*
+/**
+ * @brief	Convert an attropl struct to an attrl struct
  *
- *	attropl2attrl - convert an attropl struct to an attrl struct
+ * @param[in]	from - the attropl struct to convert
  *
- *	  from - the attropl struct to convert
- *
- *	returns newly converted attrl struct
- *
+ * @return struct attrl*
+ * @retval a newly converted attrl struct
+ * @retval NULL on error
  */
 struct attrl *
 attropl2attrl(struct attropl *from)
@@ -1352,24 +1352,20 @@ attropl2attrl(struct attropl *from)
 
 	while (from != NULL) {
 		if (ap == NULL) {
-			if ((ap = (struct attrl*) malloc(sizeof(struct attrl))) == NULL) {
+			if ((ap = new_attrl()) == NULL) {
 				perror("Out of memory");
 				return NULL;
 			}
 			rattrl = ap;
 		}
 		else  {
-			if ((ap->next = (struct attrl*) malloc(sizeof(struct attrl))) == NULL) {
+			if ((ap->next = new_attrl()) == NULL) {
 				perror("Out of memory");
 				return NULL;
 			}
 			ap = ap->next;
 		}
 
-		ap->name = NULL;
-		ap->resource = NULL;
-		ap->value = NULL;
-		ap->next = NULL;
 		if (from->name != NULL) {
 			if ((ap->name = (char*) malloc(strlen(from->name) + 1)) == NULL) {
 				perror("Out of memory");
@@ -1481,61 +1477,6 @@ new_attrl()
 }
 
 /**
- *
- * @brief locate a attribute (attrl) by name/res and return it
- *
- * @param[in] pattrl - attrl list to search
- * @param[in] name   - name of attribute to search for
- * @param[in] resc   - name of resources to search for (may be NULL of none)
- *
- * @return found attrl
- * @retval NULL if not found
- */
-
-struct attrl *
-find_attrl(struct attrl *pattrl, char *name, char *resc)
-{
-	while (pattrl) {
-		if (strcmp(name, pattrl->name) == 0) {
-			if (resc) {
-				if (strcmp(resc, pattrl->resource) == 0) {
-					return pattrl;
-				}
-			} else {
-				return pattrl;
-			}
-		}
-		pattrl = pattrl->next;
-	}
-	return ((struct attrl *) 0);
-}
-
-/**
- *
- * @brief locate a attribute (attrl) by name/resource and return it's value
- *
- * @param[in] pattrl - attrl list to search
- * @param[in] name   - name of attribute to search for
- * @param[in] resc   - name of resources to search for (may be NULL of none)
- *
- * @return char *
- * @retval attrl's value
- * @retval NULL if not found
- */
-
-char *find_attrlv (struct attrl *pattrl, char *name, char *resc)
-{
-	struct attrl *attrp;
-
-	attrp = find_attrl(pattrl, name, resc);
-
-	if (attrp)
-		return attrp -> value;
-
-	return (char *)NULL;
-}
-
-/**
  * @brief frees attrl structure
  *
  * @param [in] at - attrl to free
@@ -1543,16 +1484,14 @@ char *find_attrlv (struct attrl *pattrl, char *name, char *resc)
  */
 void
 free_attrl(struct attrl *at)
-{
+ {
 	if (at == NULL)
 		return;
 
-	if (at->name != NULL)
-		free(at->name);
-	if (at->resource != NULL)
-		free(at->resource);
-	if (at->value != NULL)
-		free(at->value);
+	free(at->name);
+	free(at->resource);
+	free(at->value);
+
 	free(at);
 }
 
@@ -1575,130 +1514,3 @@ void free_attrl_list(struct attrl *at_list)
 
 }
 
-/**
- * @brief
- * 	Returns TRUE if the name passed in is an attribute.
- *
- * @note
- * 	This must not be called with object of type MGR_OBJ_SITE_HOOK or MGR_OBJ_PBS_HOOK.
- *
- * @param[in]	object - type of object
- * @param[in]	name  - name of the attribute
- * @param[in]	attr_type  - type of the attribute
- *
- * @eturn int
- * @retval	TRUE - means if the input is an attribute of the given 'object' type
- *        	    and 'attr_type'.
- * @retval	FALSE - otherwise.
- *
- */
-int
-is_attr(int object, char *name, int attr_type)
-{
-	static char *svr_public_attrs[] =
-		{
-#include "qmgr_svr_public.h"
-#include "site_qmgr_svr_print.h"
-		NULL
-	};
-
-	static char *svr_readonly_attrs[] =
-		{
-#include "qmgr_svr_readonly.h"
-		NULL
-	};
-
-	static char *que_public_attrs[] =
-		{
-#include "qmgr_que_public.h"
-#include "site_qmgr_que_print.h"
-		NULL
-	};
-
-	static char *que_readonly_attrs[] =
-		{
-#include "qmgr_que_readonly.h"
-		NULL
-	};
-
-	static char *node_public_attrs[] =
-		{
-#include "qmgr_node_public.h"
-#include "site_qmgr_node_print.h"
-		NULL
-	};
-
-	static char *node_readonly_attrs[] =
-		{
-#include "qmgr_node_readonly.h"
-		NULL
-	};
-
-	static char *sched_public_attrs[] =
-		{
-#include "qmgr_sched_public.h"
-#include "site_qmgr_sched_print.h"
-		NULL
-	};
-
-	static char *sched_readonly_attrs[] =
-		{
-#include "qmgr_sched_readonly.h"
-		NULL
-	};
-
-	char **attr_public = NULL;
-	char **attr_readonly = NULL;
-	char  *pc;
-	int ret = FALSE;
-
-	if ((object == MGR_OBJ_SITE_HOOK) || (object == MGR_OBJ_PBS_HOOK)) {
-		return FALSE;
-	}
-
-	if (object == MGR_OBJ_SERVER) {
-		attr_public = svr_public_attrs;
-		attr_readonly = svr_readonly_attrs;
-	}
-	else if (object == MGR_OBJ_QUEUE) {
-		attr_public = que_public_attrs;
-		attr_readonly = que_readonly_attrs;
-	}
-	else if (object == MGR_OBJ_NODE) {
-		attr_public = node_public_attrs;
-		attr_readonly = node_readonly_attrs;
-	}
-	else if (object == MGR_OBJ_SCHED) {
-		attr_public = sched_public_attrs;
-		attr_readonly = sched_readonly_attrs;
-	}
-	else if (object == MGR_OBJ_RSC) {
-		ret = TRUE;
-	}
-
-	if (attr_public != NULL && (attr_type & TYPE_ATTR_PUBLIC)) {
-		while (*attr_public != NULL && ret == FALSE) {
-			if (strncasecmp(name, *attr_public, strlen(*attr_public)) == 0) {
-				pc = name + strlen(*attr_public);
-				if ((*pc == '\0') || (*pc == '.') || (*pc == ','))
-					ret =  TRUE;
-			}
-
-			attr_public++;
-		}
-	}
-
-	if (attr_readonly != NULL && (attr_type & TYPE_ATTR_READONLY)) {
-		while (*attr_readonly != NULL && ret == FALSE) {
-			if (strncasecmp(name, *attr_readonly, strlen(*attr_readonly)) == 0) {
-				pc = name + strlen(*attr_readonly);
-				if ((*pc == '\0') || (*pc == '.') || (*pc == ','))
-					ret = TRUE;
-			}
-
-			attr_readonly++;
-		}
-	}
-
-	return ret;
-}

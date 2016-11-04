@@ -76,9 +76,9 @@ node_info *new_node_info();
 void free_node_info(node_info *ninfo);
 
 /*
- *      set_node_state - set a node state
+ *      set_node_info_state - set a node state
  */
-int set_node_state(node_info *ninfo, char *state);
+int set_node_info_state(node_info *ninfo, char *state);
 
 /*
  *      remove_node_state

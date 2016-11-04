@@ -48,7 +48,7 @@
  * 	free_nodes()
  * 	free_node_info()
  * 	set_node_type()
- * 	set_node_state()
+ * 	set_node_info_state()
  * 	remove_node_state()
  * 	add_node_state()
  * 	talk_with_mom()
@@ -285,7 +285,7 @@ query_node_info(struct batch_status *node, server_info *sinfo)
 	while (attrp != NULL) {
 		/* Node State... i.e. offline down free etc */
 		if (!strcmp(attrp->name, ATTR_NODE_state))
-			set_node_state(ninfo, attrp->value);
+			set_node_info_state(ninfo, attrp->value);
 
 		/* Host name */
 		else if (!strcmp(attrp->name, ATTR_NODE_Mom)) {
@@ -627,7 +627,7 @@ set_node_type(node_info *ninfo, char *ntype)
  * @retval	1	: on failure
  */
 int
-set_node_state(node_info *ninfo, char *state)
+set_node_info_state(node_info *ninfo, char *state)
 {
 	char errbuf[256];
 	char statebuf[256];			/* used to strtok() node states */
@@ -1572,17 +1572,17 @@ update_node_on_run(nspec *ns, resource_resv *resresv)
 
 		if (ncpusres != NULL) {
 			if (dynamic_avail(ncpusres) == 0)
-				set_node_state(ninfo, ND_jobbusy);
+				set_node_info_state(ninfo, ND_jobbusy);
 		}
 
 		/* if node selected for provisioning, this node is no longer available */
 		if (ns->go_provision == 1) {
-			set_node_state(ninfo, ND_prov);
+			set_node_info_state(ninfo, ND_prov);
 
 			/* for jobs inside reservation, update the server's node info as well */
 			if (resresv->job != NULL && resresv->job->resv != NULL &&
 				ninfo->svr_node != NULL) {
-				set_node_state(ninfo->svr_node, ND_prov);
+				set_node_info_state(ninfo->svr_node, ND_prov);
 			}
 
 
@@ -1649,7 +1649,7 @@ update_node_on_end(node_info *ninfo, resource_resv *resresv)
 	 * has lowered.  This will take time.
 	 */
 	if (!ninfo->is_busy) {
-		set_node_state(ninfo, ND_free);
+		set_node_info_state(ninfo, ND_free);
 	}
 	else if (is_excl(resresv->place_spec, ninfo->sharing)) {
 		if (resresv->is_adv_resv) {
@@ -4910,9 +4910,9 @@ node_up_event(node_info *node, void *arg)
 
 	/* Preserve the resv-exclusive state when previously set */
 	if (node->is_resv_exclusive)
-		set_node_state(node, ND_resv_exclusive);
+		set_node_info_state(node, ND_resv_exclusive);
 	else
-		set_node_state(node, ND_free);
+		set_node_info_state(node, ND_free);
 
 	sinfo = node->server;
 	if (sinfo->node_group_enable && sinfo->node_group_key !=NULL) {
@@ -4961,7 +4961,7 @@ node_down_event(node_info *node, void *arg)
 		}
 	}
 
-	set_node_state(node, ND_down);
+	set_node_info_state(node, ND_down);
 
 	if (sinfo->node_group_enable && sinfo->node_group_key !=NULL) {
 		node_partition_update_array(sinfo->policy, sinfo->nodepart);

@@ -119,6 +119,7 @@
 #include "simulate.h"
 #include "resource.h"
 #include "server_info.h"
+#include "attribute.h"
 
 #ifdef NAS
 #include "site_code.h"

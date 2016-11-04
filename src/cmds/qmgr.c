@@ -2640,7 +2640,7 @@ execute(int aopt, int oper, int type, char *names, struct attropl *attribs)
 						ss = pbs_statrsc(sp->s_connect, pname->obj_name, sa, "p");
 						break;
 				}
-				freeattrl(sa);
+				free_attrl_list(sa);
 				perr = (ss == NULL);
 				if (! perr)
 					display(type, type, pname->obj_name, ss, FALSE, sp);
@@ -2697,7 +2697,7 @@ execute(int aopt, int oper, int type, char *names, struct attropl *attribs)
 						break;
 				}
 
-				freeattrl(sa);
+				free_attrl_list(sa);
 				perr = (ss == NULL);
 				if (! perr) {
 					display(type, type, pname->obj_name, ss, TRUE, sp);
@@ -2945,30 +2945,6 @@ execute(int aopt, int oper, int type, char *names, struct attropl *attribs)
 	if (name != NULL)
 		free_objname_list(name);
 	return error;
-}
-
-/**
- * @brief
- * 	frees the attribute list
- *
- * @param[in]  attr     Pointer to the linked list of attrls to clean up.
- *
- * @return Void
- *
- */
-void
-freeattrl(struct attrl *attr)
-{
-	struct attrl *ap;
-
-	while (attr != NULL) {
-		if (attr->name != NULL) free(attr->name);
-		if (attr->resource != NULL) free(attr->resource);
-		if (attr->value != NULL) free(attr->value);
-		ap = attr->next;
-		free(attr);
-		attr = ap;
-	}
 }
 
 /**

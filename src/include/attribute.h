@@ -302,7 +302,6 @@ struct attrl *dup_attrl(struct attrl *oattr);
 struct attrl *dup_attrl_list(struct attrl *oattr_list);
 void free_attrl(struct attrl *at);
 void free_attrl_list(struct attrl *at_list);
-extern struct attrl *find_attrl(struct attrl *pattrl, char *name, char *resc);
 extern void clear_attr(attribute *pattr, attribute_def *pdef);
 extern int  find_attr  (attribute_def *attrdef, char *name, int limit);
 extern int  recov_attr_fs(int fd, void *parent, attribute_def *padef,
