@@ -53,7 +53,8 @@ extern "C" {
 /* types of attributes: read only, public, all */
 #define TYPE_ATTR_READONLY      1
 #define TYPE_ATTR_PUBLIC        2
-#define TYPE_ATTR_ALL           TYPE_ATTR_READONLY | TYPE_ATTR_PUBLIC
+#define TYPE_ATTR_INVISIBLE		4
+#define TYPE_ATTR_ALL           TYPE_ATTR_READONLY | TYPE_ATTR_PUBLIC | TYPE_ATTR_INVISIBLE
 
 /* Attribute Names used by user commands */
 

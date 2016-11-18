@@ -644,12 +644,13 @@ static struct ecl_attribute_def * ecl_find_attr_in_def(
 }
 
 /**
- * @brief 	Return the type of attribute (public or read-only)
+ * @brief 	Return the type of attribute (public, invisible or read-only)
  *
  * @param[in]	attr_def	-	the attribute to check
  *
  * @return	int
  * @retval	TYPE_ATTR_PUBLIC if the attribute is public
+ * @retval	TYPE_ATTR_INVISIBLE if the attribute is a SvWR or SvRD (invisible)
  * @retval	TYPE_ATTR_READONLY otherwise
  *
  * @par Side Effects:
@@ -663,9 +664,10 @@ get_attr_type(struct ecl_attribute_def attr_def)
 	/*
 	 * Consider an attr def public if it has any of the write flags set
 	 */
-	if (attr_def.at_flags & (ATR_DFLAG_USWR | ATR_DFLAG_OPWR | ATR_DFLAG_MGWR))
+	if (attr_def.at_flags & (ATR_DFLAG_SvWR | ATR_DFLAG_SvRD))
+		return TYPE_ATTR_INVISIBLE;
+	else if (attr_def.at_flags & (ATR_DFLAG_USWR | ATR_DFLAG_OPWR | ATR_DFLAG_MGWR))
 		return TYPE_ATTR_PUBLIC;
-
 	else
 		return TYPE_ATTR_READONLY;
 
