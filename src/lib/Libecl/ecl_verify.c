@@ -664,12 +664,12 @@ get_attr_type(struct ecl_attribute_def attr_def)
 	/*
 	 * Consider an attr def public if it has any of the write flags set
 	 */
-	if (attr_def.at_flags & (ATR_DFLAG_SvWR | ATR_DFLAG_SvRD))
-		return TYPE_ATTR_INVISIBLE;
-	else if (attr_def.at_flags & (ATR_DFLAG_USWR | ATR_DFLAG_OPWR | ATR_DFLAG_MGWR))
+	if (attr_def.at_flags & (ATR_DFLAG_USWR | ATR_DFLAG_OPWR | ATR_DFLAG_MGWR))
 		return TYPE_ATTR_PUBLIC;
-	else
+	else if (attr_def.at_flags & (ATR_DFLAG_MGRD | ATR_DFLAG_OPRD | ATR_DFLAG_OTHRD | ATR_DFLAG_USRD))
 		return TYPE_ATTR_READONLY;
+	else
+		return TYPE_ATTR_INVISIBLE;
 
 }
 
