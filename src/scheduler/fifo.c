@@ -1076,16 +1076,6 @@ end_cycle_tasks(server_info *sinfo)
 		cmp_aoename = NULL;
 	}
 
-	/* Free up conf memory which was allocated in init_config() */
-	if (conf.prime_sort != NULL)
-		free(conf.prime_sort);
-	if (conf.non_prime_sort != NULL)
-		free(conf.non_prime_sort);
-	if (conf.prime_node_sort != NULL)
-		free(conf.prime_node_sort);
-	if (conf.non_prime_node_sort != NULL)
-		free(conf.non_prime_node_sort);
-
 	got_sigpipe = 0;
 	schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
 		"", "Leaving Scheduling Cycle");
