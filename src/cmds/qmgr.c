@@ -136,6 +136,8 @@ static char prompt[]="Qmgr: "; /* Prompt if input is from terminal */
 static char contin[]="Qmgr< "; /* Prompt if input is continued across lines */
 char *cur_prompt = prompt;
 
+static int execute_on_server(char* object_name, struct objname *sname, int oper, int type, struct attropl *attribs);
+
 char hook_tempfile_errmsg[HOOK_BUF_SIZE] = { '\0' };
 
 /*
@@ -2551,29 +2553,12 @@ handle_formula(struct attropl *attribs)
 int
 execute(int aopt, int oper, int type, char *names, struct attropl *attribs)
 {
-	int len;			/* Used for length of an err msg*/
-	int cerror;
-	int error;			/* Error value returned */
-	int perr;			/* Value returned from pbs_manager */
-	char *pmsg;
-	char *errmsg;			/* Error message from pbs_errmsg */
-	char errnomsg[256];		/* Error message with pbs_errno */
+	int error;
 	struct objname *name;		/* Pointer to a list of object names */
 	struct objname *pname = NULL;	/* Pointer to current object name */
 	struct objname *sname = NULL;	/* Pointer to current server name */
 	struct objname *svrs;		/* servers to loop through */
-	struct attrl *sa;		/* Argument needed for status routines */
-	/* Argument used to request queue names */
-	struct server *sp;		/* Pointer to server structure */
-	/* Return structure from a list or print request */
-	struct batch_status *ss = NULL;
-	struct attropl       *attribs_tmp = NULL;
-	struct attropl       *attribs_file = NULL;
-	char			infile[MAXPATHLEN+1];
-	char 			outfile[MAXPATHLEN+1];
-	char 			dump_msg[HOOK_MSG_SIZE];
-	char 			content_encoding[HOOK_BUF_SIZE];
-	char 			content_type[HOOK_BUF_SIZE];
+
 	error = 0;
 	name = commalist2objname(names, type);
 
@@ -2585,9 +2570,6 @@ execute(int aopt, int oper, int type, char *names, struct attropl *attribs)
 				/* There will always be an active server */
 			case MGR_OBJ_SCHED:
 			case MGR_OBJ_SERVER:
-			case MGR_OBJ_SITE_HOOK:
-			case MGR_OBJ_PBS_HOOK:
-			case MGR_OBJ_RSC:
 				pname = active_servers;
 				break;
 			case MGR_OBJ_QUEUE:
@@ -2595,369 +2577,401 @@ execute(int aopt, int oper, int type, char *names, struct attropl *attribs)
 					pname = active_queues;
 				else
 					pstderr("No Active Queues, nothing done.\n");
+					return 0;
 				break;
 			case MGR_OBJ_NODE:
 				if (active_nodes != NULL)
 					pname = active_nodes;
 				else
 					pstderr("No Active Nodes, nothing done.\n");
+					return 0;
 				break;
 		}
 	}
 	else
 		pname = name;
 
-	for (; pname != NULL; pname = pname->next) {
-		if (pname->svr_name != NULL)
+	/* Run this loop at least once even if no object was specified (i.e - pname == NULL) */
+	do {
+		char* object_name = NULL;
+
+		if (pname != NULL)
+			object_name = pname->obj_name;
+
+		if (pname != NULL && pname->svr_name != NULL)
 			svrs = temp_objname(NULL, pname->svr_name, pname->svr);
 		else
 			svrs = active_servers;
 
 		for (sname = svrs; sname != NULL; sname = sname->next) {
-			if (sname->svr == NULL) {
-				cerror = connect_servers(sname, 1);
-				/* if connect_servers() returned an error   */
-				/* update "error", otherwise leave it alone */
-				/* so that any prior error is retained      */
-				if (cerror) {
-					error = cerror;
-					continue;
-				}
-			}
-
-			sp = sname->svr;
-			if ((oper == MGR_CMD_LIST)) {
-				sa = attropl2attrl(attribs);
-				switch (type) {
-					case MGR_OBJ_SERVER:
-						ss = pbs_statserver(sp->s_connect, sa, NULL);
-						break;
-					case MGR_OBJ_QUEUE:
-						ss = pbs_statque(sp->s_connect, pname->obj_name, sa, NULL);
-						break;
-					case MGR_OBJ_NODE:
-						ss = pbs_statvnode(sp->s_connect, pname->obj_name, sa, NULL);
-						break;
-					case MGR_OBJ_SCHED:
-						ss = pbs_statsched(sp->s_connect, pname->obj_name, sa, NULL);
-						break;
-					case MGR_OBJ_SITE_HOOK:
-						ss = pbs_stathook(sp->s_connect, pname->obj_name, sa, SITE_HOOK);
-						break;
-					case MGR_OBJ_PBS_HOOK:
-						ss = pbs_stathook(sp->s_connect, pname->obj_name, sa, PBS_HOOK);
-						break;
-					case MGR_OBJ_RSC:
-						ss = pbs_statrsc(sp->s_connect, pname->obj_name, sa, "p");
-						break;
-				}
-				free_attrl_list(sa);
-				perr = (ss == NULL);
-				if (! perr)
-					display(type, type, pname->obj_name, ss, FALSE, sp);
-
-				/* For 'list hook' command of all available */
-				/* hooks, if none are found in the system, */
-				/* then force a return success value.   */
-				if ( (perr != 0) &&
-					((type == MGR_OBJ_SITE_HOOK) ||
-					 (type == MGR_OBJ_PBS_HOOK)) &&
-					((pname->obj_name == NULL) ||
-				         (pname->obj_name[0] == '\0'))	) {
-					/* not an error */
-					perr = 0;
-				}
-
-				pbs_statfree(ss);
-			}
-			else if ((oper == MGR_CMD_PRINT)) {
-
-				sa = attropl2attrl(attribs);
-				switch (type) {
-					case MGR_OBJ_SERVER:
-						if (sa == NULL) {
-							sp->s_rsc = pbs_statrsc(sp->s_connect, NULL, NULL, "p");
-							if (sp->s_rsc != NULL) {
-								display(MGR_OBJ_RSC, MGR_OBJ_SERVER, NULL, sp->s_rsc, TRUE, sp);
-							} else if (pbs_errno != PBSE_NONE) {
-								break;
-							}
-							ss = pbs_statque(sp->s_connect, NULL, NULL, NULL);
-							if (ss != NULL) {
-								display(MGR_OBJ_QUEUE, MGR_OBJ_SERVER, NULL, ss, TRUE, sp);
-							} else if (pbs_errno != PBSE_NONE) {
-								break;
-							}
-						}
-						ss = pbs_statserver(sp->s_connect, sa, NULL);
-						break;
-					case MGR_OBJ_QUEUE:
-						ss = pbs_statque(sp->s_connect, pname->obj_name, sa, NULL);
-						break;
-					case MGR_OBJ_NODE:
-						ss = pbs_statvnode(sp->s_connect, pname->obj_name, sa, NULL);
-						break;
-					case MGR_OBJ_SCHED:
-						ss = pbs_statsched(sp->s_connect, pname->obj_name, sa, NULL);
-						break;
-					case MGR_OBJ_SITE_HOOK:
-						ss = pbs_stathook(sp->s_connect, pname->obj_name, sa, SITE_HOOK);
-						break;
-					case MGR_OBJ_RSC:
-						ss = pbs_statrsc(sp->s_connect, pname->obj_name, sa, "p");
-						break;
-				}
-
-				free_attrl_list(sa);
-				perr = (ss == NULL);
-				if (! perr) {
-					display(type, type, pname->obj_name, ss, TRUE, sp);
-
-				}
-				pbs_statfree(ss);
-			}
-			else  {
-				if (oper == MGR_CMD_IMPORT) {
-					infile[0] = '\0';
-					content_encoding[0] = '\0';
-					content_type[0] = '\0';
-					attribs_tmp = attribs;
-					attribs_file = NULL;
-					while (attribs_tmp) {
-						if (strcmp(attribs_tmp->name, INPUT_FILE_PARAM) == 0) {
-							strcpy(infile, attribs_tmp->value);
-							attribs_file = attribs_tmp;
-						} else if (strcmp(attribs_tmp->name, CONTENT_ENCODING_PARAM) == 0) {
-							strcpy(content_encoding, attribs_tmp->value);
-						} else if (strcmp(attribs_tmp->name, CONTENT_TYPE_PARAM) == 0) {
-							strcpy(content_type, attribs_tmp->value);
-						}
-						attribs_tmp = attribs_tmp->next;
-					}
-					if (infile[0] == '\0') {
-						fprintf(stderr,
-							"hook import command has no <input-file> argument\n");
-						error = 1;
-						continue;
-					}
-					if (content_encoding[0] == '\0') {
-						fprintf(stderr,
-							"hook import command has no <content-encoding> argument\n");
-						error = 1;
-						continue;
-					}
-					if (content_type[0] == '\0') {
-						fprintf(stderr,
-							"hook import command has no <content-type> argument\n");
-						error = 1;
-						continue;
-					}
-
-					if (strcmp(infile, "-") == 0) {
-						infile[0] = '\0';
-					}
-
-					if (strcmp(content_type, HOOKSTR_CONFIG) == 0) {
-						char *p;
-						int  totlen;
-						p = strrchr(infile, '.');
-						/* need to pass the suffix */
-						/* to the server which will */
-						/* validate the file based */
-						/* on type */
-						if (p != NULL) {
-							totlen = strlen(p) + strlen(hook_tempfile);
-
-							if (totlen < sizeof(hook_tempfile))
-								strcat(hook_tempfile, p);
-						}
-					}
-
-					/* hook_tempfile could be set to empty if generating this filename */
-					/* by mktemp() was not successful */
-					if ((hook_tempfile[0] == '\0') ||
-						dump_file(infile, hook_tempfile, content_encoding,
-						dump_msg, sizeof(dump_msg)) != 0) {
-						struct stat sbuf;
-
-						error = 1;	/* set error indicator */
-
-						if (hook_tempfile_errmsg[0] != '\0')
-							fprintf(stderr, "%s\n", hook_tempfile_errmsg);
-
-
-						/* Detect failed to access hooks working directory */
-
-#ifdef WIN32
-						if ((lstat(hook_tempdir, &sbuf) == -1) && (GetLastError() == ERROR_ACCESS_DENIED))
-#else
-						if ((stat(hook_tempdir, &sbuf) == -1) && (errno == EACCES))
-#endif
-						{
-							fprintf(stderr, "%s@%s is unauthorized to access hooks data "
-								"from server %s\n", cur_user, cur_host,
-								(sname->svr_name[0] == '\0')?pbs_conf.pbs_server_name:sname->svr_name);
-						} else {
-							fprintf(stderr, "%s\n", dump_msg);
-						}
-						continue;
-					}
-
-					dyn_strcpy(&attribs_file->value, base(hook_tempfile));
-
-				} else if (oper == MGR_CMD_EXPORT) {
-					char *hooktmp = NULL;
-
-					if (hook_tempfile[0] == '\0') {
-
-						struct stat sbuf;
-
-						error = 1;
-
-						if (hook_tempfile_errmsg[0] != '\0')
-							fprintf(stderr, "%s\n", hook_tempfile_errmsg);
-
-						/* Detect failed to access hooks working directory */
-#ifdef WIN32
-						if ((lstat(hook_tempdir, &sbuf) == -1) && (GetLastError() == ERROR_ACCESS_DENIED))
-#else
-						if ((stat(hook_tempdir, &sbuf) == -1) && (errno == EACCES))
-#endif
-						{
-							fprintf(stderr, "%s@%s is unauthorized to access hooks data "
-								"from server %s\n", cur_user, cur_host,
-								(sname->svr_name[0] == '\0')?conf_full_server_name:sname->svr_name);
-						} else {
-							fprintf(stderr, "can't export hooks data. no hook_tempfile!\n");
-						}
-						continue;
-					}
-					outfile[0] = '\0';
-					content_encoding[0] = '\0';
-					attribs_tmp = attribs;
-					attribs_file = NULL;
-					while (attribs_tmp) {
-						if (strcmp(attribs_tmp->name, OUTPUT_FILE_PARAM) == 0) {
-							strcpy(outfile, attribs_tmp->value);
-							attribs_file = attribs_tmp;
-						} else if (strcmp(attribs_tmp->name,
-							CONTENT_ENCODING_PARAM) == 0) {
-							strcpy(content_encoding, attribs_tmp->value);
-						}
-						attribs_tmp = attribs_tmp->next;
-					}
-					hooktmp = base(hook_tempfile);
-					/* dyn_strcpy does not like a NULL second argument. */
-					dyn_strcpy(&attribs_file->value, (hooktmp?hooktmp:""));
-				}
-				handle_formula(attribs);
-				if (type == MGR_OBJ_PBS_HOOK) {
-					struct	attropl *popl;
-					perr = pbs_manager(sp->s_connect, oper, type, pname->obj_name, attribs, PBS_HOOK);
-
-					popl = attribs;
-					if (perr == 0) {
-						while (popl != NULL) {
-
-							if (strcmp(popl->name, "enabled") != 0) {
-								popl = popl->next;
-								continue;
-							}
-							if ((strcasecmp(popl->value, HOOKSTR_FALSE) == 0) ||
-								(strcasecmp(popl->value, "f") == 0) ||
-								(strcasecmp(popl->value, "n") == 0) ||
-								(strcmp(popl->value, "0") == 0)) {
-								fprintf(stderr, "WARNING: Disabling a PBS hook "
-									"results in an unsupported configuration!\n");
-							}
-							popl = popl->next;
-						}
-					}
-				} else {
-					if ((strlen(pname->obj_name) == 0) && type == MGR_OBJ_SCHED && oper != MGR_CMD_DELETE) {
-						perr = pbs_manager(sp->s_connect, oper, type, PBS_DFLT_SCHED_NAME, attribs, NULL);
-					} else
-						perr = pbs_manager(sp->s_connect, oper, type, pname->obj_name, attribs, NULL);
-				}
-			}
-
-			errmsg = pbs_geterrmsg(sp->s_connect);
-			if (perr) {
-				/*
-				 ** IF
-				 **	stdin is a tty			OR
-				 **	the command is not SET		OR
-				 **	the object type is not NODE	OR
-				 **	the error is not "attempt to set READ ONLY attribute"
-				 ** THEN print error messages
-				 ** ELSE don't print error messages
-				 **
-				 ** This is to deal with bug 4941 where errors are generated
-				 ** from running qmgr with input from a file which was generated
-				 ** by 'qmgr -c "p n @default" > /tmp/nodes_out'.
-				 */
-				if (isatty(0) ||
-					(oper != MGR_CMD_SET) || (type != MGR_OBJ_NODE) ||
-					(pbs_errno != PBSE_ATTRRO)) {
-					if (errmsg != NULL) {
-						len = strlen(errmsg) + strlen(pname->obj_name) + strlen(Svrname(sp)) + 20;
-						if (len < 256) {
-							sprintf(errnomsg, "qmgr obj=%s svr=%s: %s\n",
-								pname->obj_name, Svrname(sp),  errmsg);
-							pstderr(errnomsg);
-						}
-						else {
-							/*obviously, this is to cover a highly unlikely case*/
-
-							pstderr_big(Svrname(sp), pname->obj_name, errmsg);
-						}
-					}
-
-					if (pbs_errno == PBSE_PROTOCOL) {
-						if ((check_time - start_time) >= QMGR_TIMEOUT) {
-							pstderr("qmgr: Server disconnected due to idle connection timeout\n");
-						} else {
-							pstderr("qmgr: Protocol error, server disconnected\n");
-						}
-						exit(1);
-					}
-					else if (pbs_errno == PBSE_HOOKERROR) {
-						pstderr("qmgr: hook error returned from server\n");
-					}
-					else
-						if (pbs_errno != 0)  /* 0 happens with hooks if no hooks found */
-							PSTDERR1("qmgr: Error (%d) returned from server\n", pbs_errno)
-				}
-
-				if (aopt)
-					return perr;
-				error = perr;
-			}
-			else if (errmsg != NULL) {
-				/* batch reply code is 0 but a text message is also being returned */
-
-				if ((pmsg = malloc(strlen(errmsg) + 2)) != NULL) {
-					strcpy(pmsg, errmsg);
-					strcat(pmsg, "\n");
-					pstderr(pmsg);
-					free(pmsg);
-				}
-			} else {
-
-				if (oper == MGR_CMD_EXPORT) {
-					if (dump_file(hook_tempfile, outfile, content_encoding,
-						dump_msg, sizeof(dump_msg)) != 0) {
-						fprintf(stderr, "%s\n", dump_msg);
-						error = 1;
-					}
-				}
-			}
-
-			temp_objname(NULL, NULL, NULL);		/* clears reference count */
+			error = execute_on_server(object_name, sname, oper, type, attribs);
+			/* Immediately error out if the '-a' option was provided */
+			if (error && aopt)
+				return error;
 		}
-	}
+
+		if (pname != NULL)
+			pname = pname->next;
+	} while (pname != NULL);
+
 	if (name != NULL)
 		free_objname_list(name);
+	return error;
+}
+
+static int
+execute_on_server(char* object_name, struct objname *sname, int oper, int type, struct attropl *attribs)
+{
+	int len; /* Used for length of an err msg*/
+	int cerror;
+	int error; /* Error value returned */
+	int perr; /* Value returned from pbs_manager */
+	char *pmsg;
+	char *errmsg; /* Error message from pbs_errmsg */
+	char errnomsg[256]; /* Error message with pbs_errno */
+	struct objname *name; /* Pointer to a list of object names */
+	struct attrl *sa; /* Argument needed for status routines */
+	/* Argument used to request queue names */
+	struct server *sp; /* Pointer to server structure */
+	/* Return structure from a list or print request */
+	struct batch_status *ss = NULL;
+	struct attropl *attribs_tmp = NULL;
+	struct attropl *attribs_file = NULL;
+	char infile[MAXPATHLEN + 1];
+	char outfile[MAXPATHLEN + 1];
+	char dump_msg[HOOK_MSG_SIZE];
+	char content_encoding[HOOK_BUF_SIZE];
+	char content_type[HOOK_BUF_SIZE];
+
+	if (sname->svr == NULL) {
+		if ((error = connect_servers(sname, 1)) != 0) {
+			return error;
+		}
+	}
+
+	sp = sname->svr;
+	if ((oper == MGR_CMD_LIST)) {
+		sa = attropl2attrl(attribs);
+		switch (type) {
+		case MGR_OBJ_SERVER:
+			ss = pbs_statserver(sp->s_connect, sa, NULL);
+			break;
+		case MGR_OBJ_QUEUE:
+			ss = pbs_statque(sp->s_connect, object_name, sa, NULL);
+			break;
+		case MGR_OBJ_NODE:
+			ss = pbs_statvnode(sp->s_connect, object_name, sa, NULL);
+			break;
+		case MGR_OBJ_SCHED:
+			ss = pbs_statsched(sp->s_connect, sa, NULL);
+			break;
+		case MGR_OBJ_SITE_HOOK:
+			ss = pbs_stathook(sp->s_connect, object_name, sa,
+			SITE_HOOK);
+			break;
+		case MGR_OBJ_PBS_HOOK:
+			ss = pbs_stathook(sp->s_connect, object_name, sa, PBS_HOOK);
+			break;
+		case MGR_OBJ_RSC:
+			ss = pbs_statrsc(sp->s_connect, object_name, sa, "p");
+			break;
+		}
+		free_attrl_list(sa);
+		perr = (ss == NULL);
+		if (!perr)
+			display(type, type, object_name, ss, FALSE, sp);
+
+		/* For 'list hook' command of all available */
+		/* hooks, if none are found in the system, */
+		/* then force a return success value.   */
+		if ((perr != 0)
+				&& ((type == MGR_OBJ_SITE_HOOK) || (type == MGR_OBJ_PBS_HOOK))
+				&& ((object_name == NULL) || (object_name[0] == '\0'))) {
+			/* not an error */
+			perr = 0;
+		}
+
+		pbs_statfree(ss);
+	} else if ((oper == MGR_CMD_PRINT)) {
+
+		sa = attropl2attrl(attribs);
+		switch (type) {
+		case MGR_OBJ_SERVER:
+			if (sa == NULL) {
+				sp->s_rsc = pbs_statrsc(sp->s_connect, NULL, NULL, "p");
+				if (sp->s_rsc != NULL) {
+					display(MGR_OBJ_RSC, MGR_OBJ_SERVER, NULL, sp->s_rsc,
+					TRUE, sp);
+				} else if (pbs_errno != PBSE_NONE) {
+					break;
+				}
+				ss = pbs_statque(sp->s_connect, NULL, NULL, NULL);
+				if (ss != NULL) {
+					display(MGR_OBJ_QUEUE, MGR_OBJ_SERVER, NULL, ss, TRUE, sp);
+				} else if (pbs_errno != PBSE_NONE) {
+					break;
+				}
+			}
+			ss = pbs_statserver(sp->s_connect, sa, NULL);
+			break;
+		case MGR_OBJ_QUEUE:
+			ss = pbs_statque(sp->s_connect, object_name, sa, NULL);
+			break;
+		case MGR_OBJ_NODE:
+			ss = pbs_statvnode(sp->s_connect, object_name, sa, NULL);
+			break;
+		case MGR_OBJ_SCHED:
+			ss = pbs_statsched(sp->s_connect, sa, NULL);
+			break;
+		case MGR_OBJ_SITE_HOOK:
+			ss = pbs_stathook(sp->s_connect, object_name, sa,
+			SITE_HOOK);
+			break;
+		case MGR_OBJ_RSC:
+			ss = pbs_statrsc(sp->s_connect, object_name, sa, "p");
+			break;
+		}
+
+		free_attrl_list(sa);
+		perr = (ss == NULL);
+		if (!perr) {
+			display(type, type, object_name, ss, TRUE, sp);
+
+		}
+		pbs_statfree(ss);
+	} else {
+		if (oper == MGR_CMD_IMPORT) {
+			infile[0] = '\0';
+			content_encoding[0] = '\0';
+			content_type[0] = '\0';
+			attribs_tmp = attribs;
+			attribs_file = NULL;
+			while (attribs_tmp) {
+				if (strcmp(attribs_tmp->name, INPUT_FILE_PARAM) == 0) {
+					strcpy(infile, attribs_tmp->value);
+					attribs_file = attribs_tmp;
+				} else if (strcmp(attribs_tmp->name, CONTENT_ENCODING_PARAM)
+						== 0) {
+					strcpy(content_encoding, attribs_tmp->value);
+				} else if (strcmp(attribs_tmp->name, CONTENT_TYPE_PARAM) == 0) {
+					strcpy(content_type, attribs_tmp->value);
+				}
+				attribs_tmp = attribs_tmp->next;
+			}
+			if (infile[0] == '\0') {
+				fprintf(stderr,
+						"hook import command has no <input-file> argument\n");
+				return 1;
+			}
+			if (content_encoding[0] == '\0') {
+				fprintf(stderr,
+						"hook import command has no <content-encoding> argument\n");
+				return 1;
+			}
+			if (content_type[0] == '\0') {
+				fprintf(stderr,
+						"hook import command has no <content-type> argument\n");
+				return 1;
+			}
+
+			if (strcmp(infile, "-") == 0) {
+				infile[0] = '\0';
+			}
+
+			if (strcmp(content_type, HOOKSTR_CONFIG) == 0) {
+				char *p;
+				int totlen;
+				p = strrchr(infile, '.');
+				/* need to pass the suffix */
+				/* to the server which will */
+				/* validate the file based */
+				/* on type */
+				if (p != NULL) {
+					totlen = strlen(p) + strlen(hook_tempfile);
+
+					if (totlen < sizeof(hook_tempfile))
+						strcat(hook_tempfile, p);
+				}
+			}
+
+			/* hook_tempfile could be set to empty if generating this filename */
+			/* by mktemp() was not successful */
+			if ((hook_tempfile[0] == '\0')
+					|| dump_file(infile, hook_tempfile, content_encoding,
+							dump_msg, sizeof(dump_msg)) != 0) {
+				struct stat sbuf;
+
+				if (hook_tempfile_errmsg[0] != '\0')
+					fprintf(stderr, "%s\n", hook_tempfile_errmsg);
+
+				/* Detect failed to access hooks working directory */
+
+#ifdef WIN32
+				if ((lstat(hook_tempdir, &sbuf) == -1)
+						&& (GetLastError() == ERROR_ACCESS_DENIED))
+#else
+						if ((stat(hook_tempdir, &sbuf) == -1) && (errno == EACCES))
+#endif
+						{
+					fprintf(stderr,
+							"%s@%s is unauthorized to access hooks data "
+									"from server %s\n", cur_user, cur_host,
+							(sname->svr_name[0] == '\0') ?
+									pbs_conf.pbs_server_name :
+									sname->svr_name);
+				} else {
+					fprintf(stderr, "%s\n", dump_msg);
+				}
+				return 1;
+			}
+
+			dyn_strcpy(&attribs_file->value, base(hook_tempfile));
+
+		} else if (oper == MGR_CMD_EXPORT) {
+			char *hooktmp = NULL;
+
+			if (hook_tempfile[0] == '\0') {
+
+				struct stat sbuf;
+
+				if (hook_tempfile_errmsg[0] != '\0')
+					fprintf(stderr, "%s\n", hook_tempfile_errmsg);
+
+				/* Detect failed to access hooks working directory */
+#ifdef WIN32
+				if ((lstat(hook_tempdir, &sbuf) == -1)
+						&& (GetLastError() == ERROR_ACCESS_DENIED))
+#else
+						if ((stat(hook_tempdir, &sbuf) == -1) && (errno == EACCES))
+#endif
+						{
+					fprintf(stderr,
+							"%s@%s is unauthorized to access hooks data "
+									"from server %s\n", cur_user, cur_host,
+							(sname->svr_name[0] == '\0') ?
+									conf_full_server_name : sname->svr_name);
+				} else {
+					fprintf(stderr,
+							"can't export hooks data. no hook_tempfile!\n");
+				}
+				return 1;
+			}
+			outfile[0] = '\0';
+			content_encoding[0] = '\0';
+			attribs_tmp = attribs;
+			attribs_file = NULL;
+			while (attribs_tmp) {
+				if (strcmp(attribs_tmp->name, OUTPUT_FILE_PARAM) == 0) {
+					strcpy(outfile, attribs_tmp->value);
+					attribs_file = attribs_tmp;
+				} else if (strcmp(attribs_tmp->name,
+				CONTENT_ENCODING_PARAM) == 0) {
+					strcpy(content_encoding, attribs_tmp->value);
+				}
+				attribs_tmp = attribs_tmp->next;
+			}
+			hooktmp = base(hook_tempfile);
+			/* dyn_strcpy does not like a NULL second argument. */
+			dyn_strcpy(&attribs_file->value, (hooktmp ? hooktmp : ""));
+		}
+		handle_formula(attribs);
+		if (type == MGR_OBJ_PBS_HOOK) {
+			struct attropl *popl;
+			perr = pbs_manager(sp->s_connect, oper, type, object_name, attribs,
+					PBS_HOOK);
+
+			popl = attribs;
+			if (perr == 0) {
+				while (popl != NULL) {
+
+					if (strcmp(popl->name, "enabled") != 0) {
+						popl = popl->next;
+						continue;
+					}
+					if ((strcasecmp(popl->value, HOOKSTR_FALSE) == 0)
+							|| (strcasecmp(popl->value, "f") == 0)
+							|| (strcasecmp(popl->value, "n") == 0)
+							|| (strcmp(popl->value, "0") == 0)) {
+						fprintf(stderr, "WARNING: Disabling a PBS hook "
+								"results in an unsupported configuration!\n");
+					}
+					popl = popl->next;
+				}
+			}
+		} else {
+			if ((strlen(pname->obj_name) == 0) && type == MGR_OBJ_SCHED && oper != MGR_CMD_DELETE) {
+				perr = pbs_manager(sp->s_connect, oper, type, PBS_DFLT_SCHED_NAME, attribs, NULL);
+			} else
+				perr = pbs_manager(sp->s_connect, oper, type, pname->obj_name, attribs, NULL);
+
+	errmsg = pbs_geterrmsg(sp->s_connect);
+	if (perr) {
+		/*
+		 ** IF
+		 **	stdin is a tty			OR
+		 **	the command is not SET		OR
+		 **	the object type is not NODE	OR
+		 **	the error is not "attempt to set READ ONLY attribute"
+		 ** THEN print error messages
+		 ** ELSE don't print error messages
+		 **
+		 ** This is to deal with bug 4941 where errors are generated
+		 ** from running qmgr with input from a file which was generated
+		 ** by 'qmgr -c "p n @default" > /tmp/nodes_out'.
+		 */
+		if (isatty(0) || (oper != MGR_CMD_SET) || (type != MGR_OBJ_NODE)
+				|| (pbs_errno != PBSE_ATTRRO)) {
+			if (errmsg != NULL) {
+				len = strlen(errmsg) + strlen(object_name) + strlen(Svrname(sp))
+						+ 20;
+				if (len < 256) {
+					sprintf(errnomsg, "qmgr obj=%s svr=%s: %s\n", object_name,
+							Svrname(sp), errmsg);
+					pstderr(errnomsg);
+				} else {
+					/*obviously, this is to cover a highly unlikely case*/
+
+					pstderr_big(Svrname(sp), object_name, errmsg);
+				}
+			}
+
+			if (pbs_errno == PBSE_PROTOCOL) {
+				if ((check_time - start_time) >= QMGR_TIMEOUT) {
+					pstderr(
+							"qmgr: Server disconnected due to idle connection timeout\n");
+				} else {
+					pstderr("qmgr: Protocol error, server disconnected\n");
+				}
+				exit(1);
+			} else if (pbs_errno == PBSE_HOOKERROR) {
+				pstderr("qmgr: hook error returned from svr_object\n");
+			} else if (pbs_errno != 0) /* 0 happens with hooks if no hooks found */
+				PSTDERR1("qmgr: Error (%d) returned from svr_object\n",
+						pbs_errno)
+		}
+
+		error = perr;
+	} else if (errmsg != NULL) {
+		/* batch reply code is 0 but a text message is also being returned */
+
+		if ((pmsg = malloc(strlen(errmsg) + 2)) != NULL) {
+			strcpy(pmsg, errmsg);
+			strcat(pmsg, "\n");
+			pstderr(pmsg);
+			free(pmsg);
+		}
+	} else {
+		if (oper == MGR_CMD_EXPORT) {
+			if (dump_file(hook_tempfile, outfile, content_encoding, dump_msg,
+					sizeof(dump_msg)) != 0) {
+				fprintf(stderr, "%s\n", dump_msg);
+				error = 1;
+			}
+		}
+	}
+
+	temp_objname(NULL, NULL, NULL); /* clears reference count */
+
 	return error;
 }
 
