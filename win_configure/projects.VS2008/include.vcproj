@@ -214,30 +214,6 @@
 			>
 		</File>
 		<File
-			RelativePath="..\..\src\include\qmgr_node_public.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\src\include\qmgr_node_readonly.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\src\include\qmgr_que_public.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\src\include\qmgr_que_readonly.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\src\include\qmgr_svr_public.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\src\include\qmgr_svr_readonly.h"
-			>
-		</File>
-		<File
 			RelativePath="..\..\src\include\queue.h"
 			>
 		</File>
