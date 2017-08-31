@@ -407,7 +407,7 @@ class PBSAnonymizer(object):
                         val = self.gmap_resc_key[curr_anon_resc]
                     else:
                         val = self.utils.random_str(len(curr_anon_resc))
-                elif curr_anon_resc not in self.gmap_resc_key:
+                if curr_anon_resc not in self.gmap_resc_key:
                     self.gmap_resc_key[curr_anon_resc] = val
                 tmp_resc.set_name(val)
                 resources[val] = tmp_resc

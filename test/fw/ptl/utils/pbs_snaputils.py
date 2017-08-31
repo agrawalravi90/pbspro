@@ -43,6 +43,8 @@ import magic
 import logging
 
 from subprocess import STDOUT
+from collections import OrderedDict
+
 from ptl.lib.pbs_testlib import Server, Scheduler
 from ptl.lib.pbs_ifl_mock import *
 from ptl.utils.pbs_dshutils import DshUtils
@@ -282,7 +284,8 @@ QMGR_PR_PATH = os.path.join(SERVER_DIR, "qmgr_pr.out")
 RSCS_PATH = os.path.join(SERVER_DIR, "rscs_all")
 # server_priv/
 SVR_PRIV_PATH = "server_priv"
-ACCT_LOGS_PATH = os.path.join("server_priv", "accounting")
+ACCT_LOGS_PATH = os.path.join(SVR_PRIV_PATH, "accounting")
+RSCDEF_PATH = os.path.join(SVR_PRIV_PATH, "resourcedef")
 # server_logs/
 SVR_LOGS_PATH = "server_logs"
 # job/
@@ -446,7 +449,6 @@ class _PBSSnapUtils(object):
         """
         self.logger = logging.getLogger(__name__)
         self.du = DshUtils()
-        self.snap_path = {}
         self.server_info = {}
         self.job_info = {}
         self.node_info = {}
@@ -1181,6 +1183,17 @@ class _PBSSnapUtils(object):
         resources = self.server.parse_resources()
         custom_rscs_names = None
         if resources is not None:
+            # anonymize custom resources
+            if self.anonymize and self.anon_obj.resc_key is not None:
+                self.logger.debug("Anonymizing custom resources")
+                resources = self.anon_obj.anonymize_resource_def(resources)
+                custom_rscs_names = resources.keys()
+                # Write out the anonymized custom resources to resourcedef
+                snap_rscdef = os.path.join(self.snapdir, RSCDEF_PATH)
+                with open(snap_rscdef, "w") as rsc_fd:
+                    for _, rscdef in resources.iteritems():
+                        rsc_fd.write(str(rscdef))
+
             # Convert type and flags to their numeric format
             for rsc in resources.values():
                 if rsc.type:
@@ -1189,12 +1202,6 @@ class _PBSSnapUtils(object):
                     rsc.set_flag(str(self.__convert_flag_to_numeric(rsc.flag)))
 
             custom_rscs_names = resources.keys()
-
-            # anonymize custom resources
-            if self.anonymize and self.anon_obj.resc_key is not None:
-                self.logger.debug("Anonymizing custom resources")
-                resources = self.anon_obj.anonymize_resource_def(resources)
-                custom_rscs_names = resources.keys()
 
         if custom_rscs_names is None:
             custom_rscs_names = []
@@ -1225,6 +1232,7 @@ class _PBSSnapUtils(object):
 
         if self.create_tar:
             self.__add_to_archive(snap_rscs)
+            self.__add_to_archive(snap_rscdef)
 
     def capture_server(self, with_svr_logs=False, with_acct_logs=False):
         """
