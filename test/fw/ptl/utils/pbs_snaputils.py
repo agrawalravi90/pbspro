@@ -1192,7 +1192,7 @@ class _PBSSnapUtils(object):
                 snap_rscdef = os.path.join(self.snapdir, RSCDEF_PATH)
                 with open(snap_rscdef, "w") as rsc_fd:
                     for _, rscdef in resources.iteritems():
-                        rsc_fd.write(str(rscdef))
+                        rsc_fd.write(str(rscdef) + "\n")
 
             # Convert type and flags to their numeric format
             for rsc in resources.values():

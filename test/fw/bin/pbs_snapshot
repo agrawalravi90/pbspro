@@ -50,6 +50,13 @@ from ptl.utils.pbs_snaputils import PBSSnapUtils
 from ptl.utils.pbs_cliutils import CliUtils
 
 
+# Default number of accounting and daemon logs to capture
+DFLT_DAEMON_LOGS = 5
+DFLT_ACCT_LOGS = 30
+DFLT_LOG_LEVEL = "INFOCLI2"
+DFLT_MAP_FILE = "obfuscate.map"
+
+
 def trap_exceptions(etype, value, tb):
     """
     Trap SIGINT and SIGPIPE
@@ -102,12 +109,12 @@ if __name__ == '__main__':
     out_dir = None
     diag_path = None
     server_host = None
-    log_level = "INFOCLI2"
-    acct_logs = 30  # Capture 30 days of accounting logs by default
-    daemon_logs = 5   # Capture 5 days of daemon logs by default
+    log_level = None
+    acct_logs = None
+    daemon_logs = None
     additional_hosts = None
     map_file = None
-    anonymize = False
+    anonymize = None
     create_tar = True
 
     log_file = "pbs_snapshot.log"
@@ -148,12 +155,24 @@ if __name__ == '__main__':
             except ValueError:
                 raise ValueError("Invalid value for --daemon-logs" +
                                  "option, should be an integer")
+            # Daemon logs cannot be obfuscated yet
+            if anonymize and daemon_logs > 0:
+                raise ValueError("pbs_snapshot currently cannot obfuscate " +
+                                 "daemon logs, please don't use --obfuscate" +
+                                 " and --daemon-logs=<non zero> together")
         elif o == "--additional-hosts":
             additional_hosts = val
         elif o == "--map":
             map_file = val
         elif o == "--obfuscate":
             anonymize = True
+            if daemon_logs is not None:
+                raise ValueError("pbs_snapshot currently cannot obfuscate " +
+                                 "daemon logs, please don't use --obfuscate" +
+                                 " and --daemon-logs=<non zero> together")
+            sys.stdout.write("pbs_snapshot currently doesn't anonymize " +
+                             "daemon logs, so no daemon logs will be " +
+                             "captured\n\n")
         elif o == "--version":
             print ptl.__version__
             sys.exit(0)
@@ -161,6 +180,21 @@ if __name__ == '__main__':
             sys.stderr.write("Unrecognized option")
             usage()
             sys.exit(1)
+
+    # Set some defaults
+    if acct_logs is None:
+        acct_logs = DFLT_ACCT_LOGS
+    if daemon_logs is None:
+        if anonymize:
+            daemon_logs = 0
+        else:
+            daemon_logs = DFLT_DAEMON_LOGS
+    if log_level is None:
+        log_level = DFLT_LOG_LEVEL
+    if anonymize is None:
+        anonymize = False
+    if anonymize and map_file is None:
+        map_file = DFLT_MAP_FILE
 
     fmt = '%(asctime)-15s %(levelname)-8s %(message)s'
     level_int = CliUtils.get_logging_level(log_level)
@@ -184,7 +218,7 @@ if __name__ == '__main__':
         # find the parent directory of the snapshot
         # This will be used to store the map file
         out_abspath = os.path.abspath(out_dir)
-        map_file = os.path.join(out_abspath, "obfuscate.map")
+        map_file = os.path.join(out_abspath, map_file)
 
     # Capture the snapshot
     with PBSSnapUtils(out_dir, diag_path=diag_path, server_host=server_host,

@@ -629,11 +629,11 @@ class PBSAnonymizer(object):
         :returns a tuple of (key index, 1st character of key's value)
         :returns None if the key is invalid
         """
+        line_nospaces = "".join(line.split())
+        len_nospaces = len(line_nospaces)
         line_len = len(line)
         key_len = len(key)
         key_index = line.find(key, 0, line_len)
-        line_nospaces = "".join(line.split())
-        len_nospaces = len(line_nospaces)
         key_idx_nospaces = line_nospaces.find(key, 0, len_nospaces)
         value_char = None
 
@@ -659,34 +659,27 @@ class PBSAnonymizer(object):
                 else:
                     char_after = None
                 if valid_key is True:
-                    # if 'char_after' is not "=", then the characters before
-                    # and after should be the delimiter, and be equal
-                    if char_before is not None and char_after is not None:
-                        if char_after != "=":
-                            if char_before != char_after:
-                                valid_key = False
-                    if valid_key is True:
                         # Now, let's look at the whitespace stripped line
-                        index_after = key_idx_nospaces + key_len
-                        if index_after >= len_nospaces:
+                    index_after = key_idx_nospaces + key_len
+                    if index_after >= len_nospaces:
                             # Nothing after the key, can't be a key
-                            valid_key = False
-                        else:
-                            # Find a valid operator after the key
-                            # valid operators: =, +=, -=, ==
-                            if line_nospaces[index_after] != "=":
-                                # Check for this case: "key +=/-=/== value"
-                                if line_nospaces[index_after] in ("+", "-"):
-                                    index_after = index_after + 1
-                                    if line_nospaces[index_after] != "=":
-                                        valid_key = False
-                                else:
+                        valid_key = False
+                    else:
+                        # Find a valid operator after the key
+                        # valid operators: =, +=, -=, ==
+                        if line_nospaces[index_after] != "=":
+                            # Check for this case: "key +=/-=/== value"
+                            if line_nospaces[index_after] in ("+", "-"):
+                                index_after = index_after + 1
+                                if line_nospaces[index_after] != "=":
                                     valid_key = False
-                            if valid_key is True:
-                                val_idx_nospaces = index_after + 1
-                                if val_idx_nospaces >= len_nospaces:
-                                    # There's no value!, can't be a valid key
-                                    valid_key = False
+                            else:
+                                valid_key = False
+                        if valid_key is True:
+                            val_idx_nospaces = index_after + 1
+                            if val_idx_nospaces >= len_nospaces:
+                                # There's no value!, can't be a valid key
+                                valid_key = False
 
             if valid_key is False:
                 # Find the next instance of the key
@@ -1017,13 +1010,6 @@ class PBSAnonymizer(object):
                         anon_key = self.__get_anon_key(key, self.gmap_attr_key)
                         line = line.replace(key, anon_key)
 
-                for key in self.resc_key.keys():
-                    if key in line:
-                        if self.__verify_key(line, key) is None:
-                            continue
-                        anon_key = self.__get_anon_key(key, self.gmap_resc_key)
-                        line = line.replace(key, anon_key)
-
                 for key in self.attr_val.keys():
                     if key in line:
                         value = self.__get_value(line, key)
@@ -1041,6 +1027,13 @@ class PBSAnonymizer(object):
                         anon_value = self.__get_anon_value(key, value,
                                                            self.gmap_resc_val)
                         line = line.replace(value, anon_value)
+
+                for key in self.resc_key.keys():
+                    if key in line:
+                        if self.__verify_key(line, key) is None:
+                            continue
+                        anon_key = self.__get_anon_key(key, self.gmap_resc_key)
+                        line = line.replace(key, anon_key)
 
                 # Anonymize IP addresses
                 pattern = re.compile(
@@ -1116,6 +1109,24 @@ class PBSAnonymizer(object):
                         anon_rk = self.__get_anon_key(resname,
                                                       self.gmap_resc_key)
                         kvl[i][0] = restype + "." + anon_rk
+
+                    # Get rid of custom resources from select spec
+                    elif resname == "select":
+                        for key in self.resc_key:
+                            if key in v:
+                                anon_rk = self.__get_anon_key(key,
+                                                              self.gmap_resc_key)
+                                kvl[i][1] = v.replace(key, anon_rk)
+                                v = kvl[i][1]
+
+                # Get rid of custom resources from exec_vnode's value
+                if k == "exec_vnode":
+                    for key in self.resc_key:
+                        if key in v:
+                            anon_rk = self.__get_anon_key(key,
+                                                          self.gmap_resc_key)
+                            kvl[i][1] = v.replace(key, anon_rk)
+                            v = kvl[i][1]
 
             anon_data.append(";".join(curr[:3]) + ";" +
                              " ".join(map(lambda n: "=".join(n), kvl)))
