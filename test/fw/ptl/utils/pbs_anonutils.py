@@ -826,6 +826,57 @@ class PBSAnonymizer(object):
         if key in self.resc_val:
             self.resc_val[alias_key] = self.resc_val[key]
 
+    def __anon_keys_in_line(self, line, key_list, gmap_keys,
+                            verify_keys=True):
+        """
+        Helper function to anonymize all keys from the list given that
+        present in a line
+
+        :param line: the line to anonymize
+        :type line: str
+        :param key_list: the list of keys to look for
+        :type key_list: list
+        :param gmap_keys: the global map for anonymized keys
+        :type gmap_keys: list
+        :param verify_keys: verify that the key belongs to a k-v pair in line?
+        :param verify_keys: bool
+
+        :return anonymized line
+        """
+        for key in key_list.keys():
+            if key in line:
+                if verify_keys:
+                    if self.__verify_key(line, key) is None:
+                        continue
+                anon_key = self.__get_anon_key(key, gmap_keys)
+                line = line.replace(key, anon_key)
+
+        return line
+
+    def __anon_vals_in_line(self, line, key_list, gmap_vals):
+        """
+        Helper function to anonymize all values for the key list given that
+        are present in a line
+
+        :param line: the line to anonymize
+        :type line: str
+        :param key_list: the list of keys to look for
+        :type key_list: list
+        :param gmap_vals: the global map for anonymized values
+        :type gmap_vals: dict
+
+        :return anonymized line
+        """
+        for key in key_list.keys():
+            if key in line:
+                value = self.__get_value(line, key)
+                if value is None:
+                    continue
+                anon_value = self.__get_anon_value(key, value, gmap_vals)
+                line = line.replace(value, anon_value)
+
+        return line
+
     def anonymize_file_tabular(self, filename, extension=".anon",
                                inplace=False):
         """
@@ -1003,38 +1054,20 @@ class PBSAnonymizer(object):
                     continue
 
                 # Anonymize key-value pairs
-                for key in self.attr_key.keys():
-                    if key in line:
-                        if self.__verify_key(line, key) is None:
-                            continue
-                        anon_key = self.__get_anon_key(key, self.gmap_attr_key)
-                        line = line.replace(key, anon_key)
+                # Anonymize all attribute keys
+                line = self.__anon_keys_in_line(line, self.attr_key,
+                                                self.gmap_attr_key)
+                # Anonymize all attribute values
+                line = self.__anon_vals_in_line(line, self.attr_val,
+                                                self.gmap_attr_val)
+                # Anonymize all resource values
+                line = self.__anon_vals_in_line(line, self.resc_val,
+                                                self.gmap_resc_val)
+                # Anonymize all resource keys
+                line = self.__anon_keys_in_line(line, self.resc_key,
+                                                self.gmap_resc_key)
 
-                for key in self.attr_val.keys():
-                    if key in line:
-                        value = self.__get_value(line, key)
-                        if value is None:
-                            continue
-                        anon_value = self.__get_anon_value(key, value,
-                                                           self.gmap_attr_val)
-                        line = line.replace(value, anon_value)
-
-                for key in self.resc_val.keys():
-                    if key in line:
-                        value = self.__get_value(line, key)
-                        if value is None:
-                            continue
-                        anon_value = self.__get_anon_value(key, value,
-                                                           self.gmap_resc_val)
-                        line = line.replace(value, anon_value)
-
-                for key in self.resc_key.keys():
-                    if key in line:
-                        if self.__verify_key(line, key) is None:
-                            continue
-                        anon_key = self.__get_anon_key(key, self.gmap_resc_key)
-                        line = line.replace(key, anon_key)
-
+                # Special cases (non-kv type)
                 # Anonymize IP addresses
                 pattern = re.compile(
                     "\b*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b*")
@@ -1043,7 +1076,19 @@ class PBSAnonymizer(object):
                     ip = match_obj.group(0)
                     anon_key = self.__get_anon_key(ip, self.gmap_attr_key)
                     line = line.replace(ip, anon_key)
+                # Anonymize any keys in 'comment' attribute's value
+                line_stripped = line.strip()
+                if "=" in line_stripped:
+                    attr = line_stripped.split("=")[0]
+                    if attr.strip() == "comment":
+                        line = self.__anon_keys_in_line(line, self.attr_key,
+                                                        self.gmap_attr_key,
+                                                        verify_keys=False)
+                        line = self.__anon_keys_in_line(line, self.resc_key,
+                                                        self.gmap_resc_key,
+                                                        verify_keys=False)
 
+                # Write the anonymized line out
                 nf.write(line)
 
         if inplace:
