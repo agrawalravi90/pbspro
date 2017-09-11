@@ -98,7 +98,6 @@ class PBSAnonymizer(object):
         self.set_attr_val(attr_val)
         self.set_resc_key(resc_key)
         self.set_resc_val(resc_val)
-        self.anonymize = self.anonymize_batch_status
 
         # global anonymized mapping data
         self.gmap_attr_val = {}
@@ -147,19 +146,17 @@ class PBSAnonymizer(object):
 
         return key
 
-    def __get_anon_value(self, key, value, kv_map):
+    def __get_anon_value(self, key, value, val_map):
         """
-        Get an anonymied string for the 'value' belonging to the kv_map
+        Get an anonymied string for the 'value' belonging to the val_map
         provided.
-        The kv_map will be in the following format:
-            key:{val1:anon_val1, val2:anon_val2, ...}
 
         :param key: the key for this value
         :type key: String
         :param value: the value to anonymize
         :type value: String
-        :param kv_map: the kv_map to which the key belongs
-        :type kv_map: dict
+        :param val_map: the val_map to which the key belongs
+        :type val_map: dict
 
         :returns: an anonymized string for the value
         """
@@ -168,15 +165,14 @@ class PBSAnonymizer(object):
             return "_pbs_project_default"
 
         # Deal with attributes which have a list of values
-        if key in (ATTR_u, ATTR_managers, ATTR_M, ATTR_g, ATTR_aclResvhost,
-                   ATTR_aclhost, ATTR_auth_g, ATTR_auth_u):
-            value_temp = "".join(value.split())
-            value_list = value_temp.split(",")
-        elif key == ATTR_exechost:
+        if key == ATTR_exechost:
             value_list = []
             value_list_temp = value.split("+")
             for item in value_list_temp:
                 value_list.append(item.split("/")[0])
+        elif "," in value:
+            value_temp = "".join(value.split())
+            value_list = value_temp.split(",")
         else:
             value_list = [value]
 
@@ -185,27 +181,21 @@ class PBSAnonymizer(object):
         # Go through the list of values and anonymize each in the value string
         for val in value_list:
             if "@" in val:
-                # value if of type "user@host"
-                # anonymize the user and host parts separately
-                if ANON_HOST_K in self.attr_val:
-                    try:
-                        user, host = val.split("@")
-                        host = self.__get_anon_value(ANON_HOST_K, host,
-                                                     self.gmap_attr_val)
-                        user = self.__get_anon_value(ANON_USER_K, user,
-                                                     self.gmap_attr_val)
-                        anon_val = user + "@" + host
-                        value = value.replace(val, anon_val)
-                        continue
-                    except Exception:
-                        pass
+                # value if of type "attr@host"
+                # anonymize the attribute and host parts separately
+                try:
+                    attr, host = val.split("@")
+                    host = self.__get_anon_value(ANON_HOST_K, host,
+                                                 self.gmap_attr_val)
+                    attr = self.__get_anon_value(ANON_USER_K, attr, val_map)
+                    anon_val = attr + "@" + host
+                    value = value.replace(val, anon_val)
+                    continue
+                except Exception:
+                    pass
 
-            if key in kv_map:
-                value_map = kv_map[key]
-                anon_val = self.__get_anon_key(val, value_map)
-            else:
-                anon_val = self.utils.random_str(len(val))
-                kv_map[key] = {val: anon_val}
+            # Get the anonymized value
+            anon_val = self.__get_anon_key(val, val_map)
             value = value.replace(val, anon_val)
 
         return value
@@ -344,33 +334,15 @@ class PBSAnonymizer(object):
                 if "euser" not in self.attr_val:
                     anon_euser = euser
                 else:
-                    anon_euser = None
-                    if ANON_USER_K in self.gmap_attr_val:
-                        if euser in self.gmap_attr_val[ANON_USER_K]:
-                            anon_euser = self.gmap_attr_val[ANON_USER_K][euser]
-                    else:
-                        self.gmap_attr_val[ANON_USER_K] = {}
-
-                if euser is not None and anon_euser is None:
                     anon_euser = self.utils.random_str(len(euser))
-                    self.gmap_attr_val[ANON_USER_K][euser] = anon_euser
+                    self.gmap_attr_val[euser] = anon_euser
 
-                if "egroup" not in self.attr_val:
-                    anon_egroup = egroup
-                else:
-                    anon_egroup = None
-
-                    if egroup is not None:
-                        if ANON_GROUP_K in self.gmap_attr_val:
-                            if egroup in self.gmap_attr_val[ANON_GROUP_K]:
-                                anon_egroup = (self.gmap_attr_val[ANON_GROUP_K]
-                                               [egroup])
-                        else:
-                            self.gmap_attr_val[ANON_GROUP_K] = {}
-
-                if egroup is not None and anon_egroup is None:
-                    anon_egroup = self.utils.random_str(len(egroup))
-                    self.gmap_attr_val[ANON_GROUP_K][egroup] = anon_egroup
+                if egroup is not None:
+                    if "egroup" not in self.attr_val:
+                        anon_egroup = egroup
+                    else:
+                        anon_egroup = self.utils.random_str(len(egroup))
+                        self.gmap_attr_val[egroup] = anon_egroup
 
                 # reconstruct the fairshare info by combining euser and egroup
                 out = [anon_euser]
@@ -380,9 +352,8 @@ class PBSAnonymizer(object):
                 out.append(_d[1])
                 if len(_d) > 1:
                     p = _d[2].strip()
-                    if (ANON_USER_K in self.gmap_attr_val and
-                            p in self.gmap_attr_val[ANON_USER_K]):
-                        out.append(self.gmap_attr_val[ANON_USER_K][p])
+                    if (p in self.gmap_attr_val):
+                        out.append(self.gmap_attr_val[p])
                     else:
                         out.append(_d[2])
                 if len(_d) > 2:
@@ -413,209 +384,6 @@ class PBSAnonymizer(object):
                 resources[val] = tmp_resc
         return resources
 
-    def __anonymize_fgc(self, d, attr, ar, val):
-        """
-        Anonymize an FGC limit value
-        """
-
-        m = {"u": "euser", "g": "egroup", "p": "project"}
-
-        if "," in val:
-            fgc_lim = val.split(",")
-        else:
-            fgc_lim = [val]
-
-        nfgc = []
-        for lim in fgc_lim:
-            _fgc = PbsTypeFGCLimit(attr, lim)
-            ename = _fgc.entity_name
-            if ename in ("PBS_GENERIC", "PBS_ALL"):
-                nfgc.append(lim)
-                continue
-
-            obf_ename = ename
-            for etype, nm in m.items():
-                if _fgc.entity_type == etype:
-                    if nm not in self.gmap_attr_val:
-                        if nm in ar and ename in ar[nm]:
-                            obf_ename = ar[nm][ename]
-                        else:
-                            obf_ename = self.utils.random_str(len(ename))
-                        self.gmap_attr_val[nm] = {ename: obf_ename}
-                    elif ename in self.gmap_attr_val[nm]:
-                        if ename in self.gmap_attr_val[nm]:
-                            obf_ename = self.gmap_attr_val[nm][ename]
-                    break
-            _fgc.entity_name = obf_ename
-            nfgc.append(_fgc.__val__())
-
-        d[attr] = ",".join(nfgc)
-
-    def __anonymize_attr_val(self, d, attr, ar, name, val):
-        """
-        Obfuscate an attribute/resource values
-        """
-
-        # don't obfuscate default project
-        if attr == "project" and val == "_pbs_project_default":
-            return
-
-        nstr = []
-        if "." in attr:
-            m = self.gmap_resc_val
-        else:
-            m = self.gmap_attr_val
-
-        if val in ar[name]:
-            nstr.append(ar[name][val])
-            if name in self.lmap:
-                self.lmap[name][val] = ar[name][val]
-            else:
-                self.lmap[name] = {val: ar[name][val]}
-            if name not in m:
-                m[name] = {val: ar[name][val]}
-            elif val not in m[name]:
-                m[name][val] = ar[name][val]
-        else:
-            # Obfuscate by randomizing with a value of the same length
-            tmp_v = val.split(",")
-            for v in tmp_v:
-                if v in ar[name]:
-                    r = ar[name][v]
-                elif name in m and v in m[name]:
-                    r = m[name][v]
-                else:
-                    r = self.utils.random_str(len(v))
-                    if not isinstance(ar[name], dict):
-                        ar[name] = {}
-                    ar[name][v] = r
-                self.lmap[name] = {v: r}
-                if name not in m:
-                    m[name] = {v: r}
-                elif v not in m[name]:
-                    m[name][v] = r
-
-                nstr.append(r)
-
-        if d is not None:
-            d[attr] = ",".join(nstr)
-
-    def __anonymize_attr_key(self, d, attr, ar, name, res):
-        """
-        Obfuscate an attribute/resource key
-        """
-
-        if res is not None:
-            m = self.gmap_resc_key
-        else:
-            m = self.gmap_attr_key
-
-        if not ar[name]:
-            if name in m:
-                ar[name] = m[name]
-            else:
-                randstr = self.utils.random_str(len(name))
-                ar[name] = randstr
-                m[name] = randstr
-
-        if d is not None:
-            tmp_val = d[attr]
-            del d[attr]
-
-            if res is not None:
-                d[res + "." + ar[name]] = tmp_val
-            else:
-                d[ar[name]] = tmp_val
-
-        if name not in self.lmap:
-            self.lmap[name] = ar[name]
-
-        if name not in m:
-            m[name] = ar[name]
-
-    def anonymize_batch_status(self, data=None):
-        """
-        Anonymize arbitrary batch_status data
-
-        :param data: Batch status data
-        :type data: List or dictionary
-        """
-        if not isinstance(data, (list, dict)):
-            self.logger.error("data expected to be dict or list")
-            return None
-
-        if isinstance(data, dict):
-            dat = [data]
-        else:
-            dat = data
-
-        # Local mapping data used to store obfuscation mapping data for this
-        # specific item, d
-        self.lmap = {}
-
-        # loop over each "batch_status" entry to obfuscate
-        for d in dat:
-
-            if self.attr_delete is not None:
-                for todel in self.attr_delete:
-                    if todel in d:
-                        del d[todel]
-
-            if self.resc_delete is not None:
-                for todel in self.resc_delete:
-                    for tmpk in d.keys():
-                        if "." in tmpk and todel == tmpk.split(".")[1]:
-                            del d[tmpk]
-
-            # Loop over each object's attributes, this is where the special
-            # cases are handled (e.g., FGC limits, formula, select spec...)
-            for attr in d:
-                val = d[attr]
-
-                if "." in attr:
-                    (res_type, res_name) = attr.split(".")
-                else:
-                    res_type = None
-                    res_name = attr
-
-                if res_type is not None:
-                    if self._entity and (attr.startswith("max_run") or
-                                         attr.startswith("max_queued")):
-                        self.__anonymize_fgc(d, attr, self.attr_val,
-                                             attr, val)
-
-                    if res_name in self.resc_val:
-                        if (attr.startswith("max_run") or
-                                attr.startswith("max_queued")):
-                            self.__anonymize_fgc(d, attr, self.attr_val,
-                                                 attr, val)
-                        self.__anonymize_attr_val(d, attr, self.resc_val,
-                                                  res_name, val)
-
-                    if res_name in self.resc_key:
-                        self.__anonymize_attr_key(d, attr, self.resc_key,
-                                                  res_name, res_type)
-                else:
-                    if attr in self.attr_val:
-                        self.__anonymize_attr_val(d, attr, self.attr_val,
-                                                  attr, val)
-
-                    if attr in self.attr_key:
-                        self.__anonymize_attr_key(d, attr, self.attr_key,
-                                                  attr, None)
-
-                    if ((attr in ("job_sort_formula", "schedselect",
-                                  "select")) and self.resc_key):
-                        for r in self.resc_key:
-                            if r in val:
-                                if r not in self.gmap_resc_key:
-                                    self.gmap_resc_key[
-                                        r] = self.utils.random_str(len(r))
-                                val = val.replace(r, self.gmap_resc_key[r])
-                                setattr(self, attr, val)
-
-                        d[attr] = val
-
     def __verify_key(self, line, key):
         """
         Verify that a given key is actually a key in the context of the line
@@ -642,7 +410,7 @@ class PBSAnonymizer(object):
         while key_index >= 0 and key_index < line_len:
             valid_key = True
 
-            # Make sure that the characters before & after are not alpanum
+            # Make sure that the characters before & after are not alphanum
             if key_index != 0:
                 index_before = key_index - 1
                 char_before = line[index_before]
@@ -659,7 +427,7 @@ class PBSAnonymizer(object):
                 else:
                     char_after = None
                 if valid_key is True:
-                        # Now, let's look at the whitespace stripped line
+                    # Now, let's look at the whitespace stripped line
                     index_after = key_idx_nospaces + key_len
                     if index_after >= len_nospaces:
                             # Nothing after the key, can't be a key
