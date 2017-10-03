@@ -536,7 +536,7 @@ create_resreleased(job *pjob)
 	int no_res_rel = 1;
 
 	attribute *pexech = &pjob->ji_wattr[(int) JOB_ATR_exec_vnode];
-	resreleased = (char *) calloc(1, strlen(pexech->at_val.at_str)+1);
+	resreleased = (char *) calloc(1, strlen(pexech->at_val.at_str)+2);
 	if (resreleased == NULL)
 		return 1;
 	resreleased[0] = '\0';
