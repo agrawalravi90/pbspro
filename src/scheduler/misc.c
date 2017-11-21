@@ -250,11 +250,12 @@ add_str_to_array(char ***str_arr, char *str)
  * @param[in]	res_str	-	the resource string
  * @param[out]	type	-	the type of the resource
  *
- * @return	a number in kilobytes or seconds
+ * @return	sch_resource_t
+ * @retval	a number in kilobytes or seconds
+ * @retval	0 for False, 1 for True
  * @retval	SCHD_INFINITY	: if not a number
  *
  */
-
 sch_resource_t
 res_to_num(char *res_str, struct resource_type *type)
 {
@@ -906,11 +907,13 @@ is_num(char *str)
 		return 1;
 
 	/* is the string a size */
-	if (i == strlen(str) - 2) {
+	if ((i == strlen(str) - 2) || (i == strlen(str) - 1)) {
 		c = tolower(str[i]);
 		if (c == 'k' || c == 'm' || c == 'g' || c == 't') {
 			c = tolower(str[i+1]);
 			if (c == 'b' || c == 'w')
+				return 1;
+			else if (c == '\0')
 				return 1;
 		}
 	}

@@ -2321,4 +2321,3 @@ next_job(status *policy, server_info *sinfo, int flag)
 	}
 	return rjob;
 }
-
