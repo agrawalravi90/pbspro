@@ -116,7 +116,8 @@ common_libs = \
 	@PYTHON_LDFLAGS@ \
 	@PYTHON_LIBS@ \
 	@libz_lib@ \
-	@libical_lib@
+	@libical_lib@ \
+	-lpthread
 
 pbs_sched_CPPFLAGS = ${common_cppflags}
 pbs_sched_LDADD = ${common_libs}

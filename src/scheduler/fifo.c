@@ -85,6 +85,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include "data_types.h"
 #include "fifo.h"
 #include "queue_info.h"
@@ -798,6 +799,176 @@ scheduling_cycle(int sd, char *jobid)
 	return 0;
 }
 
+typedef struct checkjob_thread_data {
+	resource_resv *job;
+	status *policy;
+	server_info *sinfo;
+	schd_error *err;
+} checkjob_thread_data;
+
+void *
+check_job_can_run(void *data)
+{
+	queue_info *qinfo;
+	nspec **ns_arr = NULL;
+	unsigned int flags = NO_FLAGS;
+	checkjob_thread_data *thread_data;
+	resource_resv *job;
+	status *policy;
+	server_info *sinfo;
+	schd_error *err;
+
+	thread_data = (checkjob_thread_data *) data;
+	if (thread_data == NULL)
+		return NULL;
+
+	job = thread_data->job;
+	policy = thread_data->policy;
+	sinfo = thread_data->sinfo;
+
+	if (job == NULL)
+		return NULL;
+
+	qinfo = job->job->queue;
+
+	err->status_code = NOT_RUN;
+
+	schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
+		job->name, "Considering job to run");
+
+	if (job->is_shrink_to_fit) {
+		/* Pass the suitable heuristic for shrinking */
+		ns_arr = is_ok_to_run_STF(policy, sinfo, qinfo, job, flags, err, shrink_job_algorithm);
+	} else
+		ns_arr = is_ok_to_run(policy, sinfo, qinfo, job, flags, err);
+
+	if (err->status_code == NEVER_RUN)
+		job->can_never_run = 1;
+
+	return ns_arr;
+}
+
+/**
+ * @brief	Find the first job that can run along with its nspec array
+ *
+ */
+resource_resv *
+find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
+		int sd, int sort_again, nspec ***ns_arr)
+{
+	resource_resv *job_to_run = NULL;
+	int num_cores = 8;	/* TODO: Calculate this in a platform independent way */
+	int i;
+	int end_cycle;
+	pthread_t *threads = NULL;
+	int goodjobfound = 0;
+	checkjob_thread_data **thread_data_arr = NULL;
+
+
+	threads = malloc(num_cores * sizeof(pthread_t));
+	if (threads == NULL) {
+		snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
+		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+		return NULL;
+	}
+	thread_data_arr = malloc(num_cores * sizeof(checkjob_thread_data *));
+	if (thread_data_arr == NULL) {
+		snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
+		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+		return NULL;
+	}
+
+	while (!goodjobfound && !end_cycle) {
+		for (i = 0; i < num_cores; i++) {
+			resource_resv *njob = NULL;
+			checkjob_thread_data *t_data = NULL;
+
+			njob = next_job(policy, sinfo, sort_again);
+			if (njob == NULL) {
+				end_cycle = 1;
+				break;
+			}
+
+			t_data = malloc(sizeof(checkjob_thread_data));
+			if (t_data == NULL) {
+				free(threads);
+				snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
+				schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+				return NULL;
+			}
+
+			t_data->job = njob;
+			t_data->policy = policy;
+			t_data->sinfo = sinfo;
+			t_data->err = new_schd_error();
+			if (t_data->err == NULL) {
+				free(threads);
+				free(t_data);
+				snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
+				schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+				return NULL;
+			}
+			pthread_create(&(threads[i]), NULL, check_job_can_run, t_data);
+			thread_data_arr[i] = t_data;
+		}
+
+		/* pthread join in increasing order of i */
+		for (i = 0; i < num_cores; i++) {
+			nspec **nspec_arr_ret;
+			resource_resv *njob;
+
+			njob = thread_data_arr[i]->job;
+
+			pthread_join(threads[i], &nspec_arr_ret);
+			if (goodjobfound) {
+				/* Just do cleanup */
+				free(thread_data_arr[i]->err);
+			}
+			if (nspec_arr_ret != NULL) { /* The job can run! */
+				queue_info *qinfo;
+
+				goodjobfound = 1;
+				/* success! */
+				resource_resv *tj;
+				if (njob->job->is_array) {
+					tj = queue_subjob(njob, sinfo, qinfo);
+					if (tj == NULL) {
+						rc = SCHD_ERROR;
+						njob->can_not_run = 1;
+					}
+				} else
+					tj = njob;
+
+				if (rc != SCHD_ERROR) {
+					if (run_update_resresv(policy, sd, sinfo, qinfo, tj, ns_arr,
+							RURR_ADD_END_EVENT, err) > 0) {
+						rc = SUCCESS;
+						sort_again = MAY_RESORT_JOBS;
+					} else {
+						/* if run_update_resresv() returns 0 and pbs_errno == PBSE_HOOKERROR,
+						 * then this job is required to be ignored in this scheduling cycle
+						 */
+						rc = err->error_code;
+						sort_again = SORTED;
+					}
+				} else
+					free_nspecs(ns_arr);
+
+			} else if (policy->preempting && in_runnable_state(njob) && (!njob -> can_never_run)) {
+				if (find_and_preempt_jobs(policy, sd, njob, sinfo, err) > 0) {
+					rc = SUCCESS;
+					sort_again = MUST_RESORT_JOBS;
+				}
+				else
+					sort_again = SORTED;
+			}
+		}
+	}	/* while (!goodjobfound) */
+
+	return job_to_run;
+}
+
+
 /**
  * @brief
  * 		the main scheduler loop
@@ -839,7 +1010,6 @@ main_sched_loop(status *policy, int sd, server_info *sinfo, schd_error **rerr)
 	int sort_again = DONT_SORT_JOBS;
 	schd_error *err;
 	schd_error *chk_lim_err;
-	
 
 	if (policy == NULL || sinfo == NULL || rerr == NULL)
 		return -1;
@@ -870,6 +1040,7 @@ main_sched_loop(status *policy, int sd, server_info *sinfo, schd_error **rerr)
 		(njob = next_job(policy, sinfo, sort_again)) != NULL; i++) {
 		int should_use_buckets;		/* Should use node buckets for a job */
 		unsigned int flags = NO_FLAGS;	/* flags to is_ok_to_run @see is_ok_to_run() */
+		int j;
 
 #ifdef NAS /* localmod 030 */
 		if (check_for_cycle_interrupt(1)) {
@@ -877,28 +1048,23 @@ main_sched_loop(status *policy, int sd, server_info *sinfo, schd_error **rerr)
 		}
 #endif /* localmod 030 */
 
+
 		rc = 0;
 		comment[0] = '\0';
 		log_msg[0] = '\0';
-		qinfo = njob->job->queue;
 
 		clear_schd_error(err);
 
 		schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 			njob->name, "Considering job to run");
+		njob = find_job_to_run(policy, sinfo, &err, sd, sort_again, &ns_arr);
 
 		should_use_buckets = job_should_use_buckets(njob);
-		if(should_use_buckets)
+		if (should_use_buckets)
 			flags = USE_BUCKETS;
 
-		if (njob->is_shrink_to_fit) {
-			/* Pass the suitable heuristic for shrinking */
-			ns_arr = is_ok_to_run_STF(policy, sinfo, qinfo, njob, flags, err, shrink_job_algorithm);
-		} else
-			ns_arr = is_ok_to_run(policy, sinfo, qinfo, njob, flags, err);
-		
-		if (err->status_code == NEVER_RUN)
-			njob->can_never_run = 1;
+		if (end_cycle)
+			break;
 
 		if (ns_arr != NULL) { /* success! */
 			resource_resv *tj;
@@ -924,14 +1090,6 @@ main_sched_loop(status *policy, int sd, server_info *sinfo, schd_error **rerr)
 				}
 			} else
 				free_nspecs(ns_arr);
-		}
-		else if (policy->preempting && in_runnable_state(njob) && (!njob -> can_never_run)) {
-			if (find_and_preempt_jobs(policy, sd, njob, sinfo, err) > 0) {
-				rc = SUCCESS;
-				sort_again = MUST_RESORT_JOBS;
-			}
-			else
-				sort_again = SORTED;
 		}
 
 #ifdef NAS /* localmod 034 */
