@@ -220,8 +220,8 @@ upgrade_pbs_database() {
 		echo "Database version file: ${data_dir}/PG_VERSION not found, cannot continue"
 		return 1
 	fi
-	
-	sys_pgsql_ver=$(echo `${PGSQL_BIN}/postgres -V` | awk 'NR==1 {print $NF}' | cut -d '.' -f 1,2)
+
+	sys_pgsql_ver=$(${PGSQL_BIN}/postgres -V | awk 'NR==1 {print $NF}' | cut -d '.' -f 1,2)
 	old_pgsql_ver=`cat ${data_dir}/PG_VERSION`
 	# strip the minor version from sys_pgsql_ver if old_pgsql_ver does not have minor version (for comparison).
 	[[ ! $old_pgsql_ver =~ "." ]] && sys_pgsql_ver=$(echo $sys_pgsql_ver | cut -d '.' -f 1)
