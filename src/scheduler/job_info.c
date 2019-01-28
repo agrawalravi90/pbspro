@@ -2919,6 +2919,7 @@ preempt_job(status *policy, int pbs_sd, resource_resv *pjob, server_info *sinfo)
  * @param[in]	pbs_sd	-	communication descriptor to the PBS server
  * @param[in]	hjob	-	the high priority job
  * @param[in]	sinfo	-	the server to find jobs to preempt
+ * @param[in]	jobs - input list of job ranks to preempt
  * @param[out]	err	-	schd_error to return error from runjob
  *
  * @return	int
@@ -2928,11 +2929,11 @@ preempt_job(status *policy, int pbs_sd, resource_resv *pjob, server_info *sinfo)
  *
  */
 int
-find_and_preempt_jobs(status *policy, int pbs_sd, resource_resv *hjob, server_info *sinfo, schd_error *err)
+find_and_preempt_jobs(status *policy, int pbs_sd, resource_resv *hjob, server_info *sinfo,
+		int *jobs, schd_error *err)
 {
 
 	int i;
-	int *jobs = NULL;
 	resource_resv *job = NULL;
 	int ret = -1;
 	int done = 0;
@@ -2959,13 +2960,15 @@ find_and_preempt_jobs(status *policy, int pbs_sd, resource_resv *hjob, server_in
 		return -1;
 	}
 
+	if (jobs == NULL)
+		jobs = find_jobs_to_preempt(policy, hjob, sinfo, fail_list);
+
 	/* loop till done is true, ie, all selected jobs are truely preempted,
 	 * or we cant find enough jobs to preempt
 	 * or the maximum number of tries has been exhausted
 	 */
-	while (!done &&
-		((jobs = find_jobs_to_preempt(policy, hjob, sinfo, fail_list)) != NULL) &&
-		num_tries < MAX_PREEMPT_RETRIES) {
+	for (;!done && jobs != NULL && num_tries < MAX_PREEMPT_RETRIES;
+			jobs = find_jobs_to_preempt(policy, hjob, sinfo, fail_list)) {
 		done = 1;
 		for (i = 0 ; jobs[i] != 0; i++) {
 			job = find_resource_resv_by_indrank(sinfo->running_jobs, jobs[i], -1);
@@ -2982,6 +2985,7 @@ find_and_preempt_jobs(status *policy, int pbs_sd, resource_resv *hjob, server_in
 				}
 			}
 		}
+
 		free(jobs);
 		num_tries++;
 	}
@@ -3547,7 +3551,7 @@ select_index_to_preempt(status *policy, resource_resv *hjob,
 				good = 0;
 		}
 
-		if (good) {
+		if (good && fail_list != NULL) {
 			for (j = 0; fail_list[j] != 0; j++) {
 				if (fail_list[j] == rjobs[i]->rank) {
 					good = 0;
