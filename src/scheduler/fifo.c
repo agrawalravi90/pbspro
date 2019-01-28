@@ -809,9 +809,6 @@ typedef struct checkjob_thread_data {
 	int should_use_buckets;
 } checkjob_thread_data;
 
-void
-checkjob_thread_cleanup(checkjob_thread_data *t_data);
-
 /**
  * @brief	Cleanup routine for checkjob threads
  *
@@ -852,7 +849,7 @@ check_job_can_run(void *data)
 	resource_resv *job;
 	status *policy;
 	server_info *sinfo;
-	schd_error *err;
+	schd_error *err = NULL;
 	int last_state, last_type;
 
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &last_state);
@@ -866,6 +863,7 @@ check_job_can_run(void *data)
 	job = thread_data->job;
 	policy = thread_data->policy;
 	sinfo = thread_data->sinfo;
+	err = thread_data->err;
 
 	if (job == NULL)
 		return NULL;
@@ -900,6 +898,9 @@ check_job_can_run(void *data)
 	return ns_arr;
 }
 
+/**
+ * @brief	Handle operations for a job that failed run_update_resresv
+ */
 int
 handle_job_not_run(status *policy, server_info *sinfo, queue_info *qinfo, resource_resv *tj,
 		int sd, checkjob_thread_data *thread_data, int *num_topjobs, schd_error *err)
@@ -1007,17 +1008,23 @@ handle_job_not_run(status *policy, server_info *sinfo, queue_info *qinfo, resour
 }
 
 /**
- * @brief	Find the first job that can run along with its nspec array
+ * @brief	Find and run the first job that can be run in the order of priority
+ *
+ * @param[in]	policy	-	policy info
+ * @param[in]	sd	-	connection descriptor to server or
+ *		   	  			SIMULATE_SD if we're simulating
+ * @param[in]	sinfo	-	pbs universe we're going to loop over
+ * @param[out]	ret_end_cycle - int pointer to flag that tells sched to end cycle
  *
  */
 int
-find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
-		int sd, int sort_again, nspec ***nspec_arr_ret)
+find_run_a_job(status *policy, server_info *sinfo, schd_error *err,
+		int sd, int *ret_end_cycle)
 {
 	resource_resv *job_to_run = NULL;
 	int num_cores = 8;	/* TODO: Calculate this in a platform independent way */
 	int i;
-	int end_cycle;
+	int end_cycle = 0;
 	pthread_t *threads = NULL;
 	checkjob_thread_data **thread_data_arr = NULL;
 	int rc = 0;
@@ -1025,6 +1032,9 @@ find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 	int num_topjobs = 0; /* number of jobs we've added to the calendar */
 	time_t cycle_start_time;
 	time_t cycle_end_time;
+	char buf[MAX_LOG_SIZE];		/* used for misc printing */
+	int cmd;
+	int sort_again = DONT_SORT_JOBS;
 
 	time(&cycle_start_time);
 	/* calculate the time which we've been in the cycle too long */
@@ -1035,13 +1045,13 @@ find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 	if (threads == NULL) {
 		snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
 		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
-		return NULL;
+		return -1;
 	}
 	thread_data_arr = malloc(num_cores * sizeof(checkjob_thread_data *));
 	if (thread_data_arr == NULL) {
 		snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
 		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
-		return NULL;
+		return -1;
 	}
 
 	while (rc != SUCCESS && !end_cycle) {
@@ -1055,27 +1065,29 @@ find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 				break;
 			}
 
+			qinfo = njob->job->queue;
+
 			t_data = malloc(sizeof(checkjob_thread_data));
 			if (t_data == NULL) {
 				free(threads);
 				snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
 				schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
-				return NULL;
+				return -1;
 			}
 
 			t_data->job = njob;
 			t_data->policy = policy;
 			t_data->sinfo = sinfo;
-			t_data->err = new_schd_error();
 			t_data->ns_arr = NULL;
 			t_data->pjob_ranks = NULL;
-			t_data->should_use_buckets = job_should_use_buckets(job);
+			t_data->should_use_buckets = job_should_use_buckets(njob);
+			t_data->err = new_schd_error();
 			if (t_data->err == NULL) {
 				free(threads);
 				free(t_data);
 				snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
 				schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
-				return NULL;
+				return -1;
 			}
 
 			/* Launch 1 thread for each core, each thread tries to see if its job can run */
@@ -1089,7 +1101,7 @@ find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 			nspec **ns_arr = NULL;
 			checkjob_thread_data *t_data = NULL;
 
-			pthread_join(threads[i], &ns_arr);
+			pthread_join(threads[i], (void *) &ns_arr);
 			t_data = thread_data_arr[i];
 
 			if (ns_arr != NULL) { /* the job can run! */
@@ -1111,9 +1123,8 @@ find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 					if (run_update_resresv(policy, sd, sinfo, qinfo, tj, ns_arr,
 							RURR_ADD_END_EVENT, err) > 0) {
 						rc = SUCCESS;
-						*nspec_arr_ret = ns_arr;
 						sort_again = MAY_RESORT_JOBS;
-					} else {
+					} else {	/* Couldn't run the job */
 						rc = err->error_code;
 						sort_again = SORTED;
 						if (rc == SCHD_ERROR || rc == PBSE_PROTOCOL || got_sigpipe) {
@@ -1123,7 +1134,7 @@ find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 									"Leaving scheduling cycle because of an internal error.");
 						} else if (rc != SUCCESS && rc != RUN_FAILURE) {
 							if (handle_job_not_run(policy, sinfo, qinfo, tj, sd, t_data,
-									num_topjobs, err) != 0) {
+									&num_topjobs, err) != 0) {
 								end_cycle = 1;
 							}
 						}
@@ -1190,7 +1201,7 @@ find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 					pthread_cancel(threads[j]);
 				}
 				for (j = i; j < num_cores; j++) {
-					pthread_join(threads[j], &ns_arr);
+					pthread_join(threads[j], (void *) &ns_arr);
 				}
 				break;
 			}
@@ -1198,6 +1209,8 @@ find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 	}	/* while (job_to_run == NULL && !end_cycle) */
 
 	free(thread_data_arr);
+
+	*ret_end_cycle = end_cycle;
 
 	return rc;
 }
@@ -1227,41 +1240,18 @@ find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 int
 main_sched_loop(status *policy, int sd, server_info *sinfo, schd_error **rerr)
 {
-	queue_info *qinfo;		/* ptr to queue that job is in */
-	resource_resv *njob;		/* ptr to the next job to see if it can run */
 	int rc = 0;			/* return code to the function */
-	int num_topjobs = 0;		/* number of jobs we've added to the calendar */
 	int end_cycle = 0;		/* boolean  - end main cycle loop */
-	char log_msg[MAX_LOG_SIZE];	/* used to log an message about job */
-	char comment[MAX_LOG_SIZE];	/* used to update comment of job */
-	char buf[MAX_LOG_SIZE];		/* used for misc printing */
-	time_t cycle_start_time;	/* the time the cycle starts */
-	time_t cycle_end_time;		/* the time when the current cycle should end */
-	time_t cur_time;		/* the current time via time() */
-	nspec **ns_arr = NULL;		/* node solution for job */
-	int i;
-	int cmd;
-	int sort_again = DONT_SORT_JOBS;
 	schd_error *err;
-	schd_error *chk_lim_err;
 
 	if (policy == NULL || sinfo == NULL || rerr == NULL)
 		return -1;
 
-	time(&cycle_start_time);
-	/* calculate the time which we've been in the cycle too long */
-	cycle_end_time = cycle_start_time + sinfo->sched_cycle_len;
-
-	chk_lim_err = new_schd_error();
-	if(chk_lim_err == NULL)
-		return -1;
 	err = new_schd_error();
 	if(err == NULL) {
-		free_schd_error(chk_lim_err);
 		return -1;
 	}
 
-	/* main scheduling loop */
 #ifdef NAS
 	/* localmod 030 */
 	interrupted_cycle_start_time = cycle_start_time;
@@ -1270,244 +1260,15 @@ main_sched_loop(status *policy, int sd, server_info *sinfo, schd_error **rerr)
 	/* localmod 064 */
 	site_list_jobs(sinfo, sinfo->jobs);
 #endif
-	for (i = 0; !end_cycle &&
-		(njob = next_job(policy, sinfo, sort_again)) != NULL; i++) {
-		int should_use_buckets;		/* Should use node buckets for a job */
-		unsigned int flags = NO_FLAGS;	/* flags to is_ok_to_run @see is_ok_to_run() */
-		int j;
 
-#ifdef NAS /* localmod 030 */
-		if (check_for_cycle_interrupt(1)) {
-			break;
-		}
-#endif /* localmod 030 */
-
-
-		rc = 0;
-		comment[0] = '\0';
-		log_msg[0] = '\0';
-
-		clear_schd_error(err);
-
-		schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
-			njob->name, "Considering job to run");
-		njob = find_job_to_run(policy, sinfo, &err, sd, sort_again, &ns_arr);
-
-		should_use_buckets = job_should_use_buckets(njob);
-
-		if (end_cycle)
-			break;
-
-		if (ns_arr != NULL) { /* success! */
-			resource_resv *tj;
-			if (njob->job->is_array) {
-				tj = queue_subjob(njob, sinfo, qinfo);
-				if (tj == NULL) {
-					rc = SCHD_ERROR;
-					njob->can_not_run = 1;
-				}
-			} else
-				tj = njob;
-
-			if (rc != SCHD_ERROR) {
-				if(run_update_resresv(policy, sd, sinfo, qinfo, tj, ns_arr, RURR_ADD_END_EVENT, err) > 0 ) {
-					rc = SUCCESS;
-					sort_again = MAY_RESORT_JOBS;
-				} else {
-					/* if run_update_resresv() returns 0 and pbs_errno == PBSE_HOOKERROR,
-					 * then this job is required to be ignored in this scheduling cycle
-					 */
-					rc = err->error_code;
-					sort_again = SORTED;
-				}
-			} else
-				free_nspecs(ns_arr);
-		}
-
-#ifdef NAS /* localmod 034 */
-		if (rc == SUCCESS && !site_is_queue_topjob_set_aside(njob)) {
-			site_bump_topjobs(njob);
-		}
-		if (rc == SUCCESS) {
-			site_resort_jobs(njob);
-		}
-#endif /* localmod 034 */
-
-		/* if run_update_resresv() returns an error, it's generally pretty serious.
-		 * lets bail out of the cycle now
-		 */
-		if (rc == SCHD_ERROR || rc == PBSE_PROTOCOL || got_sigpipe) {
-			end_cycle = 1;
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB, LOG_WARNING, njob->name, "Leaving scheduling cycle because of an internal error.");
-		}
-		else if (rc != SUCCESS && rc != RUN_FAILURE) {
-			int cal_rc;
-#ifdef NAS /* localmod 034 */
-			int bf_rc;
-			sort_again = SORTED;
-			if ((bf_rc = site_should_backfill_with_job(policy, sinfo, njob, num_topjobs, num_topjobs_per_queues, err)))
-#else
-			sort_again = SORTED;
-			if (should_backfill_with_job(policy, sinfo, njob, num_topjobs) != 0) {
-#endif
-				cal_rc = add_job_to_calendar(sd, policy, sinfo, njob, should_use_buckets);
-
-				if (cal_rc > 0) { /* Success! */
-#ifdef NAS /* localmod 034 */
-					switch(bf_rc)
-					{
-						case 1:
-							num_topjobs++;
-							break;
-						case 2: /* localmod 038 */
-							num_topjobs_per_queues++;
-							break;
-						case 3:
-							site_bump_topjobs(njob, 0.0);
-							num_topjobs++;
-							break;
-						case 4:
-							if (!njob->job->is_preempted) {
-								site_bump_topjobs(njob, delta);
-								num_topjobs++;
-							}
-							break;
-					}
-#else
-					if (njob->job->is_preempted == 0 || sinfo->enforce_prmptd_job_resumption == 0) { /* preempted jobs don't increase top jobs count */
-						if (qinfo->backfill_depth == UNSPECIFIED)
-							num_topjobs++;
-						else
-							qinfo->num_topjobs++;
-					}
-#endif /* localmod 034 */
-				}
-				else if (cal_rc == -1) { /* recycle */
-					end_cycle = 1;
-					rc = -1;
-					schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, LOG_DEBUG,
-						njob->name, "Error in add_job_to_calendar");
-				}
-				/* else cal_rc == 0: failed to add to calendar - continue on */
-			}
-
-			/* Need to set preemption status so that soft limits can be checked
-			 * before updating accrue_type.
-			 */
-			if (sinfo->eligible_time_enable == 1) {
-				struct schd_error *update_accrue_err = err;
-				set_preempt_prio(njob, qinfo, sinfo);
-				/*
-				 * A temporary schd_error location where errors from check_limits
-				 * will be stored (when called to check CUMULATIVE limits)
-				 */
-				clear_schd_error(chk_lim_err);
-				if (sinfo->qrun_job == NULL) {
-					chk_lim_err->error_code = (enum sched_error)check_limits(sinfo,
-						qinfo, njob, chk_lim_err, CHECK_CUMULATIVE_LIMIT);
-					if (chk_lim_err->error_code != 0) {
-						update_accrue_err = chk_lim_err;
-					}
-					/* Update total_*_counts in server_info and queue_info
-					 * based on number of jobs that are either running  or
-					 * are considered to run.
-					 */
-					update_total_counts(sinfo, qinfo, njob, ALL);
-				}
-				update_accruetype(sd, sinfo, ACCRUE_CHECK_ERR, update_accrue_err->error_code, njob);
-			}
-
-			njob->can_not_run = 1;
-		}
-
-		if ((rc != SUCCESS) && (err->error_code != 0)) {
-			translate_fail_code(err, comment, log_msg);
-			if (comment[0] != '\0' &&
-				(!njob->job->is_array || !njob->job->is_begin))
-				update_job_comment(sd, njob, comment);
-			if (log_msg[0] != '\0')
-				schdlog(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB,
-					LOG_INFO, njob->name, log_msg);
-
-			/* If this job couldn't run, the mark the equiv class so the rest of the jobs are discarded quickly.*/
-			if(sinfo->equiv_classes != NULL && njob->ec_index != UNSPECIFIED ) {
-				resresv_set *ec = sinfo->equiv_classes[njob->ec_index];
-				if (rc != RUN_FAILURE &&  !ec->can_not_run) {
-					ec->can_not_run = 1;
-					ec->err = dup_schd_error(err);
-				}
-			}
-		}
-
-		if (njob->can_never_run) {
-			schdlog(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB, LOG_WARNING,
-				njob->name, "Job will never run with the resources currently configured in the complex");
-		}
-		if ((rc != SUCCESS) && njob->job->resv ==NULL) {
-			/* jobs in reservations are outside of the law... they don't cause
-			 * the rest of the system to idle waiting for them
-			 */
-			if (policy->strict_fifo) {
-				set_schd_error_codes(err, NOT_RUN, STRICT_ORDERING);
-				update_jobs_cant_run(sd, qinfo->jobs, NULL, err, START_WITH_JOB);
-			}
-			else if (!policy->backfill && policy->strict_ordering) {
-				set_schd_error_codes(err, NOT_RUN, STRICT_ORDERING);
-				update_jobs_cant_run(sd, sinfo->jobs, NULL, err, START_WITH_JOB);
-			}
-			else if (!policy->backfill && policy->help_starving_jobs &&
-				njob->job->is_starving) {
-				set_schd_error_codes(err, NOT_RUN, ERR_SPECIAL);
-				set_schd_error_arg(err, SPECMSG, "Job would conflict with starving job");
-				update_jobs_cant_run(sd, sinfo->jobs, NULL, err, START_WITH_JOB);
-			}
-		}
-
-		time(&cur_time);
-		if (cur_time >= cycle_end_time) {
-			end_cycle = 1;
-			snprintf(buf, MAX_LOG_SIZE, "Leaving the scheduling cycle: Cycle duration of %ld seconds has exceeded %s of %ld seconds", (long)(cur_time - cycle_start_time), ATTR_sched_cycle_len, sinfo->sched_cycle_len);
-			schdlog(PBSEVENT_SCHED, PBS_EVENTCLASS_SCHED, LOG_NOTICE, "toolong", buf);
-		}
-		if (conf.max_jobs_to_check != SCHD_INFINITY && (i + 1) >= conf.max_jobs_to_check) {
-			/* i begins with 0, hence i + 1 */
-			end_cycle = 1;
-			snprintf(buf, MAX_LOG_SIZE, "Bailed out of main job loop after checking to see if %d jobs could run.", (i + 1));
-			schdlog(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB, LOG_INFO, "", buf);
-		}
-
-		if (!end_cycle) {
-			if (second_connection != -1) {
-				char *jid = NULL;
-
-				/* get_sched_cmd_noblk() located in file get_4byte.c */
-				if ((get_sched_cmd_noblk(second_connection, &cmd, &jid) == 1) &&
-					(cmd == SCH_SCHEDULE_RESTART_CYCLE)) {
-					schdlog(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB, LOG_WARNING,
-						njob->name, "Leaving scheduling cycle as requested by server.");
-					end_cycle = 1;
-				}
-				if (jid != NULL)
-					free(jid);
-			}
-		}
-
-#ifdef NAS /* localmod 030 */
-		if (check_for_cycle_interrupt(0)) {
-			consecutive_interrupted_cycles++;
-		}
-		else {
-			consecutive_interrupted_cycles = 0;
-		}
-#endif /* localmod 030 */
-
-		/* send any attribute updates to server that we've collected */
-		send_job_updates(sd, njob);
+	/* main scheduling loop */
+	rc = 0;
+	while (!end_cycle && rc != -1) {
+		rc = find_run_a_job(policy, sinfo, err, sd, &end_cycle);
 	}
 
 	*rerr = err;
 
-	free_schd_error(chk_lim_err);
 	return rc;
 }
 

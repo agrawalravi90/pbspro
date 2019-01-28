@@ -142,7 +142,8 @@ int preempt_job(status *policy, int pbs_sd, resource_resv *jinfo, server_info *s
 /*
  *      find_and_preempt_jobs - find the jobs to preempt and then preempt them
  */
-int find_and_preempt_jobs(status *policy, int pbs_sd, resource_resv *hjinfo, server_info *sinfo, schd_error *err);
+int find_and_preempt_jobs(status *policy, int pbs_sd, resource_resv *hjinfo, server_info *sinfo, int *jobs,
+		schd_error *err);
 
 /*
  *      find_jobs_to_preempt - find jobs to preempt in order to run a high
