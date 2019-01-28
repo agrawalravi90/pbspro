@@ -809,6 +809,28 @@ typedef struct checkjob_thread_data {
 	int should_use_buckets;
 } checkjob_thread_data;
 
+void
+checkjob_thread_cleanup(checkjob_thread_data *t_data);
+
+/**
+ * @brief	Cleanup routine for checkjob threads
+ *
+ * @param[in,out]	t_data - the thead data object
+ *
+ * @return void
+ */
+void
+checkjob_thread_cleanup(checkjob_thread_data *t_data)
+{
+	if (t_data == NULL)
+		return;
+
+	free(t_data->err);
+	free(t_data->pjob_ranks);
+	free_nspecs(t_data->ns_arr);
+	free(t_data);
+}
+
 /**
  * @brief	Thread local function, tries to see if a job can run by calling
  * 			is_ok_to_run(). If job can't run, it also does preemption simulation
@@ -831,6 +853,11 @@ check_job_can_run(void *data)
 	status *policy;
 	server_info *sinfo;
 	schd_error *err;
+	int last_state, last_type;
+
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &last_state);
+	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &last_type);
+	pthread_cleanup_push((void *)checkjob_thread_cleanup, data);
 
 	thread_data = (checkjob_thread_data *) data;
 	if (thread_data == NULL)
@@ -867,6 +894,8 @@ check_job_can_run(void *data)
 	} else if (policy->preempting && in_runnable_state(job) && (!job->can_never_run)) {
 		thread_data->pjob_ranks = find_jobs_to_preempt(policy, job, sinfo, NULL);
 	}
+
+	pthread_cleanup_pop(0);
 
 	return ns_arr;
 }
@@ -981,7 +1010,7 @@ handle_job_not_run(status *policy, server_info *sinfo, queue_info *qinfo, resour
  * @brief	Find the first job that can run along with its nspec array
  *
  */
-resource_resv *
+int
 find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 		int sd, int sort_again, nspec ***nspec_arr_ret)
 {
@@ -1015,7 +1044,7 @@ find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 		return NULL;
 	}
 
-	while (job_to_run == NULL && !end_cycle) {
+	while (rc != SUCCESS && !end_cycle) {
 		for (i = 0; i < num_cores; i++) {
 			resource_resv *njob = NULL;
 			checkjob_thread_data *t_data = NULL;
@@ -1147,24 +1176,30 @@ find_job_to_run(status *policy, server_info *sinfo, schd_error **err,
 				}
 			}
 
-			if (rc == SUCCESS || end_cycle) {
-				/* TODO: Either we ran the job, or we are bailing, either ways, kill all threads */
-
-			}
-
 			/* send any attribute updates to server that we've collected */
 			send_job_updates(sd, job_to_run);
 
 			free(t_data->err);
+			free(t_data->pjob_ranks);
+			free(t_data);
+
+			if (rc == SUCCESS || end_cycle) {
+				int j;
+				/* Either we ran the job, or we are bailing, either ways, kill all threads */
+				for (j = i; j < num_cores; j++) {
+					pthread_cancel(threads[j]);
+				}
+				for (j = i; j < num_cores; j++) {
+					pthread_join(threads[j], &ns_arr);
+				}
+				break;
+			}
 		}
 	}	/* while (job_to_run == NULL && !end_cycle) */
 
-	if (job_to_run == NULL) {
-		/* Couldn't find any job that can run, just return the highest priority job */
-		job_to_run = thread_data_arr[0]->job;
-	}
+	free(thread_data_arr);
 
-	return job_to_run;
+	return rc;
 }
 
 
