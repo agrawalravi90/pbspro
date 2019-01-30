@@ -149,6 +149,7 @@ new_resource_resv()
 	resresv->can_not_run = 0;
 	resresv->can_never_run = 0;
 	resresv->is_peer_ob = 0;
+	resresv->is_being_considered = 0;
 
 	resresv->is_prov_needed = 0;
 	resresv->is_job = 0;

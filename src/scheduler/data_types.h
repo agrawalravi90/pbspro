@@ -665,6 +665,7 @@ struct resource_resv
 	unsigned	can_not_fit:1;		/* res resv can not fit into node group */
 	unsigned	is_invalid:1;		/* res resv is invalid and will be ignored */
 	unsigned	is_peer_ob:1;		/* res resv can from a peer server */
+	unsigned is_being_considered:1;	/* res resv is already being considered by a thread */
 
 	unsigned	is_job:1;		/* res resv is a job */
 	unsigned	is_prov_needed:1;	/* res resv requires provisioning */
