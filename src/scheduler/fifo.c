@@ -812,6 +812,28 @@ typedef struct checkjob_thread_data {
 	int should_use_buckets;
 } checkjob_thread_data;
 
+
+/**
+ * @brief	Cleanup routine for check_job_can_run threads
+ *
+ * @param[in,out]	data - thread data object for the thread
+ *
+ * @return void
+ */
+void
+checkjob_cleanup(void *data)
+{
+	checkjob_thread_data *t_data = NULL;
+
+	t_data = (checkjob_thread_data *) data;
+	if (t_data != NULL) {
+		free_schd_error(t_data->err);
+		free(t_data->pjob_ranks);
+		free_nspecs(t_data->ns_arr);
+		free(t_data);
+	}
+}
+
 /**
  * @brief	Thread local function, tries to see if a job can run by calling
  * 			is_ok_to_run(). If job can't run, it also does preemption simulation
@@ -837,11 +859,13 @@ check_job_can_run(void *data)
 	int last_state, last_type;
 
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &last_state);
-	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &last_type);
+	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &last_type);
 
 	thread_data = (checkjob_thread_data *) data;
 	if (thread_data == NULL)
 		return NULL;
+
+	pthread_cleanup_push(checkjob_cleanup, (void *) thread_data);
 
 	job = thread_data->job;
 	policy = thread_data->policy;
@@ -858,9 +882,6 @@ check_job_can_run(void *data)
 	if(thread_data->should_use_buckets)
 		flags = USE_BUCKETS;
 
-	schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
-		job->name, "Considering job to run");
-
 	if (job->is_shrink_to_fit) {
 		/* Pass the suitable heuristic for shrinking */
 		ns_arr = is_ok_to_run_STF(policy, sinfo, qinfo, job, flags, err, shrink_job_algorithm);
@@ -875,6 +896,8 @@ check_job_can_run(void *data)
 	} else if (policy->preempting && in_runnable_state(job) && (!job->can_never_run)) {
 		thread_data->pjob_ranks = find_jobs_to_preempt(policy, job, sinfo, NULL);
 	}
+
+	pthread_cleanup_pop(0);
 
 	return ns_arr;
 }
@@ -892,7 +915,8 @@ check_job_can_run(void *data)
  * @retval 0 otherwise
  */
 int
-check_imm_exit(time_t cycle_start_time, time_t cycle_end_time, long cycle_len, char* job_name)
+check_imm_exit(time_t cycle_start_time, time_t cycle_end_time, long cycle_len, char* job_name,
+		long total_jobs_consdrd)
 {
 	time_t cur_time;
 	int end_cycle_now = 0;
@@ -922,6 +946,15 @@ check_imm_exit(time_t cycle_start_time, time_t cycle_end_time, long cycle_len, c
 		}
 		if (jid != NULL)
 			free(jid);
+	}
+
+	if (conf.max_jobs_to_check != SCHD_INFINITY
+			&& total_jobs_consdrd >= conf.max_jobs_to_check) {
+		end_cycle_now = 1;
+		snprintf(buf, MAX_LOG_SIZE,
+				"Bailed out of main job loop after checking to see if %ld jobs could run.",
+				total_jobs_consdrd);
+		schdlog(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB, LOG_INFO, "", buf);
 	}
 
 	return end_cycle_now;
@@ -1062,9 +1095,9 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 	int num_topjobs = 0; /* number of jobs we've added to the calendar */
 	time_t cycle_start_time;
 	time_t cycle_end_time;
-	char buf[MAX_LOG_SIZE];		/* used for misc printing */
 	int sort_again = DONT_SORT_JOBS;
-	int num_jobs_considered = 0;
+	static long total_jobs_consdrd = 0;
+	int num_jobs_cnsdrd = 0;
 	resource_resv **jobs_considered = NULL;
 	long jobs_consdrd_size = 100;
 	schd_error *err = NULL;
@@ -1115,14 +1148,14 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 
 			njob = next_job(policy, sinfo, sort_again);
 			if (njob == NULL) { /* Ran out of jobs, quit */
-				end_cycle = 1;
+				if (i == 0)
+					end_cycle = 1;
 				break;
 			}
 
-			/* Mark this job as being considered so that next_job ignores it for next iter */
+			/* Mark this job as being considered so that next_job ignores it for next iteration */
 			njob->is_being_considered = 1;
-			qinfo = njob->job->queue;
-			if ((num_jobs_considered + 1) >= jobs_consdrd_size) {
+			if ((num_jobs_cnsdrd + 1) >= jobs_consdrd_size) {
 				resource_resv **temp_arr = NULL;
 
 				/* Need to realloc jobs_considered array */
@@ -1138,8 +1171,8 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 				}
 				jobs_considered = temp_arr;
 			}
-			jobs_considered[num_jobs_considered++] = njob;
-			jobs_considered[num_jobs_considered] = NULL;
+			jobs_considered[num_jobs_cnsdrd++] = njob;
+			jobs_considered[num_jobs_cnsdrd] = NULL;
 
 			t_data = malloc(sizeof(checkjob_thread_data));
 			if (t_data == NULL) {
@@ -1167,15 +1200,6 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 			/* Launch 1 thread for each core, each thread tries to see if its job can run */
 			pthread_create(&(threads[i]), NULL, check_job_can_run, t_data);
 			thread_data_arr[i] = t_data;
-
-			if (conf.max_jobs_to_check != SCHD_INFINITY
-					&& num_jobs_considered >= conf.max_jobs_to_check) {
-				end_cycle = 1;
-				snprintf(buf, MAX_LOG_SIZE,
-						"Bailed out of main job loop after checking to see if %d jobs could run.",
-						num_jobs_considered);
-				schdlog(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB, LOG_INFO, "", buf);
-			}
 		}
 		num_threads = i;
 
@@ -1189,6 +1213,11 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 			job_to_run = t_data->job;
 			free_schd_error(err);
 			err = t_data->err;
+			qinfo = job_to_run->job->queue;
+
+			schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
+					job_to_run->name, "Considering job to run");
+			total_jobs_consdrd++;
 
 			if (ns_arr != NULL) { /* the job can run! */
 				/* the job can run! */
@@ -1242,8 +1271,7 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 			/* See if we need to exit the current cycle immediately */
 			if (!end_cycle && !end_cycle_now)
 				end_cycle_now = check_imm_exit(cycle_start_time, cycle_end_time,
-						sinfo->sched_cycle_len, job_to_run->name);
-
+						sinfo->sched_cycle_len, job_to_run->name, total_jobs_consdrd);
 			if (end_cycle_now)
 				end_cycle = 1;
 
@@ -1257,20 +1285,14 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 
 			if (rc == SUCCESS || end_cycle_now) {
 				int j;
-				/* Either we ran the job, or we are bailing, either ways, kill all threads */
-				for (j = 0; j < num_threads; j++) {
-					if (j != i)
-						pthread_cancel(threads[j]);
+				/*
+				 * Either we ran the job, or we are bailing,
+				 * either ways, kill all remaining threads
+				 */
+				for (j = i + 1; j < num_threads; j++) {
+					pthread_cancel(threads[j]);
 				}
-				for (j = 0; j < num_threads; j++) {
-					if (j != i) {
-						pthread_join(threads[j], (void *) &ns_arr);
-						free_schd_error(thread_data_arr[j]->err);
-						free(thread_data_arr[j]->pjob_ranks);
-						free_nspecs(thread_data_arr[j]->ns_arr);
-						free(thread_data_arr[j]);
-					}
-				}
+
 				break;
 			}
 		} /* for (i = 0; i < num_threads; i++) */
@@ -1280,7 +1302,7 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 	free(threads);
 
 	/* Go through all the jobs which were considered and unset their considered flag */
-	for (i = 0; i < num_jobs_considered; i++) {
+	for (i = 0; i < num_jobs_cnsdrd; i++) {
 		jobs_considered[i]->is_being_considered = 0;
 	}
 	free(jobs_considered);
@@ -2379,7 +2401,7 @@ find_non_normal_job_ind(resource_resv **jobs, int start_index) {
 		if (jobs[i]->job != NULL) {
 			if ((jobs[i]->job->preempt_status & PREEMPT_TO_BIT(PREEMPT_EXPRESS)) ||
 			(jobs[i]->job->is_preempted) || (jobs[i]->job->is_starving)) {
-				if (!jobs[i]->can_not_run)
+				if (!jobs[i]->can_not_run && !jobs[i]->is_being_considered)
 					return i;
 			} else if (jobs[i]->job->preempt_status & PREEMPT_TO_BIT(PREEMPT_NORMAL))
 				return -1;

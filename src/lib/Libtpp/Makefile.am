@@ -40,6 +40,8 @@ noinst_LIBRARIES = libtpp.a
 
 libtpp_a_CPPFLAGS = -I$(top_srcdir)/src/include
 
+libtpp_a_LDFLAGS = -lpthread
+
 libtpp_a_SOURCES = \
 	tpp_client.c \
 	tpp_common.h \

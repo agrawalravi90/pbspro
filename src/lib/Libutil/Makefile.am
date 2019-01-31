@@ -41,6 +41,8 @@ noinst_LIBRARIES = libutil.a
 libutil_a_CPPFLAGS = \
 	-I$(top_srcdir)/src/include \
 	@libical_inc@
+	
+libutil_a_LDFLAGS = -lpthread
 
 libutil_a_SOURCES = \
 	execvnode_seq_util.c \
