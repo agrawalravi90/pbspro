@@ -1280,7 +1280,6 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 			 * if there's another iteration then we'll free it in the next iteration,
 			 * otherwise we will return it via rerr
 			 */
-			free(t_data->pjob_ranks);
 			free(t_data);
 
 			if (rc == SUCCESS || end_cycle_now) {
