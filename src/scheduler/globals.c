@@ -77,6 +77,14 @@ const struct sort_conv sort_convert[] =
 	{NULL, NULL, NO_SORT_ORDER}
 };
 
+/* Information about job order, used inside next_job() to determine next job to pick */
+job_order_info order_info = {
+		-1,
+		-1,
+		-1,
+		MAY_RESORT_JOBS,
+		SKIP_NOTHING
+};
 
 /*
  * 	smp_cluster_info - used to convert parse values into enum

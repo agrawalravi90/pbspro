@@ -49,6 +49,9 @@ extern const struct rescheck res_to_check[];
 /* information about sorting */
 extern const struct sort_conv sort_convert[];
 
+/* information about job order */
+extern job_order_info order_info;
+
 /* used to convert string into enum in parsing */
 extern const struct enum_conv smp_cluster_info[];
 extern const struct enum_conv prempt_prio_info[];

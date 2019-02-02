@@ -130,6 +130,7 @@ typedef struct node_bucket node_bucket;
 typedef struct bucket_bitpool bucket_bitpool;
 typedef struct chunk_map chunk_map;
 typedef struct node_bucket_count node_bucket_count;
+typedef struct job_order_info job_order_info;
 
 #ifdef NAS
 /* localmod 034 */
@@ -942,6 +943,15 @@ struct sort_conv
 	char *config_name;
 	char *res_name;
 	enum sort_order order;
+};
+
+struct job_order_info
+{
+	int last_job;
+	int last_queue;
+	int last_queue_list;
+	enum sort_status sort_status;
+	int skip;
 };
 
 

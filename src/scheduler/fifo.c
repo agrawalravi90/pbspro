@@ -135,6 +135,29 @@ extern void win_toolong(void);
 extern int	second_connection;
 extern int	get_sched_cmd_noblk(int sock, int *val, char **jobid);
 
+typedef struct checkjob_thread_data {
+	resource_resv *job;
+	status *policy;
+	server_info *sinfo;
+	schd_error *err;
+	nspec **ns_arr;
+	int *pjob_ranks;
+	int should_use_buckets;
+	job_order_info jorder_info;
+} checkjob_thread_data;
+
+static checkjob_thread_data *create_checkjob_thread_data(resource_resv *job, status *policy,
+		server_info *sinfo);
+static void free_check_thread_data(checkjob_thread_data *obj);
+static void free_checkjob_thread_data_list(checkjob_thread_data **list);
+static int handle_job_not_run(status *policy, server_info *sinfo, queue_info *qinfo,
+		resource_resv *job, int sd, checkjob_thread_data *thread_data, int *num_topjobs,
+		schd_error *err);
+static int check_imm_exit(time_t cycle_start_time, time_t cycle_end_time, long cycle_len,
+		char* job_name, long total_jobs_consdrd);
+static int find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
+		int sd, int *ret_end_cycle);
+
 /**
  * @brief
  * 		initialize conf struct and parse conf files
@@ -802,16 +825,6 @@ scheduling_cycle(int sd, char *jobid)
 	return 0;
 }
 
-typedef struct checkjob_thread_data {
-	resource_resv *job;
-	status *policy;
-	server_info *sinfo;
-	schd_error *err;
-	nspec **ns_arr;
-	int *pjob_ranks;
-	int should_use_buckets;
-} checkjob_thread_data;
-
 
 /**
  * @brief	Cleanup routine for check_job_can_run threads
@@ -826,12 +839,7 @@ checkjob_cleanup(void *data)
 	checkjob_thread_data *t_data = NULL;
 
 	t_data = (checkjob_thread_data *) data;
-	if (t_data != NULL) {
-		free_schd_error(t_data->err);
-		free(t_data->pjob_ranks);
-		free_nspecs(t_data->ns_arr);
-		free(t_data);
-	}
+	free_check_thread_data(t_data);
 }
 
 /**
@@ -914,7 +922,7 @@ check_job_can_run(void *data)
  * @retval 1 if cycle needs to be exited
  * @retval 0 otherwise
  */
-int
+static int
 check_imm_exit(time_t cycle_start_time, time_t cycle_end_time, long cycle_len, char* job_name,
 		long total_jobs_consdrd)
 {
@@ -963,7 +971,7 @@ check_imm_exit(time_t cycle_start_time, time_t cycle_end_time, long cycle_len, c
 /**
  * @brief	Handle operations for a job that failed run_update_resresv
  */
-int
+static int
 handle_job_not_run(status *policy, server_info *sinfo, queue_info *qinfo, resource_resv *job,
 		int sd, checkjob_thread_data *thread_data, int *num_topjobs, schd_error *err)
 {
@@ -1069,6 +1077,90 @@ handle_job_not_run(status *policy, server_info *sinfo, queue_info *qinfo, resour
 	return 0;
 }
 
+/*
+ * @brief	Constructor for  checkjob_thread_data
+ *
+ * @param	job - the next job being evaluated
+ * @param	policy - policy info
+ * @param	sinfo - server info
+ *
+ * @return checkjob_thread_data *
+ * @retval pointer to newly allocated checkjob_thread_data object
+ * @retval NULL for malloc error
+ */
+static checkjob_thread_data *
+create_checkjob_thread_data(resource_resv *job, status *policy, server_info *sinfo)
+{
+	checkjob_thread_data *new_obj = NULL;
+
+	new_obj = malloc(sizeof(checkjob_thread_data));
+	if (new_obj == NULL) {
+		snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
+		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+		return NULL;
+	}
+
+	new_obj->job = job;
+	new_obj->policy = policy;
+	new_obj->sinfo = sinfo;
+	new_obj->ns_arr = NULL;
+	new_obj->pjob_ranks = NULL;
+	new_obj->should_use_buckets = job_should_use_buckets(job);
+	new_obj->err = new_schd_error();
+	if (new_obj->err == NULL) {
+		free(new_obj);
+		snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
+		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+		return NULL;
+	}
+
+	/*
+	 * Save the order info for this job,
+	 * this will be used to restore order info for next call to find_run_a_job
+	 */
+	new_obj->jorder_info = order_info;
+
+	return new_obj;
+}
+
+/**
+ * @brief	Destructor for checkjob_thread_data
+ *
+ * @param[in,out]	obj - the object to deallocate
+ *
+ * @return void
+ */
+static void
+free_check_thread_data(checkjob_thread_data *obj)
+{
+	if (obj == NULL)
+		return;
+
+	free_schd_error(obj->err);
+	free_nspecs(obj->ns_arr);
+	free(obj->pjob_ranks);
+	free(obj);
+}
+
+/**
+ * @brief	Destructor for checkjob_thread_data
+ *
+ * @param[in,out]	list - the list to be destroyed
+ *
+ * @return void
+ */
+static void
+free_checkjob_thread_data_list(checkjob_thread_data **list)
+{
+	int i;
+
+	for (i = 0; list[i] != NULL; i++) {
+		free_check_thread_data(list[i]);
+	}
+
+	free(list);
+}
+
 /**
  * @brief	Find and run the first job that can be run in the order of priority
  *
@@ -1079,7 +1171,7 @@ handle_job_not_run(status *policy, server_info *sinfo, queue_info *qinfo, resour
  * @param[out]	ret_end_cycle - int pointer to flag that tells sched to end cycle
  *
  */
-int
+static int
 find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 		int sd, int *ret_end_cycle)
 {
@@ -1120,13 +1212,14 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
 		return -1;
 	}
-	thread_data_arr = malloc(num_cores * sizeof(checkjob_thread_data *));
+	thread_data_arr = malloc((num_cores + 1) * sizeof(checkjob_thread_data *));
 	if (thread_data_arr == NULL) {
 		snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
 		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
 		free(threads);
 		return -1;
 	}
+	thread_data_arr[0] = NULL;
 
 	jobs_considered = malloc(jobs_consdrd_size * sizeof(resource_resv *));
 	if (jobs_considered == NULL) {
@@ -1166,7 +1259,7 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 					snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
 					schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
 					free(threads);
-					free(thread_data_arr);
+					free_checkjob_thread_data_list(thread_data_arr);
 					return -1;
 				}
 				jobs_considered = temp_arr;
@@ -1174,32 +1267,17 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 			jobs_considered[num_jobs_cnsdrd++] = njob;
 			jobs_considered[num_jobs_cnsdrd] = NULL;
 
-			t_data = malloc(sizeof(checkjob_thread_data));
+			t_data = create_checkjob_thread_data(njob, policy, sinfo);
 			if (t_data == NULL) {
 				free(threads);
-				snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
-				schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
-				return -1;
-			}
-
-			t_data->job = njob;
-			t_data->policy = policy;
-			t_data->sinfo = sinfo;
-			t_data->ns_arr = NULL;
-			t_data->pjob_ranks = NULL;
-			t_data->should_use_buckets = job_should_use_buckets(njob);
-			t_data->err = new_schd_error();
-			if (t_data->err == NULL) {
-				free(threads);
-				free(t_data);
-				snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
-				schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+				free_checkjob_thread_data_list(thread_data_arr);
 				return -1;
 			}
 
 			/* Launch 1 thread for each core, each thread tries to see if its job can run */
 			pthread_create(&(threads[i]), NULL, check_job_can_run, t_data);
 			thread_data_arr[i] = t_data;
+			thread_data_arr[i + 1] = NULL;
 		}
 		num_threads = i;
 
@@ -1207,7 +1285,6 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 		for (i = 0; i < num_threads; i++) {
 			nspec **ns_arr = NULL;
 
-			t_data = NULL;
 			pthread_join(threads[i], (void *) &ns_arr);
 			t_data = thread_data_arr[i];
 			job_to_run = t_data->job;
@@ -1218,6 +1295,12 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 			schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 					job_to_run->name, "Considering job to run");
 			total_jobs_consdrd++;
+
+			/* Set the job order info to reflect the info for the job that ran so that
+			 * next_job ignores all the other jobs that it returned in the previous loop
+			 * for other threads and returns the correct job when it is called the next time
+			 */
+			order_info = t_data->jorder_info;
 
 			if (ns_arr != NULL) { /* the job can run! */
 				/* the job can run! */
@@ -1276,9 +1359,10 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 				end_cycle = 1;
 
 			/*
-			 * Intentionally not freeing 'err' of current thread in this iteration,
-			 * if there's another iteration then we'll free it in the next iteration,
-			 * otherwise we will return it via rerr
+			 * If the thread ran a job, we don't wanna free nspec array.
+			 * If the thread didn't run a job, then nspec array is NULL anyways.
+			 * We free 'err' for this iteration in the nexct iteration, or we return it
+			 * so, just call free() on the thread data
 			 */
 			free(t_data);
 
@@ -2457,12 +2541,13 @@ find_susp_job(resource_resv **jobs) {
 resource_resv *
 next_job(status *policy, server_info *sinfo, int flag)
 {
-	/* last_queue is the index into a queue array of the last time
-	 * the function was called
-	 */
-	static int last_queue;
-	static int last_queue_index;
-	static int last_job_index;
+	static int queue_list_size; /* Count of number of priority levels in queue_list */
+	resource_resv *rjob = NULL;		/* the job to return */
+	int i = 0;
+	int queues_finished = 0;
+	int queue_index_size = 0;
+	int j = 0;
+	int ind;
 
 	/* skip is used to mark that we're done looking for qrun, reservation jobs and
 	 * preempted jobs (while using by_queue policy).
@@ -2475,32 +2560,23 @@ next_job(status *policy, server_info *sinfo, int flag)
 	 * 5. Starving jobs
 	 * 6. Normal jobs
 	 */
-	static int skip = SKIP_NOTHING;
-	static int sort_status = MAY_RESORT_JOBS; /* to decide whether to sort jobs or not */
-	static int queue_list_size; /* Count of number of priority levels in queue_list */
-	resource_resv *rjob = NULL;		/* the job to return */
-	int i = 0;
-	int queues_finished = 0;
-	int queue_index_size = 0;
-	int j = 0;
-	int ind;
 
 	if ((policy == NULL) || (sinfo == NULL))
 		return NULL;
 
 	if (flag == INITIALIZE) {
 		if (policy->round_robin) {
-			last_queue = 0;
-			last_queue_index = 0;
+			order_info.last_queue = 0;
+			order_info.last_queue_list = 0;
 			queue_list_size = count_array((void **)sinfo->queue_list);
 
 		}
 		else if (policy->by_queue)
-			last_queue = 0;
-		skip = SKIP_NOTHING;
+			order_info.last_queue = 0;
+		order_info.skip = SKIP_NOTHING;
 		sort_jobs(policy, sinfo);
-		sort_status = SORTED;
-		last_job_index = 0;
+		order_info.sort_status = SORTED;
+		order_info.last_job = 0;
 		return NULL;
 	}
 
@@ -2512,19 +2588,19 @@ next_job(status *policy, server_info *sinfo, int flag)
 		}
 		return rjob;
 	}
-	if (skip != SKIP_RESERVATIONS) {
+	if (order_info.skip != SKIP_RESERVATIONS) {
 		rjob = find_ready_resv_job(sinfo->resvs);
 		if (rjob != NULL)
 			return rjob;
 		else
-			skip = SKIP_RESERVATIONS;
+			order_info.skip = SKIP_RESERVATIONS;
 	}
 
-	if ((sort_status != SORTED) || ((flag == MAY_RESORT_JOBS) && policy->fair_share)
+	if ((order_info.sort_status != SORTED) || ((flag == MAY_RESORT_JOBS) && policy->fair_share)
 		|| (flag == MUST_RESORT_JOBS)) {
 		sort_jobs(policy, sinfo);
-		sort_status = SORTED;
-		last_job_index = 0;
+		order_info.sort_status = SORTED;
+		order_info.last_job = 0;
 	}
 	if (policy->round_robin) {
 		/* Below is a pictorial representation of how queue_list
@@ -2555,20 +2631,20 @@ next_job(status *policy, server_info *sinfo, int flag)
 		/* last_index refers to a priority level as shown in diagram
 		 * above.
 		 */
-		i = last_queue_index;
+		i = order_info.last_queue_list;
 		while((rjob == NULL) && (i < queue_list_size)) {
 			/* Calculating number of queues at this priority level */
 			queue_index_size = count_array((void **) sinfo->queue_list[i]);
-			for (j = last_queue; j < queue_index_size; j++) {
+			for (j = order_info.last_queue; j < queue_index_size; j++) {
 				ind = find_runnable_resresv_ind(sinfo->queue_list[i][j]->jobs, 0);
 				if(ind != -1)
 					rjob = sinfo->queue_list[i][j]->jobs[ind];
 				else
 					rjob = NULL;
-				last_queue++;
+				order_info.last_queue++;
 				/*If all queues are traversed, move back to first queue */
-				if (last_queue == queue_index_size)
-					last_queue = 0;
+				if (order_info.last_queue == queue_index_size)
+					order_info.last_queue = 0;
 				/* Count how many times we've reached the end of a queue.
 				 * If we've reached the end of all the queues, we're done.
 				 * If we find a job, reset our counter.
@@ -2590,41 +2666,41 @@ next_job(status *policy, server_info *sinfo, int flag)
 			 * start from the first queue of the next index
 			 */
 			if (queues_finished == queue_index_size) {
-				last_queue = 0;
-				last_queue_index++;
+				order_info.last_queue = 0;
+				order_info.last_queue_list++;
 				i++;
 			}
 			queues_finished = 0;
 		}
 	} else if (policy->by_queue) {
-		if (skip != SKIP_NON_NORMAL_JOBS) {
-			ind = find_non_normal_job_ind(sinfo->jobs, last_job_index);
+		if (order_info.skip != SKIP_NON_NORMAL_JOBS) {
+			ind = find_non_normal_job_ind(sinfo->jobs, order_info.last_job);
 			if (ind == -1) {
 				/* No more preempted jobs */
-				skip = SKIP_NON_NORMAL_JOBS;
-				last_job_index = 0;
+				order_info.skip = SKIP_NON_NORMAL_JOBS;
+				order_info.last_job = 0;
 			} else {
 				rjob = sinfo->jobs[ind];
-				last_job_index = ind;
+				order_info.last_job = ind;
 			}
 		}
-		if (skip == SKIP_NON_NORMAL_JOBS) {
-			while(last_queue < sinfo->num_queues &&
-			     ((ind = find_runnable_resresv_ind(sinfo->queues[last_queue]->jobs, last_job_index)) == -1)) {
-				last_queue++;
-				last_job_index = 0;
+		if (order_info.skip == SKIP_NON_NORMAL_JOBS) {
+			while(order_info.last_queue < sinfo->num_queues &&
+			     ((ind = find_runnable_resresv_ind(sinfo->queues[order_info.last_queue]->jobs, order_info.last_job)) == -1)) {
+				order_info.last_queue++;
+				order_info.last_job = 0;
 			}
-			if (last_queue < sinfo->num_queues && ind != -1) {
-				rjob = sinfo->queues[last_queue]->jobs[ind];
-				last_job_index = ind;
+			if (order_info.last_queue < sinfo->num_queues && ind != -1) {
+				rjob = sinfo->queues[order_info.last_queue]->jobs[ind];
+				order_info.last_job = ind;
 			} else
 				rjob = NULL;
 		}
 	} else { /* treat the entire system as one large queue */
-		ind = find_runnable_resresv_ind(sinfo->jobs, last_job_index);
+		ind = find_runnable_resresv_ind(sinfo->jobs, order_info.last_job);
 		if(ind != -1) {
 			rjob = sinfo->jobs[ind];
-			last_job_index = ind;
+			order_info.last_job = ind;
 		}
 		else
 			rjob = NULL;
