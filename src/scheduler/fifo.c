@@ -1296,12 +1296,6 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 					job_to_run->name, "Considering job to run");
 			total_jobs_consdrd++;
 
-			/* Set the job order info to reflect the info for the job that ran so that
-			 * next_job ignores all the other jobs that it returned in the previous loop
-			 * for other threads and returns the correct job when it is called the next time
-			 */
-			order_info = t_data->jorder_info;
-
 			if (ns_arr != NULL) { /* the job can run! */
 				/* the job can run! */
 				resource_resv *tj = NULL;
@@ -1358,14 +1352,6 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 			if (end_cycle_now)
 				end_cycle = 1;
 
-			/*
-			 * If the thread ran a job, we don't wanna free nspec array.
-			 * If the thread didn't run a job, then nspec array is NULL anyways.
-			 * We free 'err' for this iteration in the nexct iteration, or we return it
-			 * so, just call free() on the thread data
-			 */
-			free(t_data);
-
 			if (rc == SUCCESS || end_cycle_now) {
 				int j;
 				/*
@@ -1376,8 +1362,18 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 					pthread_cancel(threads[j]);
 				}
 
+				/* Set the job order info to reflect the info for the job that ran so that
+				 * next_job ignores all the other jobs that it returned in the previous loop
+				 * for other threads and returns the correct job when it is called the next time
+				 */
+				order_info = t_data->jorder_info;
+
+				free(t_data);
 				break;
 			}
+
+			free(t_data);
+
 		} /* for (i = 0; i < num_threads; i++) */
 	}	/* while (job_to_run == NULL && !end_cycle) */
 
