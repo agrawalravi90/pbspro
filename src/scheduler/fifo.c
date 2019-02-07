@@ -1193,6 +1193,7 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 	resource_resv **jobs_considered = NULL;
 	long jobs_consdrd_size = 100;
 	schd_error *err = NULL;
+	int last_job_seen = 0;
 
 	time(&cycle_start_time);
 	/* calculate the time which we've been in the cycle too long */
@@ -1240,9 +1241,8 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 			t_data = NULL;
 
 			njob = next_job(policy, sinfo, sort_again);
-			if (njob == NULL) { /* Ran out of jobs, quit */
-				if (i == 0)
-					end_cycle = 1;
+			if (njob == NULL) { /* Ran out of jobs */
+				last_job_seen = 1;
 				break;
 			}
 
@@ -1282,7 +1282,7 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 		num_threads = i;
 
 		/* pthread join in increasing order of i and try to run the job */
-		for (i = 0; i < num_threads; i++) {
+		for (i = 0; (i < num_threads) && (rc != SUCCESS); i++) {
 			nspec **ns_arr = NULL;
 
 			pthread_join(threads[i], (void *) &ns_arr);
@@ -1367,14 +1367,13 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 				 * for other threads and returns the correct job when it is called the next time
 				 */
 				order_info = t_data->jorder_info;
-
-				free(t_data);
-				break;
 			}
-
 			free(t_data);
+		} /* for (i = 0; (i < num_threads) && (rc != SUCCESS); i++) */
 
-		} /* for (i = 0; i < num_threads; i++) */
+		/* If we've considered all jobs then end the cycle */
+		if (last_job_seen && i == num_threads)
+			end_cycle = 1;
 	}	/* while (job_to_run == NULL && !end_cycle) */
 
 	free(thread_data_arr);
@@ -2579,7 +2578,8 @@ next_job(status *policy, server_info *sinfo, int flag)
 
 	if (sinfo->qrun_job != NULL) {
 		if (!sinfo->qrun_job->can_not_run &&
-			in_runnable_state(sinfo->qrun_job)) {
+				!sinfo->qrun_job->is_being_considered &&
+				in_runnable_state(sinfo->qrun_job)) {
 			rjob = sinfo->qrun_job;
 		}
 		return rjob;
