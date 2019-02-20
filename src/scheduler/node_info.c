@@ -3013,7 +3013,7 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 
 	node_info	**ninfo_arr = NULL;
 
-	static schd_error *failerr = NULL;
+	schd_error *failerr = NULL;
 
 	/* used for floating licensing */
 	int		cur_flt_lic = 0;	/* current number of floating licenses */
@@ -3028,12 +3028,11 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 	ns = NULL;			/* quiet compiler warnings */
 #endif /* localmod 005 */
 
-	if (failerr == NULL) {
-		failerr = new_schd_error();
-		if(failerr == NULL) {
-			set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
-			return 0;
-		}
+
+	failerr = new_schd_error();
+	if(failerr == NULL) {
+		set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
+		return 0;
 	}
 
 	/* if it's OK to break across vnodes, but we can fully fit on one
@@ -3082,7 +3081,6 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 	 * duplicating, we split it into the consumable and non-consumable lists.
 	 */
 	specreq_noncons = dup_resource_req_list(chk->req);
-	clear_schd_error(failerr);
 
 	if (specreq_noncons == NULL) {
 		set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
