@@ -1727,14 +1727,13 @@ add_dedtime_events(event_list *elist, status *policy)
  * @retval the entire length from now to end
  * @retval	NULL	: on error
  *
- * @par MT-safe: No
+ * @par MT-safe: Yes
  */
 schd_resource *
 simulate_resmin(schd_resource *reslist, time_t end, event_list *calendar,
 	resource_resv **incl_arr, resource_resv *exclude)
 {
-	static schd_resource *retres = NULL;	/* return pointer */
-
+	schd_resource *retres = NULL;	/* return pointer */
 	schd_resource *cur_res;
 	schd_resource *cur_resmin;
 	resource_req *req;
@@ -1756,11 +1755,6 @@ simulate_resmin(schd_resource *reslist, time_t end, event_list *calendar,
 	 */
 	if (exists_run_event(calendar, end) == 0)
 		return reslist;
-
-	if (retres != NULL) {
-		free_resource_list(retres);
-		retres = NULL;
-	}
 
 	if ((res = dup_resource_list(reslist)) == NULL)
 		return NULL;
@@ -1808,7 +1802,7 @@ simulate_resmin(schd_resource *reslist, time_t end, event_list *calendar,
 	}
 	free_resource_list(res);
 	retres = resmin;
-	return retres;
+	return dup_resource(retres);
 }
 
 /**

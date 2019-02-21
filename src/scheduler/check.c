@@ -990,7 +990,7 @@ is_ok_to_run(status *policy, server_info *sinfo,
 					}
 				}
 #endif /* localmod 036 */
-				res = qinfo->qres;
+				res = dup_resource(qinfo->qres);
 #ifdef NAS /* localmod 036 */
 			}
 #endif /* localmod 036 */
@@ -1028,6 +1028,8 @@ is_ok_to_run(status *policy, server_info *sinfo,
 				}
 			}
 		}
+		free_resource(res);
+		res = NULL;
 	}
 
 	/* Don't check the server resources if a job is in a reservation.  This is
@@ -1070,6 +1072,7 @@ is_ok_to_run(status *policy, server_info *sinfo,
 				}
 			}
 		}
+		free_resource(res);
 	}
 
 	ns_arr = check_nodes(policy, sinfo, qinfo, resresv, flags, err);
