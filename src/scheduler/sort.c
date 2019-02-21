@@ -1073,10 +1073,12 @@ cmp_node_host(const void *v1, const void *v2)
  *
  */
 int
-cmp_aoe(const void *v1, const void *v2)
+cmp_aoe(const void *v1, const void *v2, void *aoename)
 {
 	node_info **n1;
 	node_info **n2;
+	char *aoename_cmp = aoename;
+
 	int v1rank = 0, v2rank = 0; /* to reduce strcmp() calls */
 	int ret;
 
@@ -1088,14 +1090,14 @@ cmp_aoe(const void *v1, const void *v2)
 	 */
 
 	if ((*n1)->current_aoe) {
-		if (strcmp((*n1)->current_aoe, cmp_aoename) == 0)
+		if (strcmp((*n1)->current_aoe, aoename_cmp) == 0)
 			v1rank = 1;
 		else
 			v1rank = -1;
 	}
 
 	if ((*n2)->current_aoe) {
-		if (strcmp((*n2)->current_aoe, cmp_aoename) == 0)
+		if (strcmp((*n2)->current_aoe, aoename_cmp) == 0)
 			v2rank = 1;
 		else
 			v2rank = -1;

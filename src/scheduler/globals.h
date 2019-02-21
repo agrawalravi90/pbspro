@@ -88,14 +88,6 @@ extern char path_log[_POSIX_PATH_MAX];
 #endif
 extern int dflt_sched;
 
-
-/**
- * @brief
- * It is used as a placeholder to store aoe name. This aoe name will be
- * used by sorting routine to compare with vnode's current aoe.
- */
-extern char *cmp_aoename;
-
 #ifdef	__cplusplus
 }
 #endif

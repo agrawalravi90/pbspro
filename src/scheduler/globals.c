@@ -164,9 +164,6 @@ resdef **consres = NULL;
 /* boolean resources*/
 resdef **boolres = NULL;
 
-/* AOE name used to compare nodes, free when exit cycle */
-char *cmp_aoename = NULL;
-
 char *sc_name = NULL;
 int sched_port = -1;
 char *logfile = NULL;

@@ -169,7 +169,7 @@ int cmp_node_host(const void *v1, const void *v2);
 
 
 /* sorting routine to be used with PROVPOLICY_AVOID only */
-int cmp_aoe(const void *v1, const void *v2);
+int cmp_aoe(const void *v1, const void *v2, void* aoename);
 
 /*
  *      cmp_job_preemption_time_asc- used to sort jobs in ascending preempted

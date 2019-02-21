@@ -42,6 +42,7 @@ libpbs_sched_a_CPPFLAGS = \
 	-I$(top_srcdir)/src/include \
 	@libz_inc@ \
 	@PYTHON_INCLUDES@
+libpbs_sched_a_CFLAGS = -D_GNU_SOURCE
 libpbs_sched_a_SOURCES = \
 	buckets.c \
 	buckets.h \

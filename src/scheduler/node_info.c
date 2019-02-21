@@ -4783,13 +4783,14 @@ reorder_nodes(node_info **nodes, resource_resv *resresv)
 			return nptr;
 		}
 		if (resresv->aoename != NULL && conf.provision_policy == AVOID_PROVISION) {
+			char *tmp_str = NULL;
+
 			memcpy(nptr, nodes, (nsize+1) * sizeof(node_info *));
 
-			if (cmp_aoename != NULL)
-				free(cmp_aoename);
-
-			cmp_aoename = string_dup(resresv->aoename);
-			qsort(nptr, nsize, sizeof(node_info *), cmp_aoe);
+			/* TODO: for Windows use qsort_s, or implement a custom qsort function (pbs_qsort?) */
+			tmp_str = strdup(resresv->aoename);
+			qsort_r(nptr, nsize, sizeof(node_info *), cmp_aoe, tmp_str);
+			free(tmp_str);
 
 			sprintf(errbuf, "Re-sorted the nodes on aoe %s, since aoe was requested",
 				resresv->aoename);

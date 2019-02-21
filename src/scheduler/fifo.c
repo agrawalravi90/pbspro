@@ -1480,12 +1480,6 @@ end_cycle_tasks(server_info *sinfo)
 		}
 	}
 
-	/* free cmp_aoename */
-	if (cmp_aoename != NULL) {
-		free(cmp_aoename);
-		cmp_aoename = NULL;
-	}
-
 	got_sigpipe = 0;
 	schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
 		"", "Leaving Scheduling Cycle");
