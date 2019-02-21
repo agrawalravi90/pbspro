@@ -1085,10 +1085,16 @@ cmp_aoe(const void *v1, const void *v2, void *aoename)
 	n1 = (node_info **) v1;
 	n2 = (node_info **) v2;
 
+	if (*n1 == NULL)
+		return 1;
+	if (*n2 == NULL)
+		return -1;
+	if (*n1 == NULL && *n2 == NULL)
+		return 0;
+
 	/* Between nodes, one with aoe and other without aoe, one with aoe
 	 * comes first.
 	 */
-
 	if ((*n1)->current_aoe) {
 		if (strcmp((*n1)->current_aoe, aoename_cmp) == 0)
 			v1rank = 1;
