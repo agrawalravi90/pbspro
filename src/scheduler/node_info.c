@@ -4789,7 +4789,9 @@ reorder_nodes(node_info **nodes, resource_resv *resresv)
 
 			/* TODO: for Windows use qsort_s, or implement a custom qsort function (pbs_qsort?) */
 			tmp_str = strdup(resresv->aoename);
+			pthread_mutex_lock(&lock);
 			qsort_r(nptr, nsize, sizeof(node_info *), cmp_aoe, tmp_str);
+			pthread_mutex_unlock(&lock);
 			free(tmp_str);
 
 			sprintf(errbuf, "Re-sorted the nodes on aoe %s, since aoe was requested",

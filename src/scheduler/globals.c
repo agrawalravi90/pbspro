@@ -37,6 +37,8 @@
  */
 #include <pbs_config.h>
 
+#include <pthread.h>
+
 #include <stdio.h>
 #include "globals.h"
 #include "constant.h"
@@ -154,6 +156,8 @@ int pbs_rm_port;
 int got_sigpipe;
 
 int	second_connection;
+
+pthread_mutex_t lock;
 
 /* resource definitions from the server */
 

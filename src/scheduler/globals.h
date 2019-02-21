@@ -43,6 +43,9 @@ extern "C" {
 
 #include "data_types.h"
 #include "limits.h"
+
+#include <pthread.h>
+
 /* resources to check */
 extern const struct rescheck res_to_check[];
 
@@ -66,6 +69,8 @@ extern struct config conf;
 extern struct status cstat;
 
 extern const int num_resget;
+
+extern pthread_mutex_t lock;
 
 /* Variables from pbs_sched code */
 extern int pbs_rm_port;
