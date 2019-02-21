@@ -5775,23 +5775,18 @@ void
 check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, place *pl, schd_error *err)
 {
 	int i, j;
-	static char exclerr_buf[MAX_LOG_SIZE] = {0};
-	static schd_error *misc_err = NULL;		/* used to keep err */
+	char exclerr_buf[MAX_LOG_SIZE];
+	schd_error *misc_err = NULL;
 
 	if (ninfo_arr == NULL || resresv == NULL || pl == NULL || err == NULL)
 		return;
 
-	if (misc_err == NULL) {
-		misc_err = new_schd_error();
-		if (misc_err == NULL)
-			return;
-	}
-	if (exclerr_buf[0] == '\0') {
-		set_schd_error_codes(misc_err, NOT_RUN, NODE_NOT_EXCL);
-		translate_fail_code(misc_err, NULL, exclerr_buf);
-	}
-	clear_schd_error(misc_err);
+	misc_err = new_schd_error();
+	if (misc_err == NULL)
+		return;
 
+	set_schd_error_codes(misc_err, NOT_RUN, NODE_NOT_EXCL);
+	translate_fail_code(misc_err, NULL, exclerr_buf);
 
 	/* Pre-mark all ineligible nodes so we don't need to look at them later */
 	for (i = 0; ninfo_arr[i] != NULL; i++) {
