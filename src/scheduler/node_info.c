@@ -2190,7 +2190,7 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 	int				pass_flags = NO_FLAGS;
 	char				reason[MAX_LOG_SIZE] = {0};
 	int				i = 0;
-	static struct schd_error	*failerr = NULL;
+	struct schd_error	*failerr = NULL;
 
 	if (spec == NULL || ninfo_arr == NULL || resresv == NULL || placespec == NULL || nspec_arr == NULL)
 		return 0;
@@ -2205,14 +2205,11 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 		return 0;
 #endif /* localmod 063 */
 
+	failerr = new_schd_error();
 	if (failerr == NULL) {
-		failerr = new_schd_error();
-		if (failerr == NULL) {
-			set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
-			return 0;
-		}
-	} else
-		clear_schd_error(failerr);
+		set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
+		return 0;
+	}
 
 	/* clear the node scratch space for use for node searching */
 	for (i = 0; ninfo_arr[i] != NULL; i++) {
@@ -2391,7 +2388,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 	selspec			*dselspec = NULL;
 	int			do_exclhost = 0;
 	node_info		**nptr = NULL;
-	static schd_error	*failerr = NULL;
+	schd_error	*failerr = NULL;
 
 
 	int rc = 0; /* true if current chunk was successfully allocated */
@@ -2401,14 +2398,12 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 	if (spec == NULL || ninfo_arr == NULL || pl == NULL || resresv == NULL || nspec_arr == NULL)
 		return 0;
 
+	failerr = new_schd_error();
 	if (failerr == NULL) {
-		failerr = new_schd_error();
-		if (failerr == NULL) {
-			set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
-			return 0;
-		}
-	} else
-		clear_schd_error(failerr);
+		set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
+		return 0;
+	}
+
 
 	/* reorder nodes for smp_cluster_dist or avoid_provision.
 	 *

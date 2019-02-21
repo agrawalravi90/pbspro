@@ -951,19 +951,16 @@ find_correct_buckets(status *policy, node_bucket **buckets, resource_resv *resre
 	int i, j;
 	int can_run = 1;
 	chunk_map **cb_map;
-	static struct schd_error *failerr = NULL;
+	struct schd_error *failerr = NULL;
 	
 	if (policy == NULL || buckets == NULL || resresv == NULL || resresv->select == NULL || resresv->select->chunks == NULL || err == NULL)
 		return NULL;
 
+	failerr = new_schd_error();
 	if (failerr == NULL) {
-		failerr = new_schd_error();
-		if (failerr == NULL) {
-			set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
-			return 0;
-		}
-	} else
-		clear_schd_error(failerr);
+		set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
+		return 0;
+	}
 	
 	bucket_ct = count_array((void **) buckets);
 	chunk_ct = count_array((void **) resresv->select->chunks);
@@ -1098,13 +1095,11 @@ check_node_buckets(status *policy, server_info *sinfo, queue_info *qinfo, resour
 	if (nodepart != NULL) {
 		int i;
 		int can_run = 0;
-		static schd_error *failerr = NULL;
-		if (failerr == NULL) {
-			failerr = new_schd_error();
-			if (failerr == NULL)
-				return NULL;
-		} else
-			clear_schd_error(failerr);
+		schd_error *failerr = NULL;
+
+		failerr = new_schd_error();
+		if (failerr == NULL)
+			return NULL;
 
 		for (i = 0; nodepart[i] != NULL; i++) {
 			nspec **nspecs;
