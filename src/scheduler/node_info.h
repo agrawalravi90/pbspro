@@ -568,17 +568,6 @@ int update_mom_resources(node_info **ninfo_arr);
  */
 int can_fit_on_vnode(resource_req *req,  node_info **ninfo_arr);
 
-
-/*
- *      is_aoe_avail_on_vnode - it first finds if aoe is available in node's
- *                              available list
- *
- *      return : 0 if aoe not available on node
- *             : 1 if aoe available
- *
- */
-int is_aoe_avail_on_vnode(node_info *ninfo, resource_resv *resresv);
-
 /*
  *      is_eoe_avail_on_vnode - it first finds if eoe is available in node's
  *                              available list

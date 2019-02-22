@@ -1141,9 +1141,9 @@ check_avail_resources(schd_resource *reslist, resource_req *reqlist,
 	schd_error *prev_err = NULL;
 	schd_error *err;
 	sch_resource_t avail;			/* amount of available resource */
-	schd_resource *fres = false_res();
-	schd_resource *zres = zero_res();
-	schd_resource *ustr = unset_str_res();
+	schd_resource *fres;
+	schd_resource *zres;
+	schd_resource *ustr;
 	char resbuf1[MAX_LOG_SIZE];
 	char resbuf2[MAX_LOG_SIZE];
 	char resbuf3[MAX_LOG_SIZE];
@@ -1160,6 +1160,9 @@ check_avail_resources(schd_resource *reslist, resource_req *reqlist,
 		return -1;
 	}
 
+	fres = false_res();
+	zres = zero_res();
+	ustr = unset_str_res();
 	if (fres == NULL || zres == NULL || ustr == NULL)
 		return -1;
 
@@ -1264,8 +1267,12 @@ check_avail_resources(schd_resource *reslist, resource_req *reqlist,
 				fail = 0;
 				any_fail = 1;
 				err->next = new_schd_error();
-				if(err->next == NULL)
+				if(err->next == NULL) {
+					free_resource(fres);
+					free_resource(zres);
+					free_resource(ustr);
 					return 0;
+				}
 				prev_err = err;
 				err = err->next;
 			}
@@ -1284,6 +1291,10 @@ check_avail_resources(schd_resource *reslist, resource_req *reqlist,
 			prev_err->next = NULL;
 		}
 	}
+
+	free_resource(fres);
+	free_resource(zres);
+	free_resource(ustr);
 
 	return num_chunk;
 }
@@ -1911,27 +1922,21 @@ check_prime_boundary(status *policy, resource_resv  *resresv, struct schd_error 
  *
  * @return	schd_resource * (set to False)
  *
- * @par MT-safe: No
+ * @par MT-safe: Yes
  */
 schd_resource *
 false_res()
 {
-	static schd_resource *res = NULL;
+	schd_resource *res = NULL;
 
-	if (res == NULL) {
-		res = new_resource();
-		if (res != NULL) {
-			res->type.is_non_consumable = 1;
-			res->type.is_boolean = 1;
-			res->orig_str_avail = string_dup(ATR_FALSE);
-			res->avail = 0;
-		}
-		else
-			return NULL;
-	}
-
-	res->def = NULL;
-	res->name = NULL;
+	res = new_resource();
+	if (res != NULL) {
+		res->type.is_non_consumable = 1;
+		res->type.is_boolean = 1;
+		res->orig_str_avail = string_dup(ATR_FALSE);
+		res->avail = 0;
+	} else
+		return NULL;
 
 	return res;
 }
@@ -1944,36 +1949,30 @@ false_res()
  * @return	schd_resource *
  * @retval	NULL	: fail
  *
- * @par MT-safe: No
+ * @par MT-safe: Yes
  */
 schd_resource *
 unset_str_res()
 {
-	static schd_resource *res = NULL;
+	schd_resource *res = NULL;
 
-	if (res == NULL) {
-		res = new_resource();
-		if ((res->str_avail = malloc(sizeof(char*) * 2)) !=NULL) {
-			if (res->str_avail != NULL) {
-				res->str_avail[0] = string_dup("");
-				res->str_avail[1] = NULL;
-			}
-			else {
-				log_err(errno, "unset_str_res", MEM_ERR_MSG);
-				free_resource(res);
-				return NULL;
-			}
-			res->type.is_non_consumable = 1;
-			res->type.is_string = 1;
-			res->orig_str_avail = string_dup("");
-			res->avail = 0;
+	res = new_resource();
+	if ((res->str_avail = malloc(sizeof(char*) * 2)) != NULL) {
+		if (res->str_avail != NULL) {
+			res->str_avail[0] = string_dup("");
+			res->str_avail[1] = NULL;
 		}
-		else
+		else {
+			log_err(errno, "unset_str_res", MEM_ERR_MSG);
+			free_resource(res);
 			return NULL;
-	}
-
-	res->name = NULL;
-	res->def = NULL;
+		}
+		res->type.is_non_consumable = 1;
+		res->type.is_string = 1;
+		res->orig_str_avail = string_dup("");
+		res->avail = 0;
+	} else
+		return NULL;
 
 	return res;
 }
@@ -1984,26 +1983,23 @@ unset_str_res()
  *
  * @return	schd_resource *
  * @retval	NULL	: fail
+ *
+ * @par MT-safe: Yes
  */
 schd_resource *
 zero_res()
 {
-	static schd_resource *res = NULL;
+	schd_resource *res = NULL;
 
-	if (res == NULL) {
-		res = new_resource();
-		if (res != NULL) {
-			res->type.is_consumable = 1;
-			res->type.is_num = 1;
-			res->orig_str_avail = string_dup("0");
-			res->avail = 0;
-		}
-		else
-			return NULL;
+	res = new_resource();
+	if (res != NULL) {
+		res->type.is_consumable = 1;
+		res->type.is_num = 1;
+		res->orig_str_avail = string_dup("0");
+		res->avail = 0;
 	}
-
-	res->name = NULL;
-	res->def = NULL;
+	else
+		return NULL;
 
 	return res;
 }

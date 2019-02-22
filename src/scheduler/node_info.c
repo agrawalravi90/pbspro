@@ -2427,7 +2427,12 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 	 */
 	if (!resresv->server->has_multi_vnode &&
 		(!resresv->place_spec->pack || spec->total_chunks == 1)) {
-		return eval_complex_selspec(policy, spec, nptr, pl, resresv, flags, nspec_arr, err);
+		int ret;
+
+		ret = eval_complex_selspec(policy, spec, nptr, pl, resresv, flags, nspec_arr, err);
+		if (nptr != ninfo_arr)
+			free(nptr);
+		return ret;
 	}
 
 	/* get a pool of node partitions based on host.  If we're using the
@@ -2450,8 +2455,11 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 
 		if (pl->scatter || pl->vscatter || pl->free) {
 			dselspec = dup_selspec(spec);
-			if (dselspec == NULL)
+			if (dselspec == NULL) {
+				if (nptr != ninfo_arr)
+					free(nptr);
 				return 0;
+			}
 		}
 
 		for (i = 0; hostsets[i] != NULL && tot != spec->total_chunks; i++) {
@@ -2676,6 +2684,8 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 #endif /* localmod 049 */
 				if (dup_ninfo_arr == NULL) {
 					free_selspec(dselspec);
+					if (nptr != ninfo_arr)
+						free(nptr);
 					return 0;
 				}
 
@@ -2788,6 +2798,9 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 		}
 	} else
 		set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
+
+	if (nptr != ninfo_arr)
+		free(nptr);
 
 	if (dselspec != NULL)
 		free_selspec(dselspec);
@@ -4093,17 +4106,12 @@ parse_placespec(char *place_str)
  *			of the job/resv.
  * @retval	NULL	: on error or invalid spec
  *
- * @par MT-safe: No
+ * @par MT-safe: Yes
  */
 selspec *
 parse_selspec(char *select_spec)
 {
-	/* select specs can be large.  We need to allocate a buffer large enough
-	 * to handle the spec.  We'll keep it around so we don't have to allocate
-	 * it on every call
-	 */
-	static char *specbuf = NULL;
-	static int specbuf_size = 0;
+	char *specbuf = NULL;
 	int s;
 	char *tmpptr;
 
@@ -4148,18 +4156,11 @@ parse_selspec(char *select_spec)
 		free_selspec(spec);
 	}
 
-	s = strlen(select_spec);
-	if (s > specbuf_size) {
-		tmpptr = realloc(specbuf, s * 2 + 1);
-		if (tmpptr == NULL) {
-			log_err(errno, "parse_selspec", MEM_ERR_MSG);
-			return 0;
-		}
-		specbuf_size = s * 2;
-		specbuf = tmpptr;
+	specbuf = strdup(select_spec);
+	if (specbuf == NULL) {
+		log_err(errno, "parse_selspec", MEM_ERR_MSG);
+		return 0;
 	}
-
-	strcpy(specbuf, select_spec);
 
 	tok = string_token(specbuf, "+", &endp);
 
@@ -4227,6 +4228,8 @@ parse_selspec(char *select_spec)
 		tok = string_token(NULL, "+", &endp);
 		seq_num++;
 	}
+
+	free(select_spec);
 
 	if (invalid) {
 		free_selspec(spec);
@@ -4715,15 +4718,13 @@ create_node_array_from_nspec(nspec **nspec_arr)
  *      local variable node_array holds onto memory in the heap for reuse.
  *      The caller should not free the return
  *
- * @par MT-safe:	No
+ * @par MT-safe:	 Yes
  *
- * @par MT-safe: No
  */
 node_info **
 reorder_nodes(node_info **nodes, resource_resv *resresv)
 {
-	static node_info	**node_array = NULL;
-	static int		node_array_size = 0;
+	node_info	**node_array = NULL;
 	node_info		**nptr = NULL;
 	node_info		**tmparr = NULL;
 	schd_resource		*hostres = NULL;
@@ -4742,17 +4743,11 @@ reorder_nodes(node_info **nodes, resource_resv *resresv)
 
 	nsize = count_array((void **) nodes);
 
-	if (node_array_size < nsize + 1) {
-		tmparr = realloc(node_array, sizeof(node_info *) * (nsize + 1));
-		if (tmparr == NULL) {
-			log_err(errno, __func__, MEM_ERR_MSG);
-			return NULL;
-		}
-
-		node_array = tmparr;
-		node_array_size = nsize + 1;
+	node_array = malloc((nsize + 1) * sizeof(node_info *));
+	if (node_array == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return NULL;
 	}
-	tmparr = NULL;
 
 	node_array[0] = NULL;
 	nptr = node_array;
@@ -4762,11 +4757,12 @@ reorder_nodes(node_info **nodes, resource_resv *resresv)
 		snprintf(last_node_name, sizeof(last_node_name), "%s", nodes[0]->name);
 
 	if (resresv != NULL) {
+		memcpy(nptr, nodes, (nsize+1) * sizeof(node_info *));
+
 		if (resresv->is_resv && resresv->resv != NULL && resresv->resv->check_alternate_nodes) {
 			int		i = 0;
 			node_info	*temp = NULL;
 
-			memcpy(nptr, nodes, (nsize + 1) * sizeof(node_info *));
 			for (i = 0; nptr[i] != NULL; i++) {
 				temp = find_node_by_rank(resresv->ninfo_arr, nptr[i]->rank);
 				if (temp != NULL)
@@ -4778,14 +4774,8 @@ reorder_nodes(node_info **nodes, resource_resv *resresv)
 			return nptr;
 		}
 		if (resresv->aoename != NULL && conf.provision_policy == AVOID_PROVISION) {
-			char *tmp_str = NULL;
-
-			memcpy(nptr, nodes, (nsize+1) * sizeof(node_info *));
-
 			/* TODO: for Windows use qsort_s, or implement a custom qsort function (pbs_qsort?) */
-			tmp_str = strdup(resresv->aoename);
-			qsort_r(nptr, nsize, sizeof(node_info *), cmp_aoe, tmp_str);
-			free(tmp_str);
+			qsort_r(nptr, nsize, sizeof(node_info *), cmp_aoe, resresv->aoename);
 
 			sprintf(errbuf, "Re-sorted the nodes on aoe %s, since aoe was requested",
 				resresv->aoename);
@@ -4810,7 +4800,7 @@ reorder_nodes(node_info **nodes, resource_resv *resresv)
 			break;
 		case SMP_ROUND_ROBIN:
 
-			if ((tmparr = calloc(node_array_size, sizeof(node_info *))) == NULL) {
+			if ((tmparr = calloc(nsize + 1, sizeof(node_info *))) == NULL) {
 				log_err(errno, __func__, MEM_ERR_MSG);
 				return NULL;
 			}
@@ -5141,43 +5131,6 @@ can_fit_on_vnode(resource_req *req, node_info **ninfo_arr)
 				return 1;
 		}
 	}
-
-	return 0;
-}
-
-/**
- * @brief
- *		Checks if an AOE is available on a vnode
- *
- * @par Functionality:
- *		This function checks if an AOE is available on a vnode.
- *
- * @param[in]	ninfo		-	pointer to node_info
- * @param[in]	resresv		-	pointer to resource_resv
- *
- * @return	int
- * @retval	 0 : AOE not available
- * @retval	 1 : AOE available
- *
- * @par Side Effects:
- *		Unknown
- *
- * @par MT-safe: No
- *
- */
-int
-is_aoe_avail_on_vnode(node_info *ninfo, resource_resv *resresv)
-{
-	schd_resource *resp;
-
-	if (ninfo == NULL || resresv == NULL)
-		return 0;
-
-	if (resresv->aoename == NULL)
-		return 0;
-
-	if ((resp = find_resource(ninfo->res, getallres(RES_AOE))) != NULL)
-		return is_string_in_arr(resp->str_avail, resresv->aoename);
 
 	return 0;
 }

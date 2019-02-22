@@ -56,7 +56,6 @@
  * 	range_add_value()
  * 	range_intersection()
  * 	parse_subjob_index()
- * 	range_to_str()
  *
  */
 #include <pbs_config.h>
@@ -651,62 +650,3 @@ parse_subjob_index(char *pc, char **ep, int *px, int *py, int *pz, int *pct)
 	return 0;
 }
 
-/**
- * @brief
- * 		Returns a string representation of a range structure.
- *
- * @param[in]	r	-	The range for which a string representation is expected
-
- * @par MT-safe:	no
- *
- * @return	a string representation of the range
- * @retval	""	: on any malloc error
- *
- */
-char *
-range_to_str(range *r)
-{
-	static char *range_str = NULL;
-	static int size = 0;
-	range *cur_r = NULL;
-	char numbuf[128];
-	int len;
-
-	if (r == NULL)
-		return "";
-
-	if (range_str == NULL) {
-		if ((range_str = malloc(INIT_ARR_SIZE+1)) == NULL) {
-			log_err(errno, __func__, MEM_ERR_MSG);
-			return "";
-		}
-		size = INIT_ARR_SIZE;
-	}
-	range_str[0] = '\0';
-
-	for (cur_r = r; cur_r != NULL; cur_r = cur_r->next) {
-		if (cur_r->count > 1)
-			sprintf(numbuf, "%d-%d", cur_r->start, cur_r->end);
-		else
-			sprintf(numbuf, "%d", cur_r->start);
-
-		if (cur_r->step > 1) {
-			if (pbs_strcat(&range_str, &size, numbuf) == NULL)
-				return "";
-			sprintf(numbuf, ":%d", cur_r->step);
-			if (pbs_strcat(&range_str, &size, numbuf) == NULL)
-				return "";
-		}
-		else
-			if (pbs_strcat(&range_str, &size, numbuf) == NULL)
-				return "";
-
-		if (pbs_strcat(&range_str, &size, ",") == NULL)
-			return "";
-	}
-	len = strlen(range_str);
-	if (range_str[len-1] == ',')
-		range_str[len-1] = '\0';
-
-	return range_str;
-}

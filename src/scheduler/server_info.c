@@ -1428,6 +1428,7 @@ add_resource_list(status *policy, schd_resource *r1, schd_resource *r2, unsigned
 							return 0;
 						nres->name = boolres[i]->name;
 						(void)add_resource_bool(cur_r1, nres);
+						free_resource(nres);
 					}
 				}
 			}

@@ -1060,6 +1060,7 @@ cmp_node_host(const void *v1, const void *v2)
  *
  * @param[in]	v1		-	pointer to const void
  * @param[in]	v2		-	pointer to const void
+ * @param[in]	aoename	-	the AOE value requested by job
  *
  * @return	int
  * @retval	 -1 : v1 has precendence
@@ -1069,7 +1070,7 @@ cmp_node_host(const void *v1, const void *v2)
  * @par Side Effects:
  *		Unknown
  *
- * @par MT-safe: No
+ * @par MT-safe: Yes
  *
  */
 int

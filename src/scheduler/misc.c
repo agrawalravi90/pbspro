@@ -625,15 +625,13 @@ enum match_string_array_ret match_string_array(char **strarr1, char **strarr2)
  *
  * @return	converted string stored in local static ptr (no need to free)
  *
- * @par MT-safe:	no
+ * @par MT-safe:	 Yes
  *
  */
 char *
 string_array_to_str(char **strarr)
 {
-	static char *arrbuf = NULL;
-	static int arrlen = 0;
-	char *tmp;
+	char *arrbuf = NULL;
 	int len = 0;
 	int i;
 
@@ -645,18 +643,11 @@ string_array_to_str(char **strarr)
 
 	len += i; /* added space for the commas */
 
-	if (arrlen <= len) {
-		tmp = realloc(arrbuf, arrlen+len+1);
-		if (tmp != NULL) {
-			arrlen += len + 1;
-			arrbuf = tmp;
-		}
-		else {
-			log_err(errno, __func__, MEM_ERR_MSG);
-			return "";
-		}
+	arrbuf = malloc(len + 1);
+	if (arrbuf == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return "";
 	}
-
 	arrbuf[0] = '\0';
 
 	for (i = 0; strarr[i] != NULL; i++) {
@@ -1580,6 +1571,8 @@ res_to_str_re(void *p, enum resource_fields fld, char **buf,
 			snprintf(*buf, *bufsize, "%s", str);
 		else
 			ret = pbs_strcat(buf, bufsize, str);
+		if (fld == RF_AVAIL)
+			free(str);
 	}
 	else if (rt->is_boolean) {
 		if (flags & NOEXPAND)

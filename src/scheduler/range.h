@@ -123,10 +123,5 @@ range *range_intersection(range *r1, range *r2);
 
 int parse_subjob_index(char *pc, char **ep, int *px, int *py, int *pz, int *pct);
 
-/*
- * Return a string representation of a range structure
- */
-char *range_to_str(range *r);
-
 
 #endif /* _RANGE_H */
