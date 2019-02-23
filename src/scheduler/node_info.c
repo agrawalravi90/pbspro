@@ -2226,6 +2226,7 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 	if ((*nspec_arr = (nspec **) calloc(spec->total_chunks * tot_nodes + 1,
 		sizeof(nspec*))) == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
+		free_schd_error(failerr);
 		return 0;
 	}
 
@@ -2255,6 +2256,7 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 
 		if (err->status_code == SCHD_UNKWN && failerr->status_code != SCHD_UNKWN)
 			move_schd_error(err, failerr);
+		free_schd_error(failerr);
 
 		return rc;
 	}
@@ -2341,6 +2343,7 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 
 	if (err->status_code == SCHD_UNKWN && failerr->status_code != SCHD_UNKWN)
 		move_schd_error(err, failerr);
+	free_schd_error(failerr);
 
 	return rc;
 }
@@ -2432,6 +2435,8 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 		ret = eval_complex_selspec(policy, spec, nptr, pl, resresv, flags, nspec_arr, err);
 		if (nptr != ninfo_arr)
 			free(nptr);
+
+		free_schd_error(failerr);
 		return ret;
 	}
 
@@ -2458,6 +2463,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 			if (dselspec == NULL) {
 				if (nptr != ninfo_arr)
 					free(nptr);
+				free_schd_error(failerr);
 				return 0;
 			}
 		}
@@ -2686,6 +2692,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 					free_selspec(dselspec);
 					if (nptr != ninfo_arr)
 						free(nptr);
+					free_schd_error(failerr);
 					return 0;
 				}
 
@@ -2805,11 +2812,12 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 	if (dselspec != NULL)
 		free_selspec(dselspec);
 
-	if (tot == spec->total_chunks)
-		return 1;
-
 	if (err->status_code == SCHD_UNKWN && failerr->status_code != SCHD_UNKWN)
 		move_schd_error(err, failerr);
+	free_schd_error(failerr);
+
+	if (tot == spec->total_chunks)
+		return 1;
 
 	return 0;
 }
@@ -3064,6 +3072,7 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 #endif /* localmod 049 */
 		if (ninfo_arr == NULL) {
 			set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
+			free_schd_error(failerr);
 			return 0;
 		}
 	}
@@ -3095,6 +3104,8 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 
 		if (flags & EVAL_OKBREAK)
 			free_nodes(ninfo_arr);
+
+		free_schd_error(failerr);
 		return 0;
 	}
 
@@ -3141,6 +3152,7 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 					if (flags & EVAL_OKBREAK)
 						free_nodes(ninfo_arr);
 					set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
+					free_schd_error(failerr);
 					return 0;
 				}
 
@@ -3285,6 +3297,7 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 		schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_NODE, LOG_DEBUG,
 			resresv->name, logbuf);
 		clear_schd_error(err);
+		free_schd_error(failerr);
 		return 1;
 	}
 
@@ -3310,6 +3323,8 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 	/* don't be so specific in the comment since it's only for a single node*/
 	free(err->arg1);
 	err->arg1 = NULL;
+
+	free_schd_error(failerr);
 	return 0;
 }
 
@@ -4229,7 +4244,7 @@ parse_selspec(char *select_spec)
 		seq_num++;
 	}
 
-	free(select_spec);
+	free(specbuf);
 
 	if (invalid) {
 		free_selspec(spec);
@@ -5770,6 +5785,8 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 	 */
 	if (err->status_code == SCHD_UNKWN && misc_err->status_code != SCHD_UNKWN)
 		move_schd_error(err, misc_err);
+
+	free_schd_error(misc_err);
 }
 
 /**

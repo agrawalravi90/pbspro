@@ -1733,7 +1733,6 @@ schd_resource *
 simulate_resmin(schd_resource *reslist, time_t end, event_list *calendar,
 	resource_resv **incl_arr, resource_resv *exclude)
 {
-	schd_resource *retres = NULL;	/* return pointer */
 	schd_resource *cur_res;
 	schd_resource *cur_resmin;
 	resource_req *req;
@@ -1800,9 +1799,10 @@ simulate_resmin(schd_resource *reslist, time_t end, event_list *calendar,
 			}
 		}
 	}
+
 	free_resource_list(res);
-	retres = resmin;
-	return dup_resource(retres);
+
+	return resmin;
 }
 
 /**

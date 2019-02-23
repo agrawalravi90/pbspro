@@ -1028,7 +1028,10 @@ is_ok_to_run(status *policy, server_info *sinfo,
 				}
 			}
 		}
-		free_resource(res);
+
+		if (res != qinfo->qres)
+			free_resource_list(res);
+
 		res = NULL;
 	}
 
@@ -1072,7 +1075,10 @@ is_ok_to_run(status *policy, server_info *sinfo,
 				}
 			}
 		}
-		free_resource(res);
+		if (res != sinfo->res)
+			free_resource_list(res);
+
+		res = NULL;
 	}
 
 	ns_arr = check_nodes(policy, sinfo, qinfo, resresv, flags, err);
