@@ -4127,7 +4127,6 @@ selspec *
 parse_selspec(char *select_spec)
 {
 	char *specbuf = NULL;
-	int s;
 	char *tmpptr;
 
 	selspec *spec;

@@ -117,6 +117,7 @@
 #include	<stdio.h>
 #include	<string.h>
 #include	<assert.h>
+#include <pthread.h>
 #include	"pbs_config.h"
 #include	"pbs_ifl.h"
 #include	"data_types.h"
@@ -3274,7 +3275,9 @@ lim_get(const char *param, void *ctx)
 {
 	char		*retptr;
 
+	pthread_mutex_lock(&lock);
 	retptr = entlim_get(param, ctx);
+	pthread_mutex_unlock(&lock);
 	if (retptr != NULL) {
 		sch_resource_t	v;
 
