@@ -3275,9 +3275,7 @@ lim_get(const char *param, void *ctx)
 {
 	char		*retptr;
 
-	pthread_mutex_lock(&lock);
 	retptr = entlim_get(param, ctx);
-	pthread_mutex_unlock(&lock);
 	if (retptr != NULL) {
 		sch_resource_t	v;
 

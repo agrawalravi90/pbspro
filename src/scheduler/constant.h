@@ -61,6 +61,11 @@ extern "C" {
 #define FREE_DEEP 1		/* constant to pass to free_*_list */
 #define INITIALIZE -1
 
+enum thread_task_type
+{
+	TS_CHECKJOB
+};
+
 /* Constants used as flags to pass to next_job() function
  * Decision of Sorting jobs is taken on the basis of these constants */
 enum sort_status

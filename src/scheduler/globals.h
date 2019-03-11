@@ -43,6 +43,7 @@ extern "C" {
 
 #include "data_types.h"
 #include "limits.h"
+#include "queue.h"
 
 #include <pthread.h>
 
@@ -70,7 +71,17 @@ extern struct status cstat;
 
 extern const int num_resget;
 
-extern pthread_mutex_t lock;
+/* Stuff needed for multi-threading */
+extern pthread_mutex_t work_lock;
+extern pthread_cond_t work_cond;
+extern pthread_mutex_t result_lock;
+extern pthread_cond_t result_cond;
+extern queue *work_queue;
+extern queue *result_queue;
+extern pthread_t *threads;
+extern int num_threads;
+extern int threads_die;
+
 
 /* Variables from pbs_sched code */
 extern int pbs_rm_port;

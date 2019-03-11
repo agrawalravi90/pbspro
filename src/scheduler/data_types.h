@@ -131,6 +131,8 @@ typedef struct bucket_bitpool bucket_bitpool;
 typedef struct chunk_map chunk_map;
 typedef struct node_bucket_count node_bucket_count;
 typedef struct job_order_info job_order_info;
+typedef struct th_task_info th_task_info;
+typedef struct checkjob_thread_data checkjob_thread_data;
 
 #ifdef NAS
 /* localmod 034 */
@@ -160,6 +162,12 @@ typedef sch_resource_t usage_t;
 
 typedef void event_ptr_t;
 typedef int (*event_func_t)(event_ptr_t*, void *);
+
+struct th_task_info
+{
+	enum thread_task_type task_type;
+	void *thread_data;
+};
 
 struct schd_error
 {
@@ -952,6 +960,18 @@ struct job_order_info
 	int last_queue_list;
 	enum sort_status sort_status;
 	int skip;
+};
+
+struct checkjob_thread_data {
+	int job_seen;
+	resource_resv *job;
+	status *policy;
+	server_info *sinfo;
+	schd_error *err;
+	nspec **ns_arr;
+	int *pjob_ranks;
+	int should_use_buckets;
+	job_order_info jorder_info;
 };
 
 

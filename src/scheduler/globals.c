@@ -157,7 +157,16 @@ int got_sigpipe;
 
 int	second_connection;
 
-pthread_mutex_t lock;
+/* Stuff needed for multi-threading */
+pthread_mutex_t work_lock;
+pthread_mutex_t result_lock;
+pthread_cond_t work_cond;
+pthread_cond_t result_cond;
+queue *work_queue = NULL;
+queue *result_queue = NULL;
+pthread_t *threads = NULL;
+int num_threads = 0;
+int threads_die = 0;
 
 /* resource definitions from the server */
 

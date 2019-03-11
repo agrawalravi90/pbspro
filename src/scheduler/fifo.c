@@ -115,6 +115,7 @@
 #include "limits_if.h"
 #include "pbs_version.h"
 #include "buckets.h"
+#include "multi_threading.h"
 
 #ifdef WIN32
 #include <sysinfoapi.h>
@@ -134,22 +135,6 @@ extern void win_toolong(void);
 
 extern int	second_connection;
 extern int	get_sched_cmd_noblk(int sock, int *val, char **jobid);
-
-typedef struct checkjob_thread_data {
-	resource_resv *job;
-	status *policy;
-	server_info *sinfo;
-	schd_error *err;
-	nspec **ns_arr;
-	int *pjob_ranks;
-	int should_use_buckets;
-	job_order_info jorder_info;
-} checkjob_thread_data;
-
-static checkjob_thread_data *create_checkjob_thread_data(resource_resv *job, status *policy,
-		server_info *sinfo);
-static void free_check_thread_data(checkjob_thread_data *obj);
-static void free_checkjob_thread_data_list(checkjob_thread_data **list);
 static int handle_job_not_run(status *policy, server_info *sinfo, queue_info *qinfo,
 		resource_resv *job, int sd, checkjob_thread_data *thread_data, int *num_topjobs,
 		schd_error *err);
@@ -843,74 +828,6 @@ checkjob_cleanup(void *data)
 }
 
 /**
- * @brief	Thread local function, tries to see if a job can run by calling
- * 			is_ok_to_run(). If job can't run, it also does preemption simulation
- * 			to generate the first list of jobs to preempt
- *
- * @param[in]	data - checkjob_thread_data type object containing data for thread
- *
- * @return void *
- * @retval pointer to the node spec array if the job can run
- * @retval NULL if the is_ok_to_run returns NULL
- */
-void *
-check_job_can_run(void *data)
-{
-	queue_info *qinfo;
-	nspec **ns_arr = NULL;
-	unsigned int flags = NO_FLAGS;
-	checkjob_thread_data *thread_data;
-	resource_resv *job;
-	status *policy;
-	server_info *sinfo;
-	schd_error *err = NULL;
-	int last_state, last_type;
-
-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &last_state);
-	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &last_type);
-
-	thread_data = (checkjob_thread_data *) data;
-	if (thread_data == NULL)
-		return NULL;
-
-	pthread_cleanup_push(checkjob_cleanup, (void *) thread_data);
-
-	job = thread_data->job;
-	policy = thread_data->policy;
-	sinfo = thread_data->sinfo;
-	err = thread_data->err;
-
-	if (job == NULL)
-		return NULL;
-
-	qinfo = job->job->queue;
-
-	err->status_code = NOT_RUN;
-
-	if(thread_data->should_use_buckets)
-		flags = USE_BUCKETS;
-
-	if (job->is_shrink_to_fit) {
-		/* Pass the suitable heuristic for shrinking */
-		ns_arr = is_ok_to_run_STF(policy, sinfo, qinfo, job, flags, err, shrink_job_algorithm);
-	} else
-		ns_arr = is_ok_to_run(policy, sinfo, qinfo, job, flags, err);
-
-	if (err->status_code == NEVER_RUN)
-		job->can_never_run = 1;
-
-	if (ns_arr != NULL) {	/* The job can run! */
-		thread_data->ns_arr = ns_arr;
-	} else if (policy->preempting && in_runnable_state(job) && (!job->can_never_run)) {
-		thread_data->pjob_ranks = find_jobs_to_preempt(policy, job, sinfo, NULL);
-	}
-
-	pthread_cleanup_pop(0);
-
-	return ns_arr;
-}
-
-/**
  * @brief	Check if the current scheduling cycle needs to be exited urgently
  *
  * @param[in]	cycle_start_time - start time of the cycle
@@ -1077,90 +994,6 @@ handle_job_not_run(status *policy, server_info *sinfo, queue_info *qinfo, resour
 	return 0;
 }
 
-/*
- * @brief	Constructor for  checkjob_thread_data
- *
- * @param	job - the next job being evaluated
- * @param	policy - policy info
- * @param	sinfo - server info
- *
- * @return checkjob_thread_data *
- * @retval pointer to newly allocated checkjob_thread_data object
- * @retval NULL for malloc error
- */
-static checkjob_thread_data *
-create_checkjob_thread_data(resource_resv *job, status *policy, server_info *sinfo)
-{
-	checkjob_thread_data *new_obj = NULL;
-
-	new_obj = malloc(sizeof(checkjob_thread_data));
-	if (new_obj == NULL) {
-		snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
-		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
-		return NULL;
-	}
-
-	new_obj->job = job;
-	new_obj->policy = policy;
-	new_obj->sinfo = sinfo;
-	new_obj->ns_arr = NULL;
-	new_obj->pjob_ranks = NULL;
-	new_obj->should_use_buckets = job_should_use_buckets(job);
-	new_obj->err = new_schd_error();
-	if (new_obj->err == NULL) {
-		free(new_obj);
-		snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
-		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
-		return NULL;
-	}
-
-	/*
-	 * Save the order info for this job,
-	 * this will be used to restore order info for next call to find_run_a_job
-	 */
-	new_obj->jorder_info = order_info;
-
-	return new_obj;
-}
-
-/**
- * @brief	Destructor for checkjob_thread_data
- *
- * @param[in,out]	obj - the object to deallocate
- *
- * @return void
- */
-static void
-free_check_thread_data(checkjob_thread_data *obj)
-{
-	if (obj == NULL)
-		return;
-
-	free_schd_error(obj->err);
-	free_nspecs(obj->ns_arr);
-	free(obj->pjob_ranks);
-	free(obj);
-}
-
-/**
- * @brief	Destructor for checkjob_thread_data
- *
- * @param[in,out]	list - the list to be destroyed
- *
- * @return void
- */
-static void
-free_checkjob_thread_data_list(checkjob_thread_data **list)
-{
-	int i;
-
-	for (i = 0; list[i] != NULL; i++) {
-		free_check_thread_data(list[i]);
-	}
-
-	free(list);
-}
-
 /**
  * @brief	Find and run the first job that can be run in the order of priority
  *
@@ -1176,11 +1009,9 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 		int sd, int *ret_end_cycle)
 {
 	resource_resv *job_to_run = NULL;
-	int num_cores;
 	int i;
 	int end_cycle = 0;
 	int end_cycle_now = 0;
-	pthread_t *threads = NULL;
 	checkjob_thread_data **thread_data_arr = NULL;
 	int rc = 0;
 	queue_info *qinfo;		/* ptr to queue that job is in */
@@ -1199,21 +1030,7 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 	/* calculate the time which we've been in the cycle too long */
 	cycle_end_time = cycle_start_time + sinfo->sched_cycle_len;
 
-#ifdef WIN32
-	SYSTEM_INFO sysinfo;
-	GetSystemInfo(&sysinfo);
-	num_cores = sysinfo.dwNumberOfProcessors;
-#else
-	num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-#endif
-
-	threads = malloc(num_cores * sizeof(pthread_t));
-	if (threads == NULL) {
-		snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
-		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
-		return -1;
-	}
-	thread_data_arr = malloc((num_cores + 1) * sizeof(checkjob_thread_data *));
+	thread_data_arr = malloc((num_threads + 1) * sizeof(checkjob_thread_data *));
 	if (thread_data_arr == NULL) {
 		snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
 		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
@@ -1233,18 +1050,27 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 	jobs_considered[0] = NULL;
 
 	while (rc != SUCCESS && !end_cycle) {
-		int num_threads = 0;
-		checkjob_thread_data *t_data = NULL;
+		int jobs_seen = 0;
+		int jobs_submitted = 0;
 
-		for (i = 0; i < num_cores; i++) {
+		for (i = 0; i < num_threads; i++) {
+			checkjob_thread_data *t_data = NULL;
 			resource_resv *njob = NULL;
-			t_data = NULL;
+			th_task_info *work = NULL;
 
 			njob = next_job(policy, sinfo, sort_again);
 			if (njob == NULL) { /* Ran out of jobs */
 				last_job_seen = 1;
 				break;
 			}
+
+			work = malloc(sizeof(th_task_info));
+			if (work == NULL) {
+				snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
+				schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+				return -1;
+			}
+			work->task_type = TS_CHECKJOB;
 
 			/* Mark this job as being considered so that next_job ignores it for next iteration */
 			njob->is_being_considered = 1;
@@ -1274,23 +1100,47 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 				return -1;
 			}
 
-			/* Launch 1 thread for each core, each thread tries to see if its job can run */
-			pthread_create(&(threads[i]), NULL, check_job_can_run, t_data);
+			/* Queue up work task for this job */
+			work->thread_data = t_data;
+			pthread_mutex_lock(&work_lock);
+			enqueue(work_queue, work);
+			pthread_mutex_unlock(&work_lock);
+			pthread_cond_signal(&work_cond);
 			thread_data_arr[i] = t_data;
 			thread_data_arr[i + 1] = NULL;
 		}
-		num_threads = i;
+		jobs_submitted = i;
 
-		/* pthread join in increasing order of i and try to run the job */
-		for (i = 0; (i < num_threads) && (rc != SUCCESS); i++) {
+		while (jobs_seen < jobs_submitted) {
+			th_task_info *result = NULL;
+
+			pthread_mutex_lock(&result_lock);
+			while (is_empty(result_queue)) {
+				pthread_cond_wait(&result_cond, &result_lock);
+			}
+			jobs_seen++;
+			result = dequeue(result_queue);
+			pthread_mutex_unlock(&result_lock);
+
+			/*
+			 * We already have pointers to the thread's data, we don't want to look
+			 * at results in the order in which we get them, we want to look at them
+			 * in the order of their associated jobs, which can be obtained by
+			 * traversing thread_data_arr[], so just free up the object returned
+			 */
+			free(result);
+		}
+
+		for (i = 0; thread_data_arr[i] != NULL && (rc != SUCCESS); i++) {
 			nspec **ns_arr = NULL;
+			checkjob_thread_data *t_data = NULL;
 
-			pthread_join(threads[i], (void *) &ns_arr);
 			t_data = thread_data_arr[i];
 			job_to_run = t_data->job;
 			free_schd_error(err);
 			err = t_data->err;
 			qinfo = job_to_run->job->queue;
+			ns_arr = t_data->ns_arr;
 
 			schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 					job_to_run->name, "Considering job to run");
@@ -1353,15 +1203,6 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 				end_cycle = 1;
 
 			if (rc == SUCCESS || end_cycle_now) {
-				int j;
-				/*
-				 * Either we ran the job, or we are bailing,
-				 * either ways, kill all remaining threads
-				 */
-				for (j = i + 1; j < num_threads; j++) {
-					pthread_cancel(threads[j]);
-				}
-
 				/* Set the job order info to reflect the info for the job that ran so that
 				 * next_job ignores all the other jobs that it returned in the previous loop
 				 * for other threads and returns the correct job when it is called the next time
@@ -1369,15 +1210,14 @@ find_run_a_job(status *policy, server_info *sinfo, schd_error **rerr,
 				order_info = t_data->jorder_info;
 			}
 			free(t_data);
-		} /* for (i = 0; (i < num_threads) && (rc != SUCCESS); i++) */
+		}
 
 		/* If we've considered all jobs then end the cycle */
-		if (last_job_seen && i == num_threads)
+		if (last_job_seen)
 			end_cycle = 1;
-	}	/* while (job_to_run == NULL && !end_cycle) */
+	}
 
 	free(thread_data_arr);
-	free(threads);
 
 	/* Go through all the jobs which were considered and unset their considered flag */
 	for (i = 0; i < num_jobs_cnsdrd; i++) {
@@ -1419,6 +1259,7 @@ main_sched_loop(status *policy, int sd, server_info *sinfo, schd_error **rerr)
 	int rc = 0;			/* return code to the function */
 	int end_cycle = 0;		/* boolean  - end main cycle loop */
 	schd_error *err = NULL;
+	int i;
 
 	if (policy == NULL || sinfo == NULL || rerr == NULL)
 		return -1;
@@ -1432,11 +1273,30 @@ main_sched_loop(status *policy, int sd, server_info *sinfo, schd_error **rerr)
 	site_list_jobs(sinfo, sinfo->jobs);
 #endif
 
+	if (init_multi_threading() != 0)
+		return -1;
+
 	/* main scheduling loop */
 	rc = 0;
 	while (!end_cycle && rc != -1) {
 		rc = find_run_a_job(policy, sinfo, &err, sd, &end_cycle);
 	}
+
+	/* Kill all threads */
+	threads_die = 1;
+	pthread_cond_broadcast(&work_cond);
+
+	/* Wait until all threads to finish */
+	for (i = 0; i < num_threads; i++) {
+		pthread_join(threads[i], NULL);
+	}
+	pthread_mutex_destroy(&work_lock);
+	pthread_cond_destroy(&work_cond);
+	pthread_mutex_destroy(&result_lock);
+	pthread_cond_destroy(&result_cond);
+	free(threads);
+	threads = NULL;
+	num_threads = 0;
 
 	*rerr = err;
 
