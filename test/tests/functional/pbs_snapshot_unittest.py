@@ -665,6 +665,32 @@ pbs.logmsg(pbs.EVENT_DEBUG,"%s")
         with open(jsonpath, "r") as fd:
             json.load(fd)
 
+    def test_snapshot_obf_stress(self):
+        """
+        A stress test to make sure that snapshot --obufscate really obfuscates
+        the attributes that it claims to
+        """
+        real_values = []
+
+        # We will try to set all attributes which --obfuscate anonymizes
+        # Submit a job as TEST_USER
+        j = Job(TEST_USER)
+        self.server.submit(j)
+
+        # TEST_USER belongs to group TESTGRP0
+        real_values.extend([TEST_USER, TSTGRP0])
+
+        manager = str(MGR_USER) + '@*'
+        self.server.manager(MGR_CMD_SET, SERVER,
+                            {'managers': (INCR, manager)},
+                            sudo=True)
+        real_values.append(manager)
+        operator = str(OPER_USER) + '@*'
+        self.server.manager(MGR_CMD_SET, SERVER,
+                            {'operators': (INCR, operator)},
+                            sudo=True)
+        real_values.append(operator)
+
     @classmethod
     def tearDownClass(self):
         # Delete the snapshot directories and tarballs created

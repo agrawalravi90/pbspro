@@ -218,6 +218,20 @@ FILE_TABULAR = ["qstat.out", "qstat_t.out", "qstat_x.out", "qstat_ns.out",
                 "pbsnodes_avSj.out", "qstat_Q.out", "qstat_B.out",
                 "pbs_rstat.out"]
 
+# A global list of attributes that we obfuscate with --obfuscate
+OBF_ATTRS = [ATTR_euser, ATTR_egroup, ATTR_project, ATTR_A,
+             ATTR_operators, ATTR_managers, ATTR_g, ATTR_M,
+             ATTR_u, ATTR_SvrHost, ATTR_aclgroup, ATTR_acluser,
+             ATTR_aclResvgroup, ATTR_aclResvuser, ATTR_SchedHost,
+             ATTR_aclResvhost, ATTR_aclhost, ATTR_owner,
+             ATTR_exechost, ATTR_NODE_Host, ATTR_NODE_Mom,
+             ATTR_rescavail + ".host", ATTR_rescavail + ".vnode",
+             ATTR_auth_u, ATTR_auth_g, ATTR_resv_owner]
+
+# A global list of attributes that we delete with --obfuscate
+DEL_ATTRS = [ATTR_v, ATTR_e, ATTR_mailfrom, ATTR_m, ATTR_name,
+             ATTR_jobdir, ATTR_submit_arguments, ATTR_o, ATTR_S]
+
 
 class PBSSnapUtils(object):
     """
@@ -387,23 +401,13 @@ class _PBSSnapUtils(object):
         self.anonymize = anonymize
 
         if self.anonymize:
-            del_attrs = [ATTR_v, ATTR_e, ATTR_mailfrom, ATTR_m, ATTR_name,
-                         ATTR_jobdir, ATTR_submit_arguments, ATTR_o, ATTR_S]
-            obf_attrs = [ATTR_euser, ATTR_egroup, ATTR_project, ATTR_A,
-                         ATTR_operators, ATTR_managers, ATTR_g, ATTR_M,
-                         ATTR_u, ATTR_SvrHost, ATTR_aclgroup, ATTR_acluser,
-                         ATTR_aclResvgroup, ATTR_aclResvuser, ATTR_SchedHost,
-                         ATTR_aclResvhost, ATTR_aclhost, ATTR_owner,
-                         ATTR_exechost, ATTR_NODE_Host, ATTR_NODE_Mom,
-                         ATTR_rescavail + ".host", ATTR_rescavail + ".vnode",
-                         ATTR_auth_u, ATTR_auth_g, ATTR_resv_owner]
             obf_rsc_attrs = []
             if self.custom_rscs is not None:
                 for rsc in self.custom_rscs.keys():
                     obf_rsc_attrs.append(rsc)
 
-            self.anon_obj = PBSAnonymizer(attr_delete=del_attrs,
-                                          attr_val=obf_attrs,
+            self.anon_obj = PBSAnonymizer(attr_delete=DEL_ATTRS,
+                                          attr_val=OBF_ATTRS,
                                           resc_key=obf_rsc_attrs)
 
     def __init_cmd_path_map(self):

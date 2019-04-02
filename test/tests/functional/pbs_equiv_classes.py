@@ -235,16 +235,16 @@ class TestEquivClass(TestFunctional):
         jids1 = self.submit_jobs(3, user=TEST_USER)
         jids2 = self.submit_jobs(3, user=TEST_USER2)
 
-        b = {'group_list': TSTGRP1, 'Resource_List.select': '1:ncpus=8'}
+        a = {'group_list': TSTGRP1, 'Resource_List.select': '1:ncpus=8'}
         jids3 = self.submit_jobs(3, a, TEST_USER1)
 
-        b = {'group_list': TSTGRP2, 'Resource_List.select': '1:ncpus=8'}
+        a = {'group_list': TSTGRP2, 'Resource_List.select': '1:ncpus=8'}
         jids4 = self.submit_jobs(3, a, TEST_USER1)
 
-        b = {'project': 'p1', 'Resource_List.select': '1:ncpus=8'}
+        a = {'project': 'p1', 'Resource_List.select': '1:ncpus=8'}
         jids5 = self.submit_jobs(3, a)
 
-        b = {'project': 'p2', 'Resource_List.select': '1:ncpus=8'}
+        a = {'project': 'p2', 'Resource_List.select': '1:ncpus=8'}
         jids6 = self.submit_jobs(3, a)
 
         self.server.manager(MGR_CMD_SET, SERVER,
