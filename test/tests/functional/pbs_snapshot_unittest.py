@@ -670,26 +670,92 @@ pbs.logmsg(pbs.EVENT_DEBUG,"%s")
         A stress test to make sure that snapshot --obufscate really obfuscates
         the attributes that it claims to
         """
-        real_values = []
+        real_values = {}
 
         # We will try to set all attributes which --obfuscate anonymizes
-        # Submit a job as TEST_USER
-        j = Job(TEST_USER)
-        self.server.submit(j)
-
-        # TEST_USER belongs to group TESTGRP0
-        real_values.extend([TEST_USER, TSTGRP0])
-
         manager = str(MGR_USER) + '@*'
         self.server.manager(MGR_CMD_SET, SERVER,
-                            {'managers': (INCR, manager)},
+                            {ATTR_managers: (INCR, manager)},
                             sudo=True)
-        real_values.append(manager)
+        real_values[ATTR_managers] = [manager]
+
         operator = str(OPER_USER) + '@*'
         self.server.manager(MGR_CMD_SET, SERVER,
-                            {'operators': (INCR, operator)},
+                            {ATTR_operators: (INCR, operator)},
                             sudo=True)
-        real_values.append(operator)
+        real_values[ATTR_operators] = [operator]
+
+        real_values[ATTR_SvrHost] = [self.server.hostname]
+
+        # Create a queue with acls set
+        a = {ATTR_qtype: 'execution', ATTR_start: 't', ATTR_enable: 't',
+             ATTR_aclgren: 't', ATTR_aclgroup: TSTGRP0,
+             ATTR_acluser: TEST_USER}
+        self.server.manager(MGR_CMD_CREATE, QUEUE, a, id='workq2')
+        real_values[ATTR_aclgroup] = [TSTGRP0]
+        real_values[ATTR_acluser] = [TEST_USER]
+
+        # Set acls on server
+        self.server.manager(MGR_CMD_SET, SERVER,
+                            {ATTR_aclResvgroup: TSTGRP0,
+                             ATTR_aclResvuser: TEST_USER,
+                             ATTR_aclResvhost: self.server.hostname,
+                             ATTR_aclhost: self.server.hostname},
+                            sudo=True)
+        real_values[ATTR_aclResvgroup] = [TSTGRP0]
+        real_values[ATTR_aclResvuser] = [TEST_USER]
+
+        # ATTR_SchedHost  is already set on the default host
+        real_values[ATTR_SchedHost] = [self.server.hostname]
+
+        # Add node's 'Host' & 'Mom'
+        real_values[ATTR_NODE_Host] = [self.mom.shortname, self.mom.hostname]
+        real_values[ATTR_NODE_Mom] = [self.mom.shortname, self.mom.hostname]
+        real_values[ATTR_rescavail + ".host"] = [self.mom.shortname,
+                                                 self.mom.hostname]
+        real_values[ATTR_rescavail + ".vnode"] = [self.mom.shortname]
+
+        # Submit a reservation with Authorized_Users & Authorized_Groups set
+        a = {ATTR_auth_u: TEST_USER, ATTR_auth_g: TSTGRP0}
+        r = Reservation(TEST_USER, a)
+        real_values[ATTR_auth_u] = [TEST_USER]
+        real_values[ATTR_auth_g] = [TSTGRP0]
+        real_values[ATTR_resv_owner] = [TEST_USER, self.server.hostname]
+
+        # Submit a job with sensitive attributes set
+        a = {ATTR_project: 'p1', ATTR_A: 'a1', ATTR_g: TSTGRP0, ATTR_m: 'e',
+             ATTR_u: TEST_USER, ATTR_l + ".walltime": "00:01:00",
+             ATTR_S: "/bin/bash"}
+        j = Job(TEST_USER, attrs=a)
+        j.set_sleep_time(1000)
+        j1 = self.server.submit(j)
+
+        # Add job's attributes to the list
+        # TEST_USER belongs to group TESTGRP0
+        real_values[ATTR_euser] = [TEST_USER]
+        real_values[ATTR_egroup] = [TSTGRP0]
+        real_values[ATTR_project] = ['p1']
+        real_values[ATTR_A] = ['a1']
+        real_values[ATTR_g] = [TSTGRP0]
+        real_values[ATTR_M] = ['e']
+        real_values[ATTR_u] = [TEST_USER]
+        real_values[ATTR_owner] = [TEST_USER, self.server.hostname]
+        real_values[ATTR_exechost] = [self.server.hostname]
+        real_values[ATTR_S] = ["/bin/bash"]
+
+        # Take a snapshot with --obfuscate
+        (_, snap_dir) = self.take_snapshot(0, 0, obfuscate=True)
+
+        # Make sure that none of the sensitive values were captured
+        values = real_values.values()
+        for val_list in values:
+            for val in val_list:
+                # Just do a grep for the value in the snapshot
+                cmd = ["grep", "-wR", "\'" + str(val) + "\'", snap_dir]
+                ret = self.du.run_cmd(cmd=cmd, as_script=True)
+                self.assertEqual(ret["rc"], 0, "grep failed!")
+                self.assertIn(ret["out"], ["", None, []], str(val) +
+                              " was not obfuscated:\n" + str(ret["out"]))
 
     @classmethod
     def tearDownClass(self):
