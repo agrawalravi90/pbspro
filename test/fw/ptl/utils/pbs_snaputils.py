@@ -217,6 +217,7 @@ FILE_TABULAR = ["qstat.out", "qstat_t.out", "qstat_x.out", "qstat_ns.out",
                 "pbsnodes_aS.out", "pbsnodes_aSj.out", "pbsnodes_avS.out",
                 "pbsnodes_avSj.out", "qstat_Q.out", "qstat_B.out",
                 "pbs_rstat.out"]
+FILE_JSON = ["pbsnodes_avFjson.out", "qstat_f_F_json.out"]
 
 # A global list of attributes that we obfuscate with --obfuscate
 OBF_ATTRS = [ATTR_euser, ATTR_egroup, ATTR_project, ATTR_A,
@@ -879,6 +880,8 @@ quit()
                     rgfd.write("\n".join(anon))
         elif file_name in FILE_TABULAR:
             self.anon_obj.anonymize_file_tabular(file_path, inplace=True)
+        elif file_name in FILE_JSON:
+            self.anon_obj.anonymize_file_json(file_path, inplace=True)
         else:
             self.anon_obj.anonymize_file_kv(file_path, inplace=True)
 

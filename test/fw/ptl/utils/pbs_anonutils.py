@@ -40,6 +40,8 @@ import os
 import copy
 import shlex
 import re
+import random
+import json
 
 from ptl.lib.pbs_testlib import BatchUtils,  PbsTypeFGCLimit
 from ptl.lib.pbs_ifl_mock import *
@@ -150,7 +152,7 @@ class PBSAnonymizer(object):
 
     def __get_anon_value(self, key, value, kv_map):
         """
-        Get an anonymied string for the 'value' belonging to the kv_map
+        Get an anonymized string for the 'value' belonging to the kv_map
         provided.
         The kv_map will be in the following format:
             key:{val1:anon_val1, val2:anon_val2, ...}
@@ -205,7 +207,8 @@ class PBSAnonymizer(object):
                 value_map = kv_map[key]
                 anon_val = self.__get_anon_key(val, value_map)
             else:
-                anon_val = self.utils.random_str(len(val))
+                # Get a random value of length 1-30
+                anon_val = self.utils.random_str(random.randint(1, 30))
                 kv_map[key] = {val: anon_val}
             value = value.replace(val, anon_val)
 
@@ -664,7 +667,7 @@ class PBSAnonymizer(object):
                     # if 'char_after' is not "=", then the characters before
                     # and after should be the delimiter, and be equal
                     if char_before is not None and char_after is not None:
-                        if char_after != "=":
+                        if char_after != delimiter:
                             if char_before != char_after:
                                 valid_key = False
                     if valid_key is True:
@@ -684,6 +687,10 @@ class PBSAnonymizer(object):
                                         valid_key = False
                                 else:
                                     valid_key = False
+                            # for == operator
+                            elif line_nospaces[index_after + 1] == "=":
+                                index_after = index_after + 1
+
                             if valid_key is True:
                                 val_idx_nospaces = index_after + 1
                                 if val_idx_nospaces >= len_nospaces:
@@ -779,7 +786,7 @@ class PBSAnonymizer(object):
 
         :param line: the line in question
         :type line: String
-        :param key: the key ofo the kv pair
+        :param key: the key of the kv pair
         :type key: String
         :param value: the value of the kv pair
         :type value: String
@@ -957,6 +964,82 @@ class PBSAnonymizer(object):
                         line = line.replace(value_strip, anon_val)
 
                 nf.write(line)
+
+        if inplace:
+            out_filename = filename
+
+        else:
+            out_filename = filename + extension
+
+        os.rename(fn, out_filename)
+
+        return out_filename
+
+    def anonymize_file_json(self, filename, extension=".anon",
+                            inplace=False):
+        """
+        Anonymize pbs json format outputs
+
+        :param filename: Name of the file to anonymize
+        :type filename: str
+        :param extension: Extension of the anonymized file
+        :type extension: str
+        :param inplace: If true returns the original file name for
+                        which contents have been replaced
+        :type inplace: bool
+
+        :returns: a str object containing filename of the anonymized file
+        """
+        fn = self.du.create_temp_file()
+
+        with open(filename) as f, open(fn, "w") as nf:
+            json_obj = json.load(f)
+            pbs_objs = None
+            json_keys = json_obj.keys()
+            if "Jobs" in json_keys:
+                pbs_objs = json_obj["Jobs"]
+            elif "nodes" in json_keys:
+                pbs_objs = json_obj["nodes"]
+            if pbs_objs is None:
+                raise ValueError(filename + " doesn't contain expected"
+                                 "key 'Jobs'/'nodes'")
+            
+            # Go over each object and anonymize its attributes
+            for id, attrs in pbs_objs.iteritems():
+                attrs_to_del = []
+                keys_to_obf = []
+                for key, val in attrs:
+                    rsc_keys = None
+                    if type(val) == dict:
+                        rsc_keys = val.keys()
+                        tempval = {key + "." + key_v:val_v \
+                               for key_v, val_v in val.iteritems()}
+                        keys = tempval.keys()
+                    else:
+                        keys = [key]
+                    
+                    for delkey in self.attr_delete.keys():
+                        if delkey in keys:
+                            attrs_to_del.append(delkey)
+                    for obfkey in self.attr_key.keys():
+                        if obfkey in keys:
+                            keys_to_obf.append(obfkey)
+                    if rsc_keys is not None:
+                        for obfrsckey in self.resc_key.keys():
+                            if obfrsckey in rsc_keys:
+                                anon_key = self.__get_anon_key(
+                                    obfrsckey, self.gmap_resc_key)
+                                val[anon_key] = val[obfrsckey]
+                        for key in self.resc_val.keys():
+                            # Change simutils' OBF_ATTRS to remove rscavail.host
+                            # and put host in rsc_val list
+                            
+                for attrkey in attrs_to_del:
+                    del(attrs[attrkey])
+                for attrkey in keys_to_obf:
+                    anon_key = self.__get_anon_key(attrkey, self.gmap_attr_key)
+                    attrs[anon_key] = attrs[attrkey]
+                
 
         if inplace:
             out_filename = filename
