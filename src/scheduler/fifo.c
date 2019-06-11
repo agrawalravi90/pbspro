@@ -386,22 +386,24 @@ init_scheduling_cycle(status *policy, int pbs_sd, server_info *sinfo)
 			/* add the usage which was accumulated between the last cycle and this
 			 * one and calculate a new value
 			 */
+			resource_resv **running_jobs;
 
+			running_jobs = sinfo->running_jobs->arr;
 			for (i = 0; i < last_running_size ; i++) {
 				if (last_running[i].name != NULL) {
 					user = find_alloc_ginfo(last_running[i].entity_name,
 								sinfo->fairshare->root);
 
 					if (user != NULL) {
-						for (j = 0; sinfo->running_jobs[j] != NULL &&
-						     strcmp(last_running[i].name, sinfo->running_jobs[j]->name); j++)
+						for (j = 0; running_jobs[j] != NULL &&
+						     strcmp(last_running[i].name, running_jobs[j]->name); j++)
 							;
 
-						if (sinfo->running_jobs[j] != NULL &&
-							sinfo->running_jobs[j]->job != NULL) {
+						if (running_jobs[j] != NULL &&
+							running_jobs[j]->job != NULL) {
 							/* just in case the delta is negative just add 0 */
-							delta = formula_evaluate(conf.fairshare_res, sinfo->running_jobs[j], sinfo->running_jobs[j]->job->resused) -
-								formula_evaluate(conf.fairshare_res, sinfo->running_jobs[j], last_running[i].resused);
+							delta = formula_evaluate(conf.fairshare_res, running_jobs[j], running_jobs[j]->job->resused) -
+								formula_evaluate(conf.fairshare_res, running_jobs[j], last_running[i].resused);
 
 							delta = IF_NEG_THEN_ZERO(delta);
 
@@ -1185,7 +1187,7 @@ update_last_running(server_info *sinfo)
 {
 	free_pjobs(last_running, last_running_size);
 
-	last_running = create_prev_job_info(sinfo->running_jobs,
+	last_running = create_prev_job_info(sinfo->running_jobs->arr,
 		sinfo->sc.running);
 	last_running_size = sinfo->sc.running;
 

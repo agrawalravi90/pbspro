@@ -117,6 +117,8 @@ query_queues(status *policy, int pbs_sd, server_info *sinfo)
 	/* return code */
 	int ret;
 
+	resource_resv **running_jobs = NULL;
+
 	/* buffer to store comment message */
 	char comment[MAX_LOG_SIZE];
 
@@ -265,14 +267,18 @@ query_queues(status *policy, int pbs_sd, server_info *sinfo)
 
 				count_states(qinfo->jobs, &(qinfo->sc));
 
-				qinfo->running_jobs = resource_resv_filter(qinfo->jobs,
+				running_jobs = resource_resv_filter(qinfo->jobs,
 					qinfo->sc.total, check_run_job, NULL, 0);
 
-				if (qinfo->running_jobs  == NULL)
+				if (running_jobs  == NULL)
+					err = 1;
+
+				qinfo->running_jobs = new_dyn_arr(running_jobs);
+				if (qinfo->running_jobs == NULL)
 					err = 1;
 
 				if (qinfo->has_soft_limit || qinfo->has_hard_limit) {
-					if (qinfo->running_jobs != NULL) {
+					if (running_jobs != NULL) {
 						counts *allcts;
 
 						allcts = find_alloc_counts(qinfo->alljobcounts,
@@ -281,31 +287,31 @@ query_queues(status *policy, int pbs_sd, server_info *sinfo)
 							qinfo->alljobcounts = allcts;
 
 						/* set the user and group counts */
-						for (j = 0; qinfo->running_jobs[j] != NULL; j++) {
+						for (j = 0; running_jobs[j] != NULL; j++) {
 							cts = find_alloc_counts(qinfo->user_counts,
-								qinfo->running_jobs[j]->user);
+								running_jobs[j]->user);
 							if (qinfo->user_counts == NULL)
 								qinfo->user_counts = cts;
 
-							update_counts_on_run(cts, qinfo->running_jobs[j]->resreq);
+							update_counts_on_run(cts, running_jobs[j]->resreq);
 
 							cts = find_alloc_counts(qinfo->group_counts,
-								qinfo->running_jobs[j]->group);
+								running_jobs[j]->group);
 
 							if (qinfo->group_counts == NULL)
 								qinfo->group_counts = cts;
 
-							update_counts_on_run(cts, qinfo->running_jobs[j]->resreq);
+							update_counts_on_run(cts, running_jobs[j]->resreq);
 
 							cts = find_alloc_counts(qinfo->project_counts,
-								qinfo->running_jobs[j]->project);
+								running_jobs[j]->project);
 
 							if (qinfo->project_counts == NULL)
 								qinfo->project_counts = cts;
 
-							update_counts_on_run(cts, qinfo->running_jobs[j]->resreq);
+							update_counts_on_run(cts, running_jobs[j]->resreq);
 
-							update_counts_on_run(allcts, qinfo->running_jobs[j]->resreq);
+							update_counts_on_run(allcts, running_jobs[j]->resreq);
 						}
 						create_total_counts(NULL, qinfo, NULL, QUEUE);
 					}
@@ -674,9 +680,8 @@ update_queue_on_run(queue_info *qinfo, resource_resv *resresv, char *job_state)
 
 		req = req->next;
 	}
-	free(qinfo->running_jobs);
-	qinfo->running_jobs = resource_resv_filter(qinfo->jobs, qinfo->sc.total,
-		check_run_job, NULL, 0);
+
+	dyn_arr_insert(qinfo->running_jobs, resresv);
 
 	if (qinfo->has_soft_limit || qinfo->has_hard_limit) {
 
@@ -749,7 +754,7 @@ update_queue_on_end(queue_info *qinfo, resource_resv *resresv,
 	if (resresv->is_job) {
 		if (resresv->job->is_running) {
 			qinfo->sc.running--;
-			remove_resresv_from_array(qinfo->running_jobs, resresv);
+			dyn_arr_delete(qinfo->running_jobs, resresv);
 		}
 		else if (resresv->job->is_exiting)
 			qinfo->sc.exiting--;
@@ -822,7 +827,7 @@ free_queue_info(queue_info *qinfo)
 	if (qinfo->qres != NULL)
 		free_resource_list(qinfo->qres);
 	if (qinfo->running_jobs != NULL)
-		free(qinfo->running_jobs);
+		free_dyn_arr(qinfo->running_jobs);
 	if (qinfo->nodes != NULL)
 		free(qinfo->nodes);
 	if (qinfo->nodes_in_partition != NULL)
@@ -970,9 +975,14 @@ dup_queue_info(queue_info *oqinfo, server_info *nsinfo)
 	nqinfo->jobs = dup_resource_resv_array(oqinfo->jobs,
 		nqinfo->server, nqinfo);
 
-	if (nqinfo->jobs != NULL)
-		nqinfo->running_jobs = resource_resv_filter(nqinfo->jobs,
+	if (nqinfo->jobs != NULL) {
+		resource_resv *rjobs;
+
+		rjobs = resource_resv_filter(nqinfo->jobs,
 			nqinfo->sc.total, check_run_job, NULL, 0);
+		if (rjobs != NULL)
+			nqinfo->running_jobs = new_dyn_arr(rjobs);
+	}
 
 	if (oqinfo->nodes != NULL)
 		nqinfo->nodes = node_filter(nsinfo->nodes, nsinfo->num_nodes,

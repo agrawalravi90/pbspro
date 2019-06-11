@@ -49,6 +49,7 @@ libpbs_sched_a_SOURCES = \
 	check.h \
 	config.h \
 	constant.h \
+	data_types.c \
 	data_types.h \
 	dedtime.c \
 	dedtime.h \

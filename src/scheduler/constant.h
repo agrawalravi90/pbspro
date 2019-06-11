@@ -301,6 +301,8 @@ enum sort_type
 /* Reservation related constants */
 #define MAXVNODELIST 100
 
+#define MIN_DYN_ARR_SIZE 100
+
 enum resv_conf {
 	RESV_CONFIRM_FAIL = -1,
 	RESV_CONFIRM_VOID ,

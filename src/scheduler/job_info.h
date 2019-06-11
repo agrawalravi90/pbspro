@@ -399,6 +399,11 @@ long extend_soft_walltime(resource_resv *resresv, time_t server_time);
 /* Returns a list of preemptable candidates */
 resource_resv **filter_preemptable_jobs(resource_resv **arr, resource_resv *job, schd_error *err);
 
+dyn_arr *new_dyn_arr(void **inarr);
+void free_dyn_arr(dyn_arr *darr);
+int dyn_arr_insert(dyn_arr *darr, void *item);
+int dyn_arr_delete(dyn_arr *darr, void *item);
+
 #ifdef	__cplusplus
 }
 #endif

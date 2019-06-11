@@ -2104,7 +2104,7 @@ check_queue_max_user_res_soft(server_info *si, queue_info *qi, resource_resv *rr
 {
 	if ((qi == NULL) || (rr == NULL))
 		return (PREEMPT_TO_BIT(PREEMPT_ERR));
-	if (check_max_user_res_soft(qi->running_jobs, rr, qi->user_counts,
+	if (check_max_user_res_soft(qi->running_jobs->arr, rr, qi->user_counts,
 		LI2RESCTXSOFT(qi->liminfo)))
 		return (PREEMPT_TO_BIT(PREEMPT_OVER_QUEUE_LIMIT));
 	else
@@ -2321,7 +2321,7 @@ check_server_max_user_res_soft(server_info *si, queue_info *qi,
 {
 	if ((si == NULL) || (rr == NULL))
 		return (PREEMPT_TO_BIT(PREEMPT_ERR));
-	if (check_max_user_res_soft(si->running_jobs, rr, si->user_counts,
+	if (check_max_user_res_soft(si->running_jobs->arr, rr, si->user_counts,
 		LI2RESCTXSOFT(si->liminfo)))
 		return (PREEMPT_TO_BIT(PREEMPT_OVER_SERVER_LIMIT));
 	else

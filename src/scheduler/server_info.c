@@ -186,6 +186,7 @@ query_server(status *pol, int pbs_sd)
 	char *errmsg;
 	resource_resv **jobs_not_in_reservations;
 	status *policy;
+	resource_resv **running_jobs = NULL;
 
 	if (pol == NULL)
 		return NULL;
@@ -363,9 +364,10 @@ query_server(status *pol, int pbs_sd)
 
 	sinfo->calendar = create_event_list(sinfo);
 
-	sinfo->running_jobs =
-		resource_resv_filter(sinfo->jobs, sinfo->sc.total, check_run_job,
-		NULL, FILTER_FULL);
+	running_jobs = resource_resv_filter(sinfo->jobs, sinfo->sc.total,
+			check_run_job, NULL, FILTER_FULL);
+	if (running_jobs != NULL)
+		sinfo->running_jobs = new_dyn_arr(running_jobs);
 	sinfo->exiting_jobs = resource_resv_filter(sinfo->jobs,
 		sinfo->sc.total, check_exit_job, NULL, 0);
 	if (sinfo->running_jobs == NULL || sinfo->exiting_jobs ==NULL) {
@@ -386,31 +388,31 @@ query_server(status *pol, int pbs_sd)
 			sinfo->alljobcounts = allcts;
 
 		/* set the user, group , project counts */
-		for (i = 0; sinfo->running_jobs[i] != NULL; i++) {
+		for (i = 0; running_jobs[i] != NULL; i++) {
 			cts = find_alloc_counts(sinfo->user_counts,
-				sinfo->running_jobs[i]->user);
+				running_jobs[i]->user);
 			if (sinfo->user_counts == NULL)
 				sinfo->user_counts = cts;
 
-			update_counts_on_run(cts, sinfo->running_jobs[i]->resreq);
+			update_counts_on_run(cts, running_jobs[i]->resreq);
 
 			cts = find_alloc_counts(sinfo->group_counts,
-				sinfo->running_jobs[i]->group);
+				running_jobs[i]->group);
 
 			if (sinfo->group_counts == NULL)
 				sinfo->group_counts = cts;
 
-			update_counts_on_run(cts, sinfo->running_jobs[i]->resreq);
+			update_counts_on_run(cts, running_jobs[i]->resreq);
 
 			cts = find_alloc_counts(sinfo->project_counts,
-				sinfo->running_jobs[i]->project);
+				running_jobs[i]->project);
 
 			if (sinfo->project_counts == NULL)
 				sinfo->project_counts = cts;
 
-			update_counts_on_run(cts, sinfo->running_jobs[i]->resreq);
+			update_counts_on_run(cts, running_jobs[i]->resreq);
 
-			update_counts_on_run(allcts, sinfo->running_jobs[i]->resreq);
+			update_counts_on_run(allcts, running_jobs[i]->resreq);
 		}
 		create_total_counts(sinfo, NULL, NULL, SERVER);
 	}
@@ -1104,7 +1106,7 @@ free_server_info(server_info *sinfo)
 	if (sinfo->all_resresv != NULL)
 		free(sinfo->all_resresv);
 	if (sinfo->running_jobs != NULL)
-		free(sinfo->running_jobs);
+		free_dyn_arr(sinfo->running_jobs);
 	if (sinfo->exiting_jobs != NULL)
 		free(sinfo->exiting_jobs);
 	/* if we don't have nodes associated with queues, this is a reference */
@@ -1766,9 +1768,7 @@ update_server_on_run(status *policy, server_info *sinfo,
 
 
 		/* a new job has been run, recreate running jobs array */
-		free(sinfo->running_jobs);
-		sinfo->running_jobs = resource_resv_filter(
-			sinfo->jobs, sinfo->sc.total, check_run_job, NULL, 0);
+		dyn_arr_insert(sinfo->running_jobs, resresv);
 	}
 
 	if (sinfo->has_soft_limit || sinfo->has_hard_limit) {
@@ -1847,7 +1847,7 @@ update_server_on_end(status *policy, server_info *sinfo, queue_info *qinfo,
 	if (resresv->is_job) {
 		if (resresv->job->is_running) {
 			sinfo->sc.running--;
-			remove_resresv_from_array(sinfo->running_jobs, resresv);
+			dyn_arr_delete(sinfo->running_jobs, resresv);
 		} else if (resresv->job->is_exiting) {
 			sinfo->sc.exiting--;
 			remove_resresv_from_array(sinfo->exiting_jobs, resresv);
@@ -1929,6 +1929,8 @@ update_server_on_end(status *policy, server_info *sinfo, queue_info *qinfo,
 	 */
 	if (cstat.preempting && resresv->is_job) {
 		if (sinfo->has_soft_limit || resresv->job->queue->has_soft_limit) {
+			resource_resv **running_jobs;
+
 			for (i = 0; sinfo->jobs[i] != NULL; i++) {
 				if (sinfo->jobs[i]->job !=NULL) {
 					if (!strcmp(resresv->user, sinfo->jobs[i]->user) ||
@@ -1941,10 +1943,10 @@ update_server_on_end(status *policy, server_info *sinfo, queue_info *qinfo,
 
 			/* now that we've set all the preempt levels, we need to count them */
 			memset(sinfo->preempt_count, 0, NUM_PPRIO * sizeof(int));
-			for (i = 0; sinfo->running_jobs[i] != NULL; i++)
-				if (!sinfo->running_jobs[i]->job->can_not_preempt)
-					sinfo->
-					preempt_count[preempt_level(sinfo->running_jobs[i]->job->preempt)]++;
+			running_jobs = sinfo->running_jobs->arr;
+			for (i = 0; running_jobs[i] != NULL; i++)
+				if (!running_jobs[i]->job->can_not_preempt)
+					sinfo->preempt_count[preempt_level(running_jobs[i]->job->preempt)]++;
 		}
 	}
 }
@@ -2232,6 +2234,7 @@ dup_server_info(server_info *osinfo)
 {
 	server_info *nsinfo;		/* scheduler internal form of server info */
 	int i;
+	resource_resv **running_jobs = NULL;
 
 	if (osinfo == NULL)
 		return NULL;
@@ -2358,9 +2361,10 @@ dup_server_info(server_info *osinfo)
 		return NULL;
 	}
 
-	nsinfo->running_jobs =
-		resource_resv_filter(nsinfo->jobs, nsinfo->sc.total,
-		check_run_job, NULL, FILTER_FULL);
+	running_jobs = resource_resv_filter(nsinfo->jobs, nsinfo->sc.total,
+			check_run_job, NULL, FILTER_FULL);
+	if (running_jobs != NULL)
+		nsinfo->running_jobs = new_dyn_arr(running_jobs);
 
 	nsinfo->exiting_jobs =
 		resource_resv_filter(nsinfo->jobs, nsinfo->sc.total,
@@ -3322,6 +3326,8 @@ update_preemption_on_run(server_info *sinfo, resource_resv *resresv)
 
 	if (cstat.preempting && resresv->is_job) {
 		if (sinfo->has_soft_limit || resresv->job->queue->has_soft_limit) {
+			resource_resv **running_jobs = NULL;
+
 			for (i = 0; sinfo->jobs[i] != NULL; i++) {
 				if (sinfo->jobs[i]->job !=NULL) {
 					if (!strcmp(resresv->user, sinfo->jobs[i]->user) ||
@@ -3340,10 +3346,10 @@ update_preemption_on_run(server_info *sinfo, resource_resv *resresv)
 
 			/* now that we've set all the preempt levels, we need to count them */
 			memset(sinfo->preempt_count, 0, NUM_PPRIO * sizeof(int));
-			for (i = 0; sinfo->running_jobs[i] != NULL; i++)
-				if (!sinfo->running_jobs[i]->job->can_not_preempt)
-					sinfo->
-					preempt_count[preempt_level(sinfo->running_jobs[i]->job->preempt)]++;
+			running_jobs = sinfo->running_jobs->arr;
+			for (i = 0; running_jobs[i] != NULL; i++)
+				if (!running_jobs[i]->job->can_not_preempt)
+					sinfo->preempt_count[preempt_level(running_jobs[i]->job->preempt)]++;
 		}
 	}
 }

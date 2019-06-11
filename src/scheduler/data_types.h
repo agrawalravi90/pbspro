@@ -133,6 +133,7 @@ typedef struct bucket_bitpool bucket_bitpool;
 typedef struct chunk_map chunk_map;
 typedef struct node_bucket_count node_bucket_count;
 typedef struct preempt_job_st preempt_job_st;
+typedef struct dyn_arr dyn_arr;
 
 #ifdef NAS
 /* localmod 034 */
@@ -218,6 +219,13 @@ struct selspec
 	int total_cpus;			/* # of cpus requested in this select spec */
 	resdef **defs;			/* the resources requested by this select spec*/
 	chunk **chunks;
+};
+
+struct dyn_arr
+{
+	void **arr;
+	long size;	/* size of the array (in number of slots, not bytes) */
+	long num_items;
 };
 
 /* for description of these bits, check the PBS admin guide or scheduler IDS */
@@ -319,7 +327,7 @@ struct server_info
 	node_info **nodes;		/* array of nodes associated with the server */
 	node_info **unassoc_nodes;	/* array of nodes not associated with queues */
 	resource_resv **resvs;		/* the reservations on the server */
-	resource_resv **running_jobs;	/* array of jobs which are in state R */
+	dyn_arr *running_jobs;	/* array of jobs which are in state R */
 	resource_resv **exiting_jobs;	/* array of jobs which are in state E */
 	resource_resv **jobs;		/* all the jobs in the server */
 	resource_resv **all_resresv;	/* a list of all jobs and adv resvs */
@@ -413,7 +421,7 @@ struct queue_info
 	struct schd_resource *qres;	/* list of resources on the queue */
 	resource_resv *resv;		/* the resv if this is a resv queue */
 	resource_resv **jobs;		/* array of jobs that reside in queue */
-	resource_resv **running_jobs;	/* array of jobs in the running state */
+	dyn_arr *running_jobs;	/* array of jobs in the running state */
 	node_info **nodes;		/* array of nodes associated with the queue */
 	node_info **nodes_in_partition; /* array of nodes associated with the queue's partition */
 	counts *group_counts;		/* group resource and running counts */
