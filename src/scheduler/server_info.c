@@ -367,7 +367,7 @@ query_server(status *pol, int pbs_sd)
 	running_jobs = resource_resv_filter(sinfo->jobs, sinfo->sc.total,
 			check_run_job, NULL, FILTER_FULL);
 	if (running_jobs != NULL)
-		sinfo->running_jobs = new_dyn_arr(running_jobs);
+		sinfo->running_jobs = new_dyn_arr((void **) running_jobs);
 	sinfo->exiting_jobs = resource_resv_filter(sinfo->jobs,
 		sinfo->sc.total, check_exit_job, NULL, 0);
 	if (sinfo->running_jobs == NULL || sinfo->exiting_jobs ==NULL) {
@@ -1929,8 +1929,6 @@ update_server_on_end(status *policy, server_info *sinfo, queue_info *qinfo,
 	 */
 	if (cstat.preempting && resresv->is_job) {
 		if (sinfo->has_soft_limit || resresv->job->queue->has_soft_limit) {
-			resource_resv **running_jobs;
-
 			for (i = 0; sinfo->jobs[i] != NULL; i++) {
 				if (sinfo->jobs[i]->job !=NULL) {
 					if (!strcmp(resresv->user, sinfo->jobs[i]->user) ||
@@ -1943,10 +1941,14 @@ update_server_on_end(status *policy, server_info *sinfo, queue_info *qinfo,
 
 			/* now that we've set all the preempt levels, we need to count them */
 			memset(sinfo->preempt_count, 0, NUM_PPRIO * sizeof(int));
-			running_jobs = sinfo->running_jobs->arr;
-			for (i = 0; running_jobs[i] != NULL; i++)
-				if (!running_jobs[i]->job->can_not_preempt)
-					sinfo->preempt_count[preempt_level(running_jobs[i]->job->preempt)]++;
+			if (sinfo->running_jobs != NULL) {
+				resource_resv **running_jobs;
+
+				running_jobs = (resource_resv **) sinfo->running_jobs->arr;
+				for (i = 0; running_jobs[i] != NULL; i++)
+					if (!running_jobs[i]->job->can_not_preempt)
+						sinfo->preempt_count[preempt_level(running_jobs[i]->job->preempt)]++;
+			}
 		}
 	}
 }
@@ -2364,7 +2366,7 @@ dup_server_info(server_info *osinfo)
 	running_jobs = resource_resv_filter(nsinfo->jobs, nsinfo->sc.total,
 			check_run_job, NULL, FILTER_FULL);
 	if (running_jobs != NULL)
-		nsinfo->running_jobs = new_dyn_arr(running_jobs);
+		nsinfo->running_jobs = new_dyn_arr((void **) running_jobs);
 
 	nsinfo->exiting_jobs =
 		resource_resv_filter(nsinfo->jobs, nsinfo->sc.total,
@@ -3346,10 +3348,12 @@ update_preemption_on_run(server_info *sinfo, resource_resv *resresv)
 
 			/* now that we've set all the preempt levels, we need to count them */
 			memset(sinfo->preempt_count, 0, NUM_PPRIO * sizeof(int));
-			running_jobs = sinfo->running_jobs->arr;
-			for (i = 0; running_jobs[i] != NULL; i++)
-				if (!running_jobs[i]->job->can_not_preempt)
-					sinfo->preempt_count[preempt_level(running_jobs[i]->job->preempt)]++;
+			if (sinfo->running_jobs != NULL) {
+				running_jobs = (resource_resv **) sinfo->running_jobs->arr;
+				for (i = 0; running_jobs[i] != NULL; i++)
+					if (!running_jobs[i]->job->can_not_preempt)
+						sinfo->preempt_count[preempt_level(running_jobs[i]->job->preempt)]++;
+			}
 		}
 	}
 }

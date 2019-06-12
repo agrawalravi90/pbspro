@@ -2851,7 +2851,7 @@ find_and_preempt_jobs(status *policy, int pbs_sd, resource_resv *hjob, server_in
 		}
 
 		for (i = 0; i < no_of_jobs; i++) {
-			job = find_resource_resv_by_indrank(sinfo->running_jobs->arr, jobs[i], -1);
+			job = find_resource_resv_by_indrank((resource_resv **)sinfo->running_jobs->arr, jobs[i], -1);
 			if (job != NULL) {
 				if ((preempt_jobs_list[i] = strdup(job->name)) == NULL) {
 					log_err(errno, __func__, MEM_ERR_MSG);
@@ -2872,7 +2872,7 @@ find_and_preempt_jobs(status *policy, int pbs_sd, resource_resv *hjob, server_in
 		}
 
 		for (i = 0; i < no_of_jobs; i++) {
-			job = find_resource_resv(sinfo->running_jobs->arr, preempt_jobs_reply[i].job_id);
+			job = find_resource_resv((resource_resv **)sinfo->running_jobs->arr, preempt_jobs_reply[i].job_id);
 			if (job == NULL) {
 				snprintf(log_buffer, sizeof(log_buffer), "Server replied to preemption request with job which does not exist.");
 				schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG, preempt_jobs_reply[i].job_id, log_buffer);
@@ -3040,9 +3040,9 @@ find_jobs_to_preempt(status *policy, resource_resv *hjob, server_info *sinfo, in
 	 * preempt priorities.
 	 */
 	if ((hjob->job->preempt_status & PREEMPT_TO_BIT(PREEMPT_EXPRESS)) &&
-		sinfo->has_mult_express) {
+		sinfo->has_mult_express && sinfo->running_jobs != NULL) {
 		resource_resv **running_jobs;
-		running_jobs = sinfo->running_jobs->arr;
+		running_jobs = (resource_resv **) sinfo->running_jobs->arr;
 
 		for (i = 0; running_jobs[i] != NULL && !has_lower_jobs; i++)
 			if (running_jobs[i]->job->preempt < hjob->job->preempt)
@@ -3160,8 +3160,10 @@ find_jobs_to_preempt(status *policy, resource_resv *hjob, server_info *sinfo, in
 
 	if (nsinfo->preempt_targets_enable) {
 		if (preempt_targets_req != NULL) {
-			prjobs = resource_resv_filter(nsinfo->running_jobs->arr, count_array(nsinfo->running_jobs->arr),
-					preempt_job_set_filter, (void *) preempt_targets_list, NO_FLAGS);
+			if (nsinfo->running_jobs != NULL)
+				prjobs = resource_resv_filter((resource_resv **)nsinfo->running_jobs->arr,
+						count_array(nsinfo->running_jobs->arr), preempt_job_set_filter,
+						(void *) preempt_targets_list, NO_FLAGS);
 			free_string_array(preempt_targets_list);
 		}
 	}
@@ -3187,7 +3189,10 @@ find_jobs_to_preempt(status *policy, resource_resv *hjob, server_info *sinfo, in
 
 	}
 	else {
-		rjobs = nsinfo->running_jobs->arr;
+		if (nsinfo->running_jobs != NULL)
+			rjobs = (resource_resv **) nsinfo->running_jobs->arr;
+		else
+			rjobs = NULL;
 		rjobs_count = nsinfo->sc.running;
 	}
 

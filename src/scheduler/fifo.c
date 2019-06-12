@@ -388,7 +388,7 @@ init_scheduling_cycle(status *policy, int pbs_sd, server_info *sinfo)
 			 */
 			resource_resv **running_jobs;
 
-			running_jobs = sinfo->running_jobs->arr;
+			running_jobs = (resource_resv **) sinfo->running_jobs->arr;
 			for (i = 0; i < last_running_size ; i++) {
 				if (last_running[i].name != NULL) {
 					user = find_alloc_ginfo(last_running[i].entity_name,
@@ -1187,7 +1187,10 @@ update_last_running(server_info *sinfo)
 {
 	free_pjobs(last_running, last_running_size);
 
-	last_running = create_prev_job_info(sinfo->running_jobs->arr,
+	if (sinfo->running_jobs == NULL)
+		return 1;
+
+	last_running = create_prev_job_info((resource_resv **)sinfo->running_jobs->arr,
 		sinfo->sc.running);
 	last_running_size = sinfo->sc.running;
 

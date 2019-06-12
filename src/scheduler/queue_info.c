@@ -273,7 +273,7 @@ query_queues(status *policy, int pbs_sd, server_info *sinfo)
 				if (running_jobs  == NULL)
 					err = 1;
 
-				qinfo->running_jobs = new_dyn_arr(running_jobs);
+				qinfo->running_jobs = new_dyn_arr((void **) running_jobs);
 				if (qinfo->running_jobs == NULL)
 					err = 1;
 
@@ -976,12 +976,12 @@ dup_queue_info(queue_info *oqinfo, server_info *nsinfo)
 		nqinfo->server, nqinfo);
 
 	if (nqinfo->jobs != NULL) {
-		resource_resv *rjobs;
+		resource_resv **rjobs;
 
 		rjobs = resource_resv_filter(nqinfo->jobs,
 			nqinfo->sc.total, check_run_job, NULL, 0);
 		if (rjobs != NULL)
-			nqinfo->running_jobs = new_dyn_arr(rjobs);
+			nqinfo->running_jobs = new_dyn_arr((void **) rjobs);
 	}
 
 	if (oqinfo->nodes != NULL)

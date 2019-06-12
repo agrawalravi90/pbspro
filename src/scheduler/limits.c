@@ -154,8 +154,7 @@ static int
 check_max_project_res_soft(resource_resv *,
 	counts *, void *);
 static int
-check_max_user_res_soft(resource_resv **, resource_resv *,
-	counts *, void *);
+check_max_user_res_soft(resource_resv *, counts *, void *);
 static int
 check_server_max_user_run(server_info *, queue_info *,
 	resource_resv *, limcounts *, limcounts *, schd_error *);
@@ -2104,8 +2103,7 @@ check_queue_max_user_res_soft(server_info *si, queue_info *qi, resource_resv *rr
 {
 	if ((qi == NULL) || (rr == NULL))
 		return (PREEMPT_TO_BIT(PREEMPT_ERR));
-	if (check_max_user_res_soft(qi->running_jobs->arr, rr, qi->user_counts,
-		LI2RESCTXSOFT(qi->liminfo)))
+	if (check_max_user_res_soft(rr, qi->user_counts, LI2RESCTXSOFT(qi->liminfo)))
 		return (PREEMPT_TO_BIT(PREEMPT_OVER_QUEUE_LIMIT));
 	else
 		return (0);
@@ -2321,8 +2319,7 @@ check_server_max_user_res_soft(server_info *si, queue_info *qi,
 {
 	if ((si == NULL) || (rr == NULL))
 		return (PREEMPT_TO_BIT(PREEMPT_ERR));
-	if (check_max_user_res_soft(si->running_jobs->arr, rr, si->user_counts,
-		LI2RESCTXSOFT(si->liminfo)))
+	if (check_max_user_res_soft(rr, si->user_counts, LI2RESCTXSOFT(si->liminfo)))
 		return (PREEMPT_TO_BIT(PREEMPT_OVER_SERVER_LIMIT));
 	else
 		return (0);
@@ -2725,7 +2722,6 @@ check_max_user_res(resource_resv *rr, counts *cts_list, resdef **rdef,
  *					resource resv and still be within max
  *					user resource limits
  *
- * @param[in]	rr_arr	-	resource_resv array to count
  * @param[in]	rr	-	resource_resv to run
  * @param[in]	cts_list	-	the user counts list
  * @param[in]	limitctx	-	the limit storage context
@@ -2736,8 +2732,7 @@ check_max_user_res(resource_resv *rr, counts *cts_list, resdef **rdef,
  * @retval	-1	: on error
  */
 static int
-check_max_user_res_soft(resource_resv **rr_arr, resource_resv *rr,
-	counts *cts_list, void *limitctx)
+check_max_user_res_soft(resource_resv *rr, counts *cts_list, void *limitctx)
 {
 	char		*userreskey;
 	char		*genuserreskey;
