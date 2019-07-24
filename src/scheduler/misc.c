@@ -625,15 +625,13 @@ enum match_string_array_ret match_string_array(char **strarr1, char **strarr2)
  *
  * @return	converted string stored in local static ptr (no need to free)
  *
- * @par MT-safe:	no
+ * @par MT-safe:	yes
  *
  */
 char *
 string_array_to_str(char **strarr)
 {
-	static char *arrbuf = NULL;
-	static int arrlen = 0;
-	char *tmp;
+	char *arrbuf = NULL;
 	int len = 0;
 	int i;
 
@@ -645,21 +643,13 @@ string_array_to_str(char **strarr)
 
 	for (i = 0; strarr[i] != NULL; i++)
 		len += strlen(strarr[i]);
-
 	len += i; /* added space for the commas */
 
-	if (arrlen <= len || arrbuf == NULL) {
-		tmp = realloc(arrbuf, arrlen + len + 1);
-		if (tmp != NULL) {
-			arrlen += len + 1;
-			arrbuf = tmp;
-		}
-		else {
-			log_err(errno, __func__, MEM_ERR_MSG);
-			return "";
-		}
+	arrbuf = malloc(len + 1);
+	if (arrbuf == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return "";
 	}
-
 	arrbuf[0] = '\0';
 
 	for (i = 0; strarr[i] != NULL; i++) {
@@ -1384,7 +1374,7 @@ void add_err(schd_error **prev_err, schd_error *err)
  *
  * @return	char *
  * @retval	the resource in string format (in internal static string)
- * @retval	"" on error
+ * @retval	NULL on error
  *
  * @par	MT-Safe: No
  *
@@ -1396,13 +1386,12 @@ void add_err(schd_error **prev_err, schd_error *err)
 char *
 res_to_str(void *p, enum resource_fields fld)
 {
-	static char *resbuf = NULL;
-	static int resbuf_size = 1024;
+	char *resbuf = NULL;
+	int resbuf_size = 1024;
 
-	if (resbuf == NULL) {
-		if ((resbuf = malloc(resbuf_size)) == NULL)
-			return "";
-	}
+	if ((resbuf = malloc(resbuf_size)) == NULL)
+		return NULL;
+
 	return res_to_str_re(p, fld, &resbuf, &resbuf_size, NO_FLAGS);
 
 }

@@ -98,6 +98,7 @@
 #include <errno.h>
 #include <string.h>
 #include <log.h>
+#include <pthread.h>
 #include <libutil.h>
 #include "pbs_config.h"
 #include "data_types.h"
@@ -196,6 +197,30 @@ new_resource_resv()
 }
 
 /**
+ * @brief	pthread routine to free resource_resv array chunk
+ *
+ * @param[in,out]	data - th_data_free_resresv wrapper for resource_resv array
+ *
+ * @return void
+ */
+void
+free_resource_resv_array_chunk(th_data_free_resresv *data)
+{
+	resource_resv **resresv_arr;
+	int start;
+	int end;
+	int i;
+
+	resresv_arr = data->resresv_arr;
+	start = data->sidx;
+	end = data->eidx;
+
+	for (i = start; i <= end && resresv_arr[i] != NULL; i++) {
+		free_resource_resv(resresv_arr[i]);
+	}
+}
+
+/**
  * @brief
  *		free_resource_resv_array - free an array of resource resvs
  *
@@ -208,12 +233,69 @@ void
 free_resource_resv_array(resource_resv **resresv_arr)
 {
 	int i;
+	int chunk_size;
+	th_data_free_resresv *tdata = NULL;
+	th_task_info *task = NULL;
+	int num_tasks = 0;
+	int num_jobs;
+	int tid;
 
 	if (resresv_arr == NULL)
 		return;
 
 	for (i = 0; resresv_arr[i] != NULL; i++)
-		free_resource_resv(resresv_arr[i]);
+		;
+	num_jobs = i;
+
+	tid = *(int *) pthread_getspecific(th_id_key);
+	if (tid != 0) { /* worker thread, don't use multithreading */
+		tdata = malloc(sizeof(th_data_free_resresv));
+		tdata->resresv_arr = resresv_arr;
+		tdata->sidx = 0;
+		tdata->eidx = num_jobs - 1;
+		free_resource_resv_array_chunk(tdata);
+		free(tdata);
+		free(resresv_arr);
+		return;
+	}
+
+	i = 0;
+	chunk_size = num_jobs / num_threads;
+	chunk_size = (chunk_size > 1024)? chunk_size : 1024;
+	chunk_size = (chunk_size < 8192)? chunk_size : 8192;
+	while (num_jobs > 0) {
+		num_tasks++;
+		tdata = malloc(sizeof(th_data_free_resresv));
+		tdata->resresv_arr = resresv_arr;
+		tdata->sidx = i;
+		i += chunk_size;
+		tdata->eidx = i - 1;
+		task = malloc(sizeof(th_task_info));
+		task->task_type = TS_FREE_RESRESV;
+		task->thread_data = (void *) tdata;
+
+		pthread_mutex_lock(&work_lock);
+		schd_enqueue(work_queue, (void *) task);
+		pthread_cond_signal(&work_cond);
+		pthread_mutex_unlock(&work_lock);
+
+		num_jobs -= chunk_size;
+	}
+
+	/* Get results from worker threads */
+	for (i = 0; i < num_tasks;) {
+		pthread_mutex_lock(&result_lock);
+		while (schd_is_empty(result_queue))
+			pthread_cond_wait(&result_cond, &result_lock);
+		pthread_mutex_unlock(&result_lock);
+		while (!schd_is_empty(result_queue)) {
+			task = (th_task_info *) schd_dequeue(result_queue);
+			tdata = task->thread_data;
+			free(tdata);
+			free(task);
+			i++;
+		}
+	}
 
 	free(resresv_arr);
 }
@@ -295,6 +377,47 @@ free_resource_resv(resource_resv *resresv)
 }
 
 /**
+ * @brief	pthread routine for duping a chunk of resresvs
+ *
+ * @param[in,out]	data - th_data_dup_resresv object for duping
+ *
+ * @return void
+ */
+void
+dup_resource_resv_array_chunk(th_data_dup_resresv *data)
+{
+	resource_resv **nresresv_arr;
+	resource_resv **oresresv_arr;
+	server_info *nsinfo;
+	queue_info *nqinfo;
+	int start;
+	int end;
+	int i;
+	schd_error *err;
+
+	err = new_schd_error();
+	if (err == NULL) {
+		data->malloc_err = 1;
+		return;
+	}
+
+	nresresv_arr = data->nresresv_arr;
+	oresresv_arr = data->oresresv_arr;
+	nsinfo = data->nsinfo;
+	nqinfo = data->nqinfo;
+	start = data->sidx;
+	end = data->eidx;
+	data->malloc_err = 0;
+	for (i = start; i <= end && oresresv_arr[i] != NULL; i++) {
+		if ((nresresv_arr[i] = dup_resource_resv(oresresv_arr[i], nsinfo, nqinfo, err)) == NULL) {
+			if (err->error_code == SUCCESS) /* No logical error, so has to be a malloc error */
+				data->malloc_err = 1;
+			return;
+		}
+	}
+}
+
+/**
  * @brief
  *		dup_resource_resv_array - dup a array of pointers of resource resvs
  *
@@ -311,27 +434,91 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 	server_info *nsinfo, queue_info *nqinfo)
 {
 	resource_resv **nresresv_arr;
-	int i;
+	int i, j;
+	int chunk_size;
+	th_data_dup_resresv *tdata = NULL;
+	th_task_info *task = NULL;
+	int num_tasks = 0;
+	int num_resresv;
+	int num_resresv_cpy;
+	int malloc_err = 0;
+	int tid;
 
 	if (oresresv_arr == NULL || nsinfo == NULL)
 		return NULL;
 
 	for (i = 0; oresresv_arr[i] != NULL; i++)
 		;
+	num_resresv = i;
+	num_resresv_cpy = num_resresv;
 
-	if ((nresresv_arr = malloc((i + 1) * sizeof(resource_resv *))) == NULL) {
+	if ((nresresv_arr = malloc((num_resresv + 1) * sizeof(resource_resv *))) == NULL) {
 		log_err(errno, "dup_resource_resv_array",  "Error allocating memory");
 		return NULL;
 	}
+	nresresv_arr[0] = NULL;
 
-	for (i = 0; oresresv_arr[i] != NULL; i++) {
-		if ((nresresv_arr[i] =
-			dup_resource_resv(oresresv_arr[i], nsinfo, nqinfo)) == NULL) {
-			free_resource_resv_array(nresresv_arr);
-			return NULL;
+	tid = *(int *) pthread_getspecific(th_id_key);
+	if (tid != 0) { /* worker thread, don't use multithreading */
+		tdata = malloc(sizeof(th_data_dup_resresv));
+		tdata->oresresv_arr = oresresv_arr;
+		tdata->nresresv_arr = nresresv_arr;
+		tdata->nsinfo = nsinfo;
+		tdata->nqinfo = nqinfo;
+		tdata->sidx = 0;
+		tdata->eidx = num_resresv - 1;
+		dup_resource_resv_array_chunk(tdata);
+		malloc_err = tdata->malloc_err;
+		free(tdata);
+	} else { /* We are multithreading */
+		j = 0;
+		chunk_size = num_resresv / num_threads;
+		chunk_size = (chunk_size > 1024)? chunk_size: 1024;
+		chunk_size = (chunk_size < 8192)? chunk_size: 8192;
+		while (num_resresv_cpy > 0) {
+			num_tasks++;
+			tdata = malloc(sizeof(th_data_dup_resresv));
+			tdata->oresresv_arr = oresresv_arr;
+			tdata->nresresv_arr = nresresv_arr;
+			tdata->nsinfo = nsinfo;
+			tdata->nqinfo = nqinfo;
+			tdata->sidx = j;
+			j += chunk_size;
+			tdata->eidx = j - 1;
+			task = malloc(sizeof(th_task_info));
+			task->task_type = TS_DUP_RESRESV;
+			task->thread_data = (void *) tdata;
+
+			pthread_mutex_lock(&work_lock);
+			schd_enqueue(work_queue, (void *) task);
+			pthread_cond_signal(&work_cond);
+			pthread_mutex_unlock(&work_lock);
+
+			num_resresv_cpy -= chunk_size;
+		}
+
+		/* Get results from worker threads */
+		for (i = 0; i < num_tasks;) {
+			pthread_mutex_lock(&result_lock);
+			while (schd_is_empty(result_queue))
+				pthread_cond_wait(&result_cond, &result_lock);
+			pthread_mutex_unlock(&result_lock);
+			while (!schd_is_empty(result_queue)) {
+				task = (th_task_info *) schd_dequeue(result_queue);
+				tdata = (th_data_dup_resresv *) task->thread_data;
+				malloc_err |= tdata->malloc_err;
+				free(tdata);
+				free(task);
+				i++;
+			}
 		}
 	}
-	nresresv_arr[i] = NULL;
+
+	if (malloc_err) {
+		free_resource_resv_array(nresresv_arr);
+		return NULL;
+	}
+	nresresv_arr[num_resresv] = NULL;
 
 	return nresresv_arr;
 }
@@ -344,27 +531,21 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
  * @param[in]	oresresv	-	res resv to duplicate
  * @param[in]	nsinfo	-	new server info for resource_resv
  * @param[in]	nqinfo	-	new queue info for resource_resv if job (NULL if resv)
+ * @param[in]	err		-	error object
  *
  * @return	newly duplicated resource resv
  * @retval	NULL	: on error
  *
  */
 resource_resv *
-dup_resource_resv(resource_resv *oresresv,
-	server_info *nsinfo, queue_info *nqinfo)
+dup_resource_resv(resource_resv *oresresv, server_info *nsinfo, queue_info *nqinfo, schd_error *err)
 {
 	resource_resv *nresresv;
-	static schd_error *err;
 
-	if (oresresv == NULL || nsinfo == NULL)
+	if (oresresv == NULL || nsinfo == NULL || err == NULL)
 		return NULL;
 	
-	if (err == NULL) {
-		err = new_schd_error();
-		if (err == NULL)
-			return NULL;
-	} else
-		clear_schd_error(err);
+	clear_schd_error(err);
 
 	if (!is_resource_resv_valid(oresresv, err)) {
 		schdlogerr(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SCHED, LOG_DEBUG, oresresv->name, "Can't dup resresv", err);
@@ -2275,7 +2456,15 @@ create_select_from_nspec(nspec **nspec_array)
 				return NULL;
 			}
 			for (req = nspec_array[i]->resreq; req != NULL; req = req->next) {
-				snprintf(buf, sizeof(buf), ":%s=%s", req->name, res_to_str(req, RF_REQUEST));
+				char *resstr = NULL;
+
+				resstr = res_to_str(req, RF_REQUEST);
+				if (resstr ==  NULL) {
+					free(select_spec);
+					return NULL;
+				}
+				snprintf(buf, sizeof(buf), ":%s=%s", req->name, resstr);
+				free(resstr);
 				if (pbs_strcat(&select_spec, &selsize, buf) == NULL) {
 					if (selsize > 0)
 						free(select_spec);

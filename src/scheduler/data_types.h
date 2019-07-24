@@ -135,6 +135,15 @@ typedef struct bucket_bitpool bucket_bitpool;
 typedef struct chunk_map chunk_map;
 typedef struct node_bucket_count node_bucket_count;
 typedef struct preempt_job_st preempt_job_st;
+typedef struct th_task_info th_task_info;
+typedef struct th_data_nd_eligible th_data_nd_eligible;
+typedef struct th_data_dup_nd_info th_data_dup_nd_info;
+typedef struct th_data_query_ninfo th_data_query_ninfo;
+typedef struct th_data_free_ninfo th_data_free_ninfo;
+typedef struct th_data_dup_resresv th_data_dup_resresv;
+typedef struct th_data_query_jinfo th_data_query_jinfo;
+typedef struct th_data_free_resresv th_data_free_resresv;
+
 
 #ifdef NAS
 /* localmod 034 */
@@ -164,6 +173,83 @@ typedef sch_resource_t usage_t;
 
 typedef void event_ptr_t;
 typedef int (*event_func_t)(event_ptr_t*, void *);
+
+struct th_task_info
+{
+	int th_id;
+	enum thread_task_type task_type;
+	void *thread_data;
+};
+
+struct th_data_nd_eligible
+{
+	resource_resv *resresv;
+	place *pl;
+	schd_error *err;
+	char *exclerr_buf;
+	node_info **ninfo_arr;
+	int sidx;
+	int eidx;
+};
+
+struct th_data_dup_nd_info
+{
+	node_info **onodes;
+	node_info **nnodes;
+	server_info *nsinfo;
+	unsigned int flags;
+	unsigned int malloc_err:1;
+	int sidx;
+	int eidx;
+};
+
+struct th_data_query_ninfo
+{
+	struct batch_status *nodes;
+	server_info *sinfo;
+	node_info **oarr;
+	unsigned int malloc_err:1;
+	int sidx;
+	int eidx;
+};
+
+struct th_data_free_ninfo
+{
+	node_info **ninfo_arr;
+	int sidx;
+	int eidx;
+};
+
+struct th_data_dup_resresv
+{
+	resource_resv **oresresv_arr;
+	resource_resv **nresresv_arr;
+	server_info *nsinfo;
+	queue_info *nqinfo;
+	unsigned int malloc_err:1;
+	int sidx;
+	int eidx;
+};
+
+struct th_data_query_jinfo
+{
+	struct batch_status *jobs;
+	server_info *sinfo;
+	queue_info *qinfo;
+	resource_resv **oarr;
+	status *policy;
+	int pbs_sd;
+	unsigned int malloc_err:1;
+	int sidx;
+	int eidx;
+};
+
+struct th_data_free_resresv
+{
+	resource_resv **resresv_arr;
+	int sidx;
+	int eidx;
+};
 
 struct schd_error
 {
