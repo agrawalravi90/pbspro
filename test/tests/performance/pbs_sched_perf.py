@@ -249,3 +249,40 @@ class TestSchedPerf(TestPerformance):
                         'Optimization was not faster')
         self.perf_test_result(((cycle1_time / cycle2_time) * 100),
                               "optimized_percentage", "percentage")
+
+    @timeout(10000)
+    def test_many_jobs_with_calendaring(self):
+        """
+        Performance test for when there are many jobs and calendaring is on
+        """
+        # Turn strict ordering on and backfill_depth=20
+        a = {'strict_ordering': 'True'}
+        self.server.manager(MGR_CMD_SET, MGR_OBJ_SERVER,
+                            {'backfill_depth': '20'})
+
+        self.server.manager(MGR_CMD_SET, MGR_OBJ_SERVER,
+                            {'scheduling': 'False'})
+        jids = []
+
+        # Submit around 10k jobs
+        chunk_size = 100
+        total_jobs = 10000
+        while total_jobs > 0:
+            for i in range(chunk_size):
+                nchunks = i + 1
+                a = {'Resource_List.select':
+                     str(nchunks) + ":ncpus=1:color=" + str(self.colors[i % 7])}
+                njobs = chunk_size / nchunks
+                _jids = self.submit_jobs(a, njobs, wt_start=1000)
+                jids.append(_jids)
+                total_jobs -= njobs
+                if total_jobs <= 0:
+                    break
+
+        t1 = time.time()
+        # Run 100 sched cycles
+        for _ in range(100):
+            self.scheduler.run_scheduling_cycle()
+
+        t2 = time.time()
+        self.logger.info("Time taken by 100 sched cycles: " + str(t2 - t1))

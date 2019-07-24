@@ -64,6 +64,8 @@ libpbs_sched_a_SOURCES = \
 	limits.c \
 	misc.c \
 	misc.h \
+	multi_threading.c \
+	multi_threading.h \
 	node_info.c \
 	node_info.h \
 	node_partition.c \
@@ -76,6 +78,8 @@ libpbs_sched_a_SOURCES = \
 	prev_job_info.h \
 	prime.c \
 	prime.h \
+	queue.c \
+	queue.h \
 	queue_info.c \
 	queue_info.h \
 	range.c \
@@ -116,7 +120,8 @@ common_libs = \
 	@PYTHON_LDFLAGS@ \
 	@PYTHON_LIBS@ \
 	@libz_lib@ \
-	@libical_lib@
+	@libical_lib@ \
+	-lpthread
 
 pbs_sched_CPPFLAGS = ${common_cppflags}
 pbs_sched_LDADD = ${common_libs}

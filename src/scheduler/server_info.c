@@ -700,6 +700,8 @@ query_server_dyn_res(server_info *sinfo)
 		if (res != NULL) {
 			int err;
 			char *filename = conf.dynamic_res[i].script_name;
+			char *resstr = NULL;
+
 			if (sinfo->res == NULL)
 				sinfo->res = res;
 
@@ -768,14 +770,19 @@ query_server_dyn_res(server_info *sinfo)
 					"server_dyn_res", buf);
 				(void) set_resource(res, res_zero, RF_AVAIL);
 			}
+
+			resstr = res_to_str(res, RF_AVAIL);
+			if (resstr == NULL)
+				return -1;
 			if (res->type.is_non_consumable) {
 				snprintf(log_buffer, sizeof(log_buffer), "%s = %s",
-					conf.dynamic_res[i].command_line, res_to_str(res, RF_AVAIL));
+					conf.dynamic_res[i].command_line, resstr);
 			}
 			else {
 				snprintf(log_buffer, sizeof(log_buffer), "%s = %s (\"%s\")",
-					conf.dynamic_res[i].command_line, res_to_str(res, RF_AVAIL), buf);
+					conf.dynamic_res[i].command_line, resstr, buf);
 			}
+			free(resstr);
 			schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SERVER, LOG_DEBUG,
 				"server_dyn_res", log_buffer);
 		}

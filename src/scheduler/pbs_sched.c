@@ -928,8 +928,6 @@ main(int argc, char *argv[])
 	}
 #endif	/* DEBUG */
 
-	/* set single threaded mode */
-	pbs_client_thread_set_single_threaded_mode();
 	/* disable attribute verification */
 	set_no_attribute_verification();
 
