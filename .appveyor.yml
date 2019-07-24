@@ -24,7 +24,9 @@ before_test:
   - ps: Add-Content C:\Windows\System32\Drivers\Etc\Hosts "$ip testdev.pbspro.org testdev"
   - ps: net user $env:username pbS@123
   - cmd: refreshenv
+
   - cmd: C:\PROGRA~2\PBS\exec\python\python.exe C:\PROGRA~2\PBS\exec\etc\win_postinstall.py -u %USERNAME% -p pbS@123 -t execution -s testdev
+test_script:
 after_test:
   - ps: rm PBSPro.msi
   - ps: copy c:\projects\win_build\msi\PBSPro_*.msi .
