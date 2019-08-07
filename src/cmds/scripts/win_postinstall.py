@@ -409,8 +409,6 @@ def __svc_helper(svc, username, password):
 
 def register_and_start_services(username, password):
     if installtype == 'server':
-        __svc_helper(os.path.join(pbs_sbin, 'pbs_sched.exe'),
-                     username, password)
         __svc_helper(os.path.join(pbs_sbin, 'pbs_server.exe'),
                      username, password)
         set_svr_defaults()
