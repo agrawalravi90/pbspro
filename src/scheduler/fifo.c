@@ -702,7 +702,7 @@ scheduling_cycle(int sd, char *jobid)
 		"", "Starting Scheduling Cycle");
 
 	if (threads == NULL) {
-		if (init_multi_threading() != 0)
+		if (init_multi_threading() != 1)
 			return 1;
 	}
 
@@ -1225,8 +1225,8 @@ end_cycle_tasks(server_info *sinfo)
 	pthread_mutex_destroy(&result_lock);
 	pthread_cond_destroy(&result_cond);
 	free(threads);
-	delete_schd_queue(work_queue);
-	delete_schd_queue(result_queue);
+	free_ds_queue(work_queue);
+	free_ds_queue(result_queue);
 	threads = NULL;
 	num_threads = 0;
 	work_queue = NULL;

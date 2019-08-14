@@ -181,8 +181,8 @@ query_node_info_chunk(th_data_query_ninfo *data)
 	num_nodes_chunk = end - start + 1;
 
 	if ((ninfo_arr = (node_info **) malloc((num_nodes_chunk + 1) * sizeof(node_info *))) == NULL) {
-		log_err(errno, "query_nodes", "Error allocating memory");
-		data->malloc_err = 1;
+		log_err(errno, __func__, MEM_ERR_MSG);
+		data->err = 1;
 		return;
 	}
 	ninfo_arr[0] = NULL;
@@ -195,7 +195,7 @@ query_node_info_chunk(th_data_query_ninfo *data)
 		/* get node info from the batch_status */
 		if ((ninfo = query_node_info(cur_node, sinfo)) == NULL) {
 			free_nodes(ninfo_arr);
-			data->malloc_err = 1;
+			data->err = 1;
 			return;
 		}
 
@@ -244,7 +244,7 @@ query_nodes(int pbs_sd, server_info *sinfo)
 	th_data_query_ninfo *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks = 0;
-	int malloc_err = 0;
+	int th_err = 0;
 	node_info ***ninfo_arrs_tasks;
 	char *nodeattrs[] = {
 			ATTR_NODE_state,
@@ -303,7 +303,7 @@ query_nodes(int pbs_sd, server_info *sinfo)
 	}
 
 	if ((ninfo_arr = (node_info **) malloc((num_nodes + 1) * sizeof(node_info *))) == NULL) {
-		log_err(errno, "query_nodes", "Error allocating memory");
+		log_err(errno, __func__, MEM_ERR_MSG);
 		pbs_statfree(nodes);
 		return NULL;
 	}
@@ -311,7 +311,7 @@ query_nodes(int pbs_sd, server_info *sinfo)
 
 #ifdef NAS /* localmod 049 */
 	if ((sinfo->nodes_by_NASrank = (node_info **) malloc(num_nodes * sizeof(node_info *))) == NULL) {
-		log_err(errno, "query_nodes", "Error allocating nodes_by_NASrank memory");
+		log_err(errno, __func__, MEM_ERR_MSG);
 		pbs_statfree(nodes);
 		free_nodes(ninfo_arr);
 		return NULL;
@@ -320,10 +320,15 @@ query_nodes(int pbs_sd, server_info *sinfo)
 
 	j = 0;
 	chunk_size = num_nodes / num_threads;
-	chunk_size = (chunk_size > 1024)? chunk_size : 1024;
+	chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
 	while (num_nodes > 0) {
 		tdata = malloc(sizeof(th_data_query_ninfo));
-		tdata->malloc_err = 0;
+		if (tdata == NULL) {
+			log_err(errno, __func__, MEM_ERR_MSG);
+			th_err = 1;
+			break;
+		}
+		tdata->err = 0;
 		tdata->nodes = nodes;
 		tdata->oarr = NULL; /* Will be filled by the thread routine */
 		tdata->sinfo = sinfo;
@@ -331,12 +336,19 @@ query_nodes(int pbs_sd, server_info *sinfo)
 		j += chunk_size;
 		tdata->eidx = j - 1;
 		task = malloc(sizeof(th_task_info));
-		task->th_id = num_tasks;
+		if (task == NULL) {
+			free(tdata);
+			log_err(errno, __func__, MEM_ERR_MSG);
+			th_err = 1;
+			break;
+
+		}
+		task->task_id = num_tasks;
 		task->task_type = TS_QUERY_ND_INFO;
 		task->thread_data = (void *) tdata;
 
 		pthread_mutex_lock(&work_lock);
-		schd_enqueue(work_queue, (void *) task);
+		ds_enqueue(work_queue, (void *) task);
 		pthread_cond_signal(&work_cond);
 		pthread_mutex_unlock(&work_lock);
 
@@ -345,28 +357,27 @@ query_nodes(int pbs_sd, server_info *sinfo)
 	}
 	ninfo_arrs_tasks = malloc(num_tasks * sizeof(node_info **));
 	if (ninfo_arrs_tasks == NULL) {
-		log_err(errno, "query_nodes", "Error allocating memory");
-		pbs_statfree(nodes);
-		free_nodes(ninfo_arr);
-		return NULL;
+		log_err(errno, __func__, MEM_ERR_MSG);
+		th_err = 1;
 	}
 	/* Get results from worker threads */
 	for (i = 0; i < num_tasks;) {
 		pthread_mutex_lock(&result_lock);
-		while (schd_is_empty(result_queue))
+		while (ds_queue_is_empty(result_queue))
 			pthread_cond_wait(&result_cond, &result_lock);
 		pthread_mutex_unlock(&result_lock);
-		while (!schd_is_empty(result_queue)) {
-			task = (th_task_info *) schd_dequeue(result_queue);
+		while (!ds_queue_is_empty(result_queue)) {
+			task = (th_task_info *) ds_dequeue(result_queue);
 			tdata = (th_data_query_ninfo *) task->thread_data;
-			malloc_err |= tdata->malloc_err;
-			ninfo_arrs_tasks[task->th_id] = tdata->oarr;
+			if (tdata->err)
+				th_err = 1;
+			ninfo_arrs_tasks[task->task_id] = tdata->oarr;
 			free(tdata);
 			free(task);
 			i++;
 		}
 	}
-	if (malloc_err) {
+	if (th_err) {
 		pbs_statfree(nodes);
 		free_nodes(ninfo_arr);
 		return NULL;
@@ -638,7 +649,7 @@ new_node_info()
 	node_info *new;
 
 	if ((new = (node_info *) malloc(sizeof(node_info))) == NULL) {
-		log_err(errno, "new_node_info", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -775,13 +786,15 @@ free_nodes(node_info **ninfo_arr)
 	if (ninfo_arr == NULL)
 		return;
 
-	for (i = 0; ninfo_arr[i] != NULL; i++)
-		;
-	num_nodes = i;
+	num_nodes = count_array((void **) ninfo_arr);
 
-	thid = *(int *)pthread_getspecific(th_id_key);
+	thid = *((int *) pthread_getspecific(th_id_key));
 	if (thid != 0) { /* worker thread, don't use multithreading */
 		tdata = malloc(sizeof(th_data_free_ninfo));
+		if (tdata == NULL) {
+			log_err(errno, __func__, MEM_ERR_MSG);
+			return;
+		}
 		tdata->ninfo_arr = ninfo_arr;
 		tdata->sidx = 0;
 		tdata->eidx = num_nodes - 1;
@@ -792,34 +805,44 @@ free_nodes(node_info **ninfo_arr)
 	}
 	i = 0;
 	chunk_size = num_nodes / num_threads;
-	chunk_size = (chunk_size > 1024)? chunk_size : 1024;
+	chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
 	while (num_nodes > 0) {
-		num_tasks++;
 		tdata = malloc(sizeof(th_data_free_ninfo));
+		if (tdata == NULL) {
+			log_err(errno, __func__, MEM_ERR_MSG);
+			break;
+		}
+
 		tdata->ninfo_arr = ninfo_arr;
 		tdata->sidx = i;
 		i += chunk_size;
 		tdata->eidx = i - 1;
 		task = malloc(sizeof(th_task_info));
+		if (task == NULL) {
+			free(tdata);
+			log_err(errno, __func__, MEM_ERR_MSG);
+			break;
+		}
 		task->task_type = TS_FREE_ND_INFO;
 		task->thread_data = (void *) tdata;
 
 		pthread_mutex_lock(&work_lock);
-		schd_enqueue(work_queue, (void *) task);
+		ds_enqueue(work_queue, (void *) task);
 		pthread_cond_signal(&work_cond);
 		pthread_mutex_unlock(&work_lock);
 
 		num_nodes -= chunk_size;
+		num_tasks++;
 	}
 
 	/* Get results from worker threads */
 	for (i = 0; i < num_tasks;) {
 		pthread_mutex_lock(&result_lock);
-		while (schd_is_empty(result_queue))
+		while (ds_queue_is_empty(result_queue))
 			pthread_cond_wait(&result_cond, &result_lock);
 		pthread_mutex_unlock(&result_lock);
-		while (!schd_is_empty(result_queue)) {
-			task = (th_task_info *) schd_dequeue(result_queue);
+		while (!ds_queue_is_empty(result_queue)) {
+			task = (th_task_info *) ds_dequeue(result_queue);
 			tdata = task->thread_data;
 			free(tdata);
 			free(task);
@@ -1216,7 +1239,7 @@ talk_with_mom(node_info *ninfo)
 				else if (res->avail == SCHD_INFINITY_RES)
 					res->avail = 0;
 
-				resstr = res_to_str(res, RF_AVAIL);
+				resstr = res_to_str_mt_safe(res, RF_AVAIL);
 				if (resstr == NULL) {
 					ret = 1;
 					break;
@@ -1245,6 +1268,7 @@ talk_with_mom(node_info *ninfo)
 		"Ended communication with mom");
 	return (ret);
 }
+
 /**
  * @brief
  *		node_filter - filter a node array and return a new filterd array
@@ -1275,7 +1299,7 @@ node_filter(node_info **nodes, int size,
 		size = count_array((void **) nodes);
 
 	if ((new_nodes = (node_info **) malloc((size + 1) * sizeof(node_info *))) == NULL) {
-		log_err(errno, "node_filter", "Error allocating memory");
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -1289,7 +1313,7 @@ node_filter(node_info **nodes, int size,
 
 	if (!(flags & FILTER_FULL)) {
 		if ((new_nodes_tmp = (node_info **) realloc(new_nodes, (j+1) * sizeof(node_info *))) == NULL)
-			log_err(errno, "node_filter", "Error allocating memory");
+			log_err(errno, __func__, MEM_ERR_MSG);
 		else
 			new_nodes = new_nodes_tmp;
 	}
@@ -1377,12 +1401,12 @@ dup_node_info_chunk(th_data_dup_nd_info *data)
 	onodes = data->onodes;
 	nnodes = data->nnodes;
 	nsinfo = data->nsinfo;
-	data->malloc_err = 0;
+	data->err = 0;
 	flags = data->flags;
 
 	for (i = start; i <= end && data->onodes[i] != NULL; i++) {
 		if ((nnodes[i] = dup_node_info(onodes[i], nsinfo, flags)) == NULL) {
-			data->malloc_err = 1;
+			data->err = 1;
 			return;
 		}
 
@@ -1421,7 +1445,7 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 {
 	node_info **nnodes;
 	int num_nodes;
-	int num_nodes_cpy;
+	int thread_node_ct_left;
 	int i, j;
 	schd_resource *nres = NULL;
 	schd_resource *ores = NULL;
@@ -1432,34 +1456,36 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 	th_data_dup_nd_info *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks = 0;
-	int malloc_err = 0;
+	int th_err = 0;
 	int tid;
 
 	if (onodes == NULL || nsinfo == NULL)
 		return NULL;
 
-	for (i = 0; onodes[i] != NULL; i++)
-		;
-	num_nodes = i;
-	num_nodes_cpy = num_nodes;
+	num_nodes = thread_node_ct_left = count_array((void **) onodes);
 
 	if ((nnodes = (node_info **) malloc((num_nodes + 1) * sizeof(node_info *))) == NULL) {
-		log_err(errno, "dup_nodes", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
 #ifdef NAS /* localmod 049 */
 	if (allocNASrank &&
 		(nsinfo->nodes_by_NASrank = (node_info **) malloc(num_nodes * sizeof(node_info *))) == NULL) {
-		log_err(errno, "dup_nodes", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		free_nodes(nnodes);
 		return NULL;
 	}
 #endif /* localmod 049 */
 
-	tid = *(int *) pthread_getspecific(th_id_key);
+	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0) { /* worker thread, don't use multithreading */
 		tdata = malloc(sizeof(th_data_dup_nd_info));
+		if (tdata == NULL) {
+			free_nodes(nnodes);
+			log_err(errno, __func__, MEM_ERR_MSG);
+			return NULL;
+		}
 		tdata->flags = flags;
 		tdata->nsinfo = nsinfo;
 		tdata->onodes = onodes;
@@ -1467,15 +1493,19 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 		tdata->sidx = 0;
 		tdata->eidx = num_nodes - 1;
 		dup_node_info_chunk(tdata);
-		malloc_err = tdata->malloc_err;
+		th_err = tdata->err;
 		free(tdata);
 	} else { /* We are multithreading */
 		j = 0;
 		chunk_size = num_nodes / num_threads;
-		chunk_size = (chunk_size > 1024)? chunk_size : 1024;
-		while (num_nodes_cpy > 0) {
-			num_tasks++;
+		chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
+		while (thread_node_ct_left > 0) {
 			tdata = malloc(sizeof(th_data_dup_nd_info));
+			if (tdata == NULL) {
+				th_err = 1;
+				log_err(errno, __func__, MEM_ERR_MSG);
+				break;
+			}
 			tdata->flags = flags;
 			tdata->nsinfo = nsinfo;
 			tdata->onodes = onodes;
@@ -1484,27 +1514,36 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 			j += chunk_size;
 			tdata->eidx = j - 1;
 			task = malloc(sizeof(th_task_info));
+			if (task == NULL) {
+				free(tdata);
+				th_err = 1;
+				log_err(errno, __func__, MEM_ERR_MSG);
+				break;
+
+			}
 			task->task_type = TS_DUP_ND_INFO;
 			task->thread_data = (void *) tdata;
 
 			pthread_mutex_lock(&work_lock);
-			schd_enqueue(work_queue, (void *) task);
+			ds_enqueue(work_queue, (void *) task);
 			pthread_cond_signal(&work_cond);
 			pthread_mutex_unlock(&work_lock);
 
-			num_nodes_cpy -= chunk_size;
+			thread_node_ct_left -= chunk_size;
+			num_tasks++;
 		}
 
 		/* Get results from worker threads */
 		for (i = 0; i < num_tasks;) {
 			pthread_mutex_lock(&result_lock);
-			while (schd_is_empty(result_queue))
+			while (ds_queue_is_empty(result_queue))
 				pthread_cond_wait(&result_cond, &result_lock);
 			pthread_mutex_unlock(&result_lock);
-			while (!schd_is_empty(result_queue)) {
-				task = (th_task_info *) schd_dequeue(result_queue);
+			while (!ds_queue_is_empty(result_queue)) {
+				task = (th_task_info *) ds_dequeue(result_queue);
 				tdata = (th_data_dup_nd_info *) task->thread_data;
-				malloc_err |= tdata->malloc_err;
+				if (tdata->err)
+					th_err = 1;
 				free(tdata);
 				free(task);
 				i++;
@@ -1512,7 +1551,7 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 		}
 	}
 
-	if (malloc_err) {
+	if (th_err) {
 		free_nodes(nnodes);
 		return NULL;
 	}
@@ -2284,7 +2323,7 @@ new_nspec()
 	nspec *ns;
 
 	if ((ns = (nspec *) malloc(sizeof(nspec))) == NULL) {
-		log_err(errno, "new_nspec", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -3961,8 +4000,6 @@ resources_avail_on_vnode(resource_req *specreq_cons, node_info *node,
 					num_chunks = cur_flt_lic;
 
 				if (num_chunks > 0) {
-					char *resstr = NULL;
-
 					is_p = is_provisionable(node, resresv, err);
 					if (is_p == NOT_PROVISIONABLE) {
 						allocated = 0;
@@ -4037,11 +4074,8 @@ resources_avail_on_vnode(resource_req *specreq_cons, node_info *node,
 
 					/* use tmpreq to wrap the amount so we can use res_to_str */
 					tmpreq.amount = amount;
-					resstr = res_to_str(&tmpreq, RF_REQUEST);
-					if (resstr == NULL)
-						return 0;
-					sprintf(logbuf, "vnode allocated %s=%s", req->name, resstr);
-					free(resstr);
+					sprintf(logbuf, "vnode allocated %s=%s", req->name,
+							res_to_str(&tmpreq, RF_REQUEST));
 					schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_NODE, LOG_DEBUG,
 						node->name, logbuf);
 
@@ -4517,13 +4551,13 @@ parse_selspec(char *select_spec)
 
 	/* num_plus + 2: 1 for the initial chunk 1 for the NULL ptr */
 	if ((spec->chunks = calloc(num_plus + 2, sizeof(chunk *))) == NULL) {
-		log_err(errno, "parse_selspec", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		free_selspec(spec);
 	}
 
-	specbuf = strdup(select_spec);
+	specbuf = string_dup(select_spec);
 	if (specbuf == NULL) {
-		log_err(errno, "parse_selspec", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return 0;
 	}
 
@@ -4600,6 +4634,7 @@ parse_selspec(char *select_spec)
 		if (tmpptr != NULL)
 			free(tmpptr);
 
+		free(specbuf);
 		return NULL;
 	}
 
@@ -6126,27 +6161,33 @@ is_exclhost(place *placespec, enum vnode_sharing sharing)
  *
  * @param[in,out]	data - th_data_nd_eligible object
  *
- * @return int
- * @retval 0 for success
- * @retval 1 for error
+ * @return void
  */
-int
+void
 check_node_eligibility_chunk(th_data_nd_eligible *data)
 {
 	int i;
 	int start, end;
 	schd_error *err;
+	schd_error *misc_err;
 	resource_resv *resresv;
 	place *pl;
 	char *exclerr_buf;
 	node_info **ninfo_arr;
 
 	if (data == NULL)
-		return 1;
+		return;
 
 	err = new_schd_error();
-	if (err == NULL)
-		return 1;
+	if (err == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return;
+	}
+	misc_err = new_schd_error();
+	if (misc_err == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return;
+	}
 
 	start = data->sidx;
 	end = data->eidx;
@@ -6160,8 +6201,10 @@ check_node_eligibility_chunk(th_data_nd_eligible *data)
 
 		node = ninfo_arr[i];
 		if ((!node->nscr.ineligible)) {
+			clear_schd_error(err);
 			if (is_vnode_eligible(node, resresv, pl, err) == 0) {
 				node->nscr.ineligible = 1;
+
 				if (node->hostset != NULL) {
 					if ((err->error_code == NODE_NOT_EXCL && is_exclhost(pl, node->sharing))
 							|| sim_exclhost(resresv->server->calendar, resresv, node) == 0) {
@@ -6177,15 +6220,16 @@ check_node_eligibility_chunk(th_data_nd_eligible *data)
 					}
 				}
 				if (err->status_code != SCHD_UNKWN) {
+					if (misc_err->status_code == SCHD_UNKWN)
+						move_schd_error(misc_err, err);
 					schdlogerr(PBSEVENT_DEBUG3, PBS_EVENTCLASS_NODE, LOG_DEBUG, node->name, NULL, err);
 				}
 			}
 		}
 	}
 
-	data->err = err;
-
-	return 0;
+	free_schd_error(err);
+	data->err = misc_err;
 }
 
 /**
@@ -6232,15 +6276,16 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 	}
 	clear_schd_error(misc_err);
 
-	if (num_nodes == -1) {
-		for (i = 0; ninfo_arr[i] != NULL; i++)
-			;
-		num_nodes = i;
-	}
+	if (num_nodes == -1)
+		num_nodes = count_array((void **) ninfo_arr);
 
-	tid = *(int *) pthread_getspecific(th_id_key);
+	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0) { /* worker thread, don't use multithreading */
 		tdata = malloc(sizeof(th_data_nd_eligible));
+		if (tdata == NULL) {
+			log_err(errno, __func__, MEM_ERR_MSG);
+			return;
+		}
 		tdata->err = NULL;
 		tdata->pl = pl;
 		tdata->resresv = resresv;
@@ -6254,10 +6299,13 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 	} else {	 /* We are multithreading */
 		j = 0;
 		chunk_size = num_nodes / num_threads;
-		chunk_size = (chunk_size > 1024)? chunk_size : 1024;
+		chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
 		while (num_nodes > 0) {
-			num_tasks++;
 			tdata = malloc(sizeof(th_data_nd_eligible));
+			if (tdata == NULL)  {
+				log_err(errno, __func__, MEM_ERR_MSG);
+				break;
+			}
 			tdata->err = NULL;
 			tdata->pl = pl;
 			tdata->resresv = resresv;
@@ -6268,27 +6316,33 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 
 			tdata->eidx = j - 1;
 			task = malloc(sizeof(th_task_info));
+			if (task == NULL) {
+				free(tdata);
+				log_err(errno, __func__, MEM_ERR_MSG);
+				break;
+			}
 			task->task_type = TS_IS_ND_ELIGIBLE;
 			task->thread_data = (void *) tdata;
 
 			pthread_mutex_lock(&work_lock);
-			schd_enqueue(work_queue, (void *) task);
+			ds_enqueue(work_queue, (void *) task);
 			pthread_cond_signal(&work_cond);
 			pthread_mutex_unlock(&work_lock);
 
 			num_nodes -= chunk_size;
+			num_tasks++;
 		}
 
 		/* Get results from worker threads */
 		for (i = 0; i < num_tasks;) {
 			pthread_mutex_lock(&result_lock);
-			while (schd_is_empty(result_queue))
+			while (ds_queue_is_empty(result_queue))
 				pthread_cond_wait(&result_cond, &result_lock);
 			pthread_mutex_unlock(&result_lock);
-			while (!schd_is_empty(result_queue)) {
-				task = (th_task_info *) schd_dequeue(result_queue);
+			while (!ds_queue_is_empty(result_queue)) {
+				task = (th_task_info *) ds_dequeue(result_queue);
 				tdata = (th_data_nd_eligible *) task->thread_data;
-				if (i == j - 1)
+				if (err->status_code == SCHD_UNKWN && tdata->err->status_code != SCHD_UNKWN)
 					copy_schd_error(err, tdata->err);
 
 				free_schd_error(tdata->err);
@@ -6298,13 +6352,6 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 			}
 		}
 	}
-
-	/* If the last node we checked was eligible, err->error_code will be 0.
-	 * If a node was previously ineligible, we want to make note of that and
-	 * return that err
-	 */
-	if (err->status_code == SCHD_UNKWN && misc_err->status_code != SCHD_UNKWN)
-		move_schd_error(err, misc_err);
 }
 
 /**

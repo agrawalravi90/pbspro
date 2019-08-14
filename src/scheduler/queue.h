@@ -40,9 +40,9 @@
 
 #define QUEUE_DS_MIN_SIZE 512	/* Minimum size of the queue data structure */
 
-typedef struct schd_queue schd_queue;
+typedef struct ds_queue ds_queue;
 
-struct schd_queue {
+struct ds_queue {
 	int min_size;
 	long front;
 	long rear;
@@ -50,10 +50,10 @@ struct schd_queue {
 	void **content_arr;
 };
 
-schd_queue *new_schd_queue(void);
-void delete_schd_queue(schd_queue *obj);
-int schd_enqueue(schd_queue *queue, void *obj);
-void *schd_dequeue(schd_queue *queue);
-int schd_is_empty(schd_queue *queue);
+ds_queue *new_ds_queue(void);
+void free_ds_queue(ds_queue *obj);
+int ds_enqueue(ds_queue *queue, void *obj);
+void *ds_dequeue(ds_queue *queue);
+int ds_queue_is_empty(ds_queue *queue);
 
 #endif /* SRC_SCHEDULER_QUEUE_H_ */

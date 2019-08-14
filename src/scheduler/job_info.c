@@ -530,13 +530,15 @@ query_jobs_chunk(th_data_query_jinfo *data)
 
 	err = new_schd_error();
 	if(err == NULL) {
-		data->malloc_err = 1;
+		log_err(errno, __func__, MEM_ERR_MSG);
+		data->err = 1;
 		return;
 	}
 
 	resresv_arr = (resource_resv **) malloc(sizeof(resource_resv *) * (num_jobs_chunk + 1));
 	if (resresv_arr == NULL) {
-		data->malloc_err = 1;
+		log_err(errno, __func__, MEM_ERR_MSG);
+		data->err = 1;
 		return;
 	}
 	resresv_arr[0] = NULL;
@@ -560,7 +562,7 @@ query_jobs_chunk(th_data_query_jinfo *data)
 		long starve_num;
 
 		if ((resresv = query_job(cur_job, sinfo, err)) == NULL) {
-			data->malloc_err = 1;
+			data->err = 1;
 			free_schd_error(err);
 			free_resource_resv_array(resresv_arr);
 			return;
@@ -903,7 +905,7 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	th_data_query_jinfo *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks = 0;
-	int malloc_err = 0;
+	int th_err = 0;
 	resource_resv ***jinfo_arrs_tasks;
 
 	char *jobattrs[] = {
@@ -983,20 +985,15 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	num_new_jobs = num_jobs;
 
 	/* if there are previous jobs, count those too */
-	num_prev_jobs = count_array((void **)pjobs);
+	num_prev_jobs = count_array((void **) pjobs);
 	num_jobs += num_prev_jobs;
 
 
 	/* allocate enough space for all the jobs and the NULL sentinal */
-	if (pjobs != NULL)
-		resresv_arr = (resource_resv **)
-			realloc(pjobs, sizeof(resource_resv*) * (num_jobs + 1));
-	else
-		resresv_arr = (resource_resv **)
-			malloc(sizeof(resource_resv*) * (num_jobs + 1));
+	resresv_arr = (resource_resv **) realloc(pjobs, sizeof(resource_resv*) * (num_jobs + 1));
 
 	if (resresv_arr == NULL) {
-		log_err(errno, "query_jobs", "Error allocating memory");
+		log_err(errno, __func__, MEM_ERR_MSG);
 		pbs_statfree(jobs);
 		return NULL;
 	}
@@ -1004,11 +1001,16 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 
 	j = 0;
 	chunk_size = num_new_jobs / num_threads;
-	chunk_size = (chunk_size > 1024)? chunk_size : 1024;
-	chunk_size = (chunk_size < 8192)? chunk_size : 8192;
+	chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
+	chunk_size = (chunk_size < 8192) ? chunk_size : 8192;
 	while (num_new_jobs > 0) {
 		tdata = malloc(sizeof(th_data_query_jinfo));
-		tdata->malloc_err = 0;
+		if (tdata == NULL) {
+			log_err(errno, __func__, MEM_ERR_MSG);
+			th_err = 1;
+			break;
+		}
+		tdata->err = 0;
 		tdata->jobs = jobs;
 		tdata->oarr = NULL; /* Will be filled by the thread routine */
 		tdata->sinfo = qinfo->server;
@@ -1019,12 +1021,18 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 		j += chunk_size;
 		tdata->eidx = j - 1;
 		task = malloc(sizeof(th_task_info));
-		task->th_id = num_tasks;
+		if (task == NULL) {
+			free(tdata);
+			log_err(errno, __func__, MEM_ERR_MSG);
+			th_err = 1;
+			break;
+		}
+		task->task_id = num_tasks;
 		task->task_type = TS_QUERY_JOB_INFO;
 		task->thread_data = (void *) tdata;
 
 		pthread_mutex_lock(&work_lock);
-		schd_enqueue(work_queue, (void *) task);
+		ds_enqueue(work_queue, (void *) task);
 		pthread_cond_signal(&work_cond);
 		pthread_mutex_unlock(&work_lock);
 
@@ -1033,29 +1041,27 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	}
 	jinfo_arrs_tasks = malloc(num_tasks * sizeof(resource_resv **));
 	if (jinfo_arrs_tasks == NULL) {
-		log_err(errno, "query_jobs", "Error allocating memory");
-		pbs_statfree(jobs);
-		free_resource_resv_array(resresv_arr);
-		return NULL;
+		log_err(errno, __func__, MEM_ERR_MSG);
+		th_err = 1;
 	}
 	/* Get results from worker threads */
 	for (i = 0; i < num_tasks;) {
 		pthread_mutex_lock(&result_lock);
-		while (schd_is_empty(result_queue))
+		while (ds_queue_is_empty(result_queue))
 			pthread_cond_wait(&result_cond, &result_lock);
 		pthread_mutex_unlock(&result_lock);
-		while (!schd_is_empty(result_queue)) {
-			task = (th_task_info *) schd_dequeue(result_queue);
+		while (!ds_queue_is_empty(result_queue)) {
+			task = (th_task_info *) ds_dequeue(result_queue);
 			tdata = (th_data_query_jinfo *) task->thread_data;
-			malloc_err |= tdata->malloc_err;
-			jinfo_arrs_tasks[task->th_id] = tdata->oarr;
+			if (tdata->err)
+				th_err = 1;
+			jinfo_arrs_tasks[task->task_id] = tdata->oarr;
 			free(tdata);
 			free(task);
 			i++;
 		}
 	}
-	if (malloc_err) {
-		log_err(errno, "query_jobs", "Error allocating memory");
+	if (th_err) {
 		pbs_statfree(jobs);
 		free_resource_resv_array(resresv_arr);
 		return NULL;
@@ -1374,7 +1380,7 @@ new_job_info()
 	job_info *jinfo;
 
 	if ((jinfo = (job_info *) malloc(sizeof(job_info))) == NULL) {
-		log_err(errno, "new_job_info", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 

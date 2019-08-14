@@ -131,7 +131,7 @@ new_resource_resv()
 	resource_resv *resresv = NULL;
 
 	if ((resresv = malloc(sizeof(resource_resv))) == NULL) {
-		log_err(errno, "new_resource_resv", "Error allocating memory");
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -243,11 +243,9 @@ free_resource_resv_array(resource_resv **resresv_arr)
 	if (resresv_arr == NULL)
 		return;
 
-	for (i = 0; resresv_arr[i] != NULL; i++)
-		;
-	num_jobs = i;
+	num_jobs = count_array((void **) resresv_arr);
 
-	tid = *(int *) pthread_getspecific(th_id_key);
+	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0) { /* worker thread, don't use multithreading */
 		tdata = malloc(sizeof(th_data_free_resresv));
 		tdata->resresv_arr = resresv_arr;
@@ -261,8 +259,8 @@ free_resource_resv_array(resource_resv **resresv_arr)
 
 	i = 0;
 	chunk_size = num_jobs / num_threads;
-	chunk_size = (chunk_size > 1024)? chunk_size : 1024;
-	chunk_size = (chunk_size < 8192)? chunk_size : 8192;
+	chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
+	chunk_size = (chunk_size < 8192) ? chunk_size : 8192;
 	while (num_jobs > 0) {
 		num_tasks++;
 		tdata = malloc(sizeof(th_data_free_resresv));
@@ -275,7 +273,7 @@ free_resource_resv_array(resource_resv **resresv_arr)
 		task->thread_data = (void *) tdata;
 
 		pthread_mutex_lock(&work_lock);
-		schd_enqueue(work_queue, (void *) task);
+		ds_enqueue(work_queue, (void *) task);
 		pthread_cond_signal(&work_cond);
 		pthread_mutex_unlock(&work_lock);
 
@@ -285,11 +283,11 @@ free_resource_resv_array(resource_resv **resresv_arr)
 	/* Get results from worker threads */
 	for (i = 0; i < num_tasks;) {
 		pthread_mutex_lock(&result_lock);
-		while (schd_is_empty(result_queue))
+		while (ds_queue_is_empty(result_queue))
 			pthread_cond_wait(&result_cond, &result_lock);
 		pthread_mutex_unlock(&result_lock);
-		while (!schd_is_empty(result_queue)) {
-			task = (th_task_info *) schd_dequeue(result_queue);
+		while (!ds_queue_is_empty(result_queue)) {
+			task = (th_task_info *) ds_dequeue(result_queue);
 			tdata = task->thread_data;
 			free(tdata);
 			free(task);
@@ -397,7 +395,8 @@ dup_resource_resv_array_chunk(th_data_dup_resresv *data)
 
 	err = new_schd_error();
 	if (err == NULL) {
-		data->malloc_err = 1;
+		log_err(errno, __func__, MEM_ERR_MSG);
+		data->err = 1;
 		return;
 	}
 
@@ -407,14 +406,16 @@ dup_resource_resv_array_chunk(th_data_dup_resresv *data)
 	nqinfo = data->nqinfo;
 	start = data->sidx;
 	end = data->eidx;
-	data->malloc_err = 0;
+	data->err = 0;
 	for (i = start; i <= end && oresresv_arr[i] != NULL; i++) {
 		if ((nresresv_arr[i] = dup_resource_resv(oresresv_arr[i], nsinfo, nqinfo, err)) == NULL) {
-			if (err->error_code == SUCCESS) /* No logical error, so has to be a malloc error */
-				data->malloc_err = 1;
+			data->err = 1;
+			free_schd_error(err);
 			return;
 		}
 	}
+
+	free_schd_error(err);
 }
 
 /**
@@ -440,25 +441,22 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 	th_task_info *task = NULL;
 	int num_tasks = 0;
 	int num_resresv;
-	int num_resresv_cpy;
-	int malloc_err = 0;
+	int thread_job_ct_left;
+	int th_err = 0;
 	int tid;
 
 	if (oresresv_arr == NULL || nsinfo == NULL)
 		return NULL;
 
-	for (i = 0; oresresv_arr[i] != NULL; i++)
-		;
-	num_resresv = i;
-	num_resresv_cpy = num_resresv;
+	num_resresv = thread_job_ct_left = count_array((void **) oresresv_arr);
 
 	if ((nresresv_arr = malloc((num_resresv + 1) * sizeof(resource_resv *))) == NULL) {
-		log_err(errno, "dup_resource_resv_array",  "Error allocating memory");
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 	nresresv_arr[0] = NULL;
 
-	tid = *(int *) pthread_getspecific(th_id_key);
+	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0) { /* worker thread, don't use multithreading */
 		tdata = malloc(sizeof(th_data_dup_resresv));
 		tdata->oresresv_arr = oresresv_arr;
@@ -468,14 +466,14 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 		tdata->sidx = 0;
 		tdata->eidx = num_resresv - 1;
 		dup_resource_resv_array_chunk(tdata);
-		malloc_err = tdata->malloc_err;
+		th_err = tdata->err;
 		free(tdata);
 	} else { /* We are multithreading */
 		j = 0;
 		chunk_size = num_resresv / num_threads;
 		chunk_size = (chunk_size > 1024)? chunk_size: 1024;
 		chunk_size = (chunk_size < 8192)? chunk_size: 8192;
-		while (num_resresv_cpy > 0) {
+		while (thread_job_ct_left > 0) {
 			num_tasks++;
 			tdata = malloc(sizeof(th_data_dup_resresv));
 			tdata->oresresv_arr = oresresv_arr;
@@ -490,23 +488,24 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 			task->thread_data = (void *) tdata;
 
 			pthread_mutex_lock(&work_lock);
-			schd_enqueue(work_queue, (void *) task);
+			ds_enqueue(work_queue, (void *) task);
 			pthread_cond_signal(&work_cond);
 			pthread_mutex_unlock(&work_lock);
 
-			num_resresv_cpy -= chunk_size;
+			thread_job_ct_left -= chunk_size;
 		}
 
 		/* Get results from worker threads */
 		for (i = 0; i < num_tasks;) {
 			pthread_mutex_lock(&result_lock);
-			while (schd_is_empty(result_queue))
+			while (ds_queue_is_empty(result_queue))
 				pthread_cond_wait(&result_cond, &result_lock);
 			pthread_mutex_unlock(&result_lock);
-			while (!schd_is_empty(result_queue)) {
-				task = (th_task_info *) schd_dequeue(result_queue);
+			while (!ds_queue_is_empty(result_queue)) {
+				task = (th_task_info *) ds_dequeue(result_queue);
 				tdata = (th_data_dup_resresv *) task->thread_data;
-				malloc_err |= tdata->malloc_err;
+				if (tdata->err)
+					th_err = 1;
 				free(tdata);
 				free(task);
 				i++;
@@ -514,7 +513,7 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 		}
 	}
 
-	if (malloc_err) {
+	if (th_err) {
 		free_resource_resv_array(nresresv_arr);
 		return NULL;
 	}
@@ -1800,7 +1799,7 @@ resource_resv_filter(resource_resv **resresv_arr, int size,
 	 */
 
 	if ((new_resresvs = malloc((size + 1) * sizeof(resource_resv *))) == NULL) {
-		log_err(errno, "resource_resv_filter", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -1815,7 +1814,7 @@ resource_resv_filter(resource_resv **resresv_arr, int size,
 		if ((tmp = realloc(new_resresvs, (j+1) *
 			sizeof(resource_resv *))) == NULL) {
 			free(new_resresvs);
-			log_err(errno, "resource_resv_filter", "Error allocating memory");
+			log_err(errno, __func__, MEM_ERR_MSG);
 			return NULL;
 		}
 		else
@@ -1906,7 +1905,7 @@ add_resresv_to_array(resource_resv **resresv_arr,
 		    resresv->resresv_ind = size;
 	}
 	else {
-		log_err(errno, "add_resresv_to_array", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -2016,7 +2015,7 @@ new_place()
 	place *pl;
 
 	if ((pl = malloc(sizeof(place))) == NULL) {
-		log_err(errno, "new_place", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -2102,7 +2101,7 @@ new_chunk()
 	chunk *ch;
 
 	if ((ch = malloc(sizeof(chunk))) == NULL) {
-		log_err(errno, "new_chunk", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -2136,7 +2135,7 @@ dup_chunk_array(chunk **old_chunk_arr)
 	ct = count_array((void **) old_chunk_arr);
 
 	if ((new_chunk_arr = calloc(ct + 1, sizeof(chunk *))) == NULL) {
-		log_err(errno, "dup_chunk_array", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -2247,7 +2246,7 @@ new_selspec()
 	selspec *spec;
 
 	if ((spec = malloc(sizeof(selspec))) == NULL) {
-		log_err(errno, "new_selspec", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -2458,7 +2457,7 @@ create_select_from_nspec(nspec **nspec_array)
 			for (req = nspec_array[i]->resreq; req != NULL; req = req->next) {
 				char *resstr = NULL;
 
-				resstr = res_to_str(req, RF_REQUEST);
+				resstr = res_to_str_mt_safe(req, RF_REQUEST);
 				if (resstr ==  NULL) {
 					free(select_spec);
 					return NULL;

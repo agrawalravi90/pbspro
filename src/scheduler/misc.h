@@ -206,6 +206,11 @@ int is_valid_pbs_name(char *str, int len);
 char *res_to_str(void *p, enum resource_fields fld);
 
 /*
+ * 	MT safe version of res_to_str
+ */
+char *res_to_str_mt_safe(void *p, enum resource_fields fld);
+
+/*
  *
  *    turn a resource/req into a string for printing (reentrant)
  *

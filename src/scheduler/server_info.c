@@ -700,7 +700,6 @@ query_server_dyn_res(server_info *sinfo)
 		if (res != NULL) {
 			int err;
 			char *filename = conf.dynamic_res[i].script_name;
-			char *resstr = NULL;
 
 			if (sinfo->res == NULL)
 				sinfo->res = res;
@@ -771,18 +770,14 @@ query_server_dyn_res(server_info *sinfo)
 				(void) set_resource(res, res_zero, RF_AVAIL);
 			}
 
-			resstr = res_to_str(res, RF_AVAIL);
-			if (resstr == NULL)
-				return -1;
 			if (res->type.is_non_consumable) {
 				snprintf(log_buffer, sizeof(log_buffer), "%s = %s",
-					conf.dynamic_res[i].command_line, resstr);
+					conf.dynamic_res[i].command_line, res_to_str(res, RF_AVAIL));
 			}
 			else {
 				snprintf(log_buffer, sizeof(log_buffer), "%s = %s (\"%s\")",
-					conf.dynamic_res[i].command_line, resstr, buf);
+					conf.dynamic_res[i].command_line, res_to_str(res, RF_AVAIL), buf);
 			}
-			free(resstr);
 			schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SERVER, LOG_DEBUG,
 				"server_dyn_res", log_buffer);
 		}
@@ -1256,7 +1251,7 @@ new_server_info(int limallocflag)
 	server_info *sinfo;			/* the new server */
 
 	if ((sinfo = (server_info *) malloc(sizeof(server_info))) == NULL) {
-		log_err(errno, "new_server_info", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -1357,7 +1352,7 @@ new_resource()
 	schd_resource *resp;		/* the new resource */
 
 	if ((resp = calloc(1,  sizeof(schd_resource))) == NULL) {
-		log_err(errno, "new_resource", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -2713,7 +2708,7 @@ new_counts(void)
 	counts *cts;
 
 	if ((cts = malloc(sizeof(struct counts)))  == NULL) {
-		log_err(errno, "new_counts", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 

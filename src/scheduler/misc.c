@@ -127,7 +127,7 @@ string_dup(char *str)
 		return NULL;
 
 	if ((newstr = (char *) malloc(strlen(str) + 1)) == NULL) {
-		log_err(errno, "string_dup", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -168,7 +168,7 @@ concat_str(char *str1, char *str2, char *str3 , int append)
 		len += strlen(str3);
 
 	if ((newstr = malloc(len + 1)) == NULL) {
-		log_err(errno, "concat_str", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -540,7 +540,7 @@ dup_string_array(char **ostrs)
 		for (i = 0; ostrs[i] != NULL; i++);
 
 		if ((nstrs = (char **)malloc((i + 1) * sizeof(char *))) == NULL) {
-			log_err(errno, "dup_string_array", "Error allocating memory");
+			log_err(errno, __func__, MEM_ERR_MSG);
 			return NULL;
 		}
 
@@ -639,7 +639,7 @@ string_array_to_str(char **strarr)
 		return NULL;
 
 	if (strarr[0] == NULL)
-		return "";
+		return NULL;
 
 	for (i = 0; strarr[i] != NULL; i++)
 		len += strlen(strarr[i]);
@@ -648,7 +648,7 @@ string_array_to_str(char **strarr)
 	arrbuf = malloc(len + 1);
 	if (arrbuf == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
-		return "";
+		return NULL;
 	}
 	arrbuf[0] = '\0';
 
@@ -1374,7 +1374,7 @@ void add_err(schd_error **prev_err, schd_error *err)
  *
  * @return	char *
  * @retval	the resource in string format (in internal static string)
- * @retval	NULL on error
+ * @retval	"" on error
  *
  * @par	MT-Safe: No
  *
@@ -1385,6 +1385,36 @@ void add_err(schd_error **prev_err, schd_error *err)
  */
 char *
 res_to_str(void *p, enum resource_fields fld)
+{
+	static char *resbuf = NULL;
+	static int resbuf_size = 1024;
+
+	if (resbuf == NULL) {
+		if ((resbuf = malloc(resbuf_size)) == NULL)
+		return "";
+	}
+
+	return res_to_str_re(p, fld, &resbuf, &resbuf_size, NO_FLAGS);
+
+}
+
+
+/**
+ * @brief
+ * 		MT safe version of res_to_str
+ *
+ * @param[in]	p	-	pointer to resource/req
+ * @param[in] fld	-	the field of the resource to print
+ *
+ * @return	char *
+ * @retval	the resource in string format
+ * @retval	NULL on error
+ *
+ * @par	MT-Safe: Yes
+ *
+ */
+char *
+res_to_str_mt_safe(void *p, enum resource_fields fld)
 {
 	char *resbuf = NULL;
 	int resbuf_size = 1024;
@@ -1497,6 +1527,7 @@ res_to_str_re(void *p, enum resource_fields fld, char **buf,
 	resource_req *req = NULL;
 	struct resource_type *rt;
 	char *str;
+	int free_str = 0;
 	sch_resource_t amount;
 
 	char localbuf[1024];
@@ -1561,6 +1592,10 @@ res_to_str_re(void *p, enum resource_fields fld, char **buf,
 				res = res->indirect_res;
 			rt = &(res->type);
 			str = string_array_to_str(res->str_avail);
+			if (str == NULL)
+				str = "";
+			else
+				free_str = 1;
 			amount = res->avail;
 			break;
 
@@ -1581,6 +1616,9 @@ res_to_str_re(void *p, enum resource_fields fld, char **buf,
 			snprintf(*buf, *bufsize, "%s", str);
 		else
 			ret = pbs_strcat(buf, bufsize, str);
+
+		if (free_str)
+			free(str);
 	}
 	else if (rt->is_boolean) {
 		if (flags & NOEXPAND)

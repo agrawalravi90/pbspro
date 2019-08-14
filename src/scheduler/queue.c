@@ -38,10 +38,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
+#include "constant.h"
+#include "log.h"
 #include "queue.h"
-
-#include "pbs_error.h"
 
 
 /**
@@ -53,14 +54,14 @@
  * @retval a newly allocated queue object
  * @retval NULL for malloc error
  */
-schd_queue *
-new_schd_queue(void)
+ds_queue *
+new_ds_queue(void)
 {
-	schd_queue *ret_obj = NULL;
+	ds_queue *ret_obj = NULL;
 
-	ret_obj = malloc(sizeof(schd_queue));
+	ret_obj = malloc(sizeof(ds_queue));
 	if (ret_obj == NULL) {
-		pbs_errno = PBSE_SYSTEM;
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -81,7 +82,7 @@ new_schd_queue(void)
  * @return void
  */
 void
-delete_schd_queue(schd_queue *obj)
+free_ds_queue(ds_queue *obj)
 {
 	free(obj->content_arr);
 	free(obj);
@@ -95,19 +96,17 @@ delete_schd_queue(schd_queue *obj)
  * @param[in]	obj - the object to enqueue
  *
  * @return int
- * @retval 0 for Success
- * @retval 1 for Failure
+ * @retval 1 for Success
+ * @retval 0 for Failure
  */
 int
-schd_enqueue(schd_queue *queue, void *obj)
+ds_enqueue(ds_queue *queue, void *obj)
 {
 	long curr_rear;
 	long curr_qsize;
 
-	if (queue == NULL || obj == NULL) {
-		pbs_errno = PBSE_INTERNAL;
-		return 1;
-	}
+	if (queue == NULL || obj == NULL)
+		return 0;
 
 	curr_rear = queue->rear;
 	curr_qsize = queue->q_size;
@@ -122,10 +121,10 @@ schd_enqueue(schd_queue *queue, void *obj)
 		else
 			new_qsize = 2 * curr_qsize;
 
-		realloc_ptr = (void **) realloc(queue->content_arr, new_qsize * sizeof(void *));
+		realloc_ptr = realloc(queue->content_arr, new_qsize * sizeof(void *));
 		if (realloc_ptr == NULL) {
-			pbs_errno = PBSE_SYSTEM;
-			return 1;
+			log_err(errno, __func__, MEM_ERR_MSG);
+			return 0;
 		}
 
 		queue->content_arr = realloc_ptr;
@@ -135,7 +134,7 @@ schd_enqueue(schd_queue *queue, void *obj)
 	queue->content_arr[curr_rear] = obj;
 	queue->rear = curr_rear + 1;
 
-	return 0;
+	return 1;
 }
 
 /**
@@ -148,7 +147,7 @@ schd_enqueue(schd_queue *queue, void *obj)
  * @retval NULL for error/empty queue
  */
 void *
-schd_dequeue(schd_queue *queue)
+ds_dequeue(ds_queue *queue)
 {
 	if (queue == NULL)
 		return NULL;
@@ -169,7 +168,7 @@ schd_dequeue(schd_queue *queue)
  * @retval 0 otherwise
  */
 int
-schd_is_empty(schd_queue *queue)
+ds_queue_is_empty(ds_queue *queue)
 {
 	if (queue == NULL || queue->front == queue->rear)
 		return 1;
