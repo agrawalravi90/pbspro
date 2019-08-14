@@ -1931,7 +1931,7 @@ unset_str_res()
 				res->str_avail[1] = NULL;
 			}
 			else {
-				log_err(errno, "unset_str_res", MEM_ERR_MSG);
+				log_err(errno, __func__, MEM_ERR_MSG);
 				free_resource(res);
 				return NULL;
 			}

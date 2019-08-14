@@ -671,7 +671,7 @@ void set_current_eoe(node_info *node, char *eoe);
 /*
  * Check eligibility for a chunk of nodes, a supplementary function to check_node_array_eligibility
  */
-int
+void
 check_node_eligibility_chunk(th_data_nd_eligible *data);
 
 /* check nodes for eligibility and mark them ineligible if not */

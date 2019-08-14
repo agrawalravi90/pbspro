@@ -176,9 +176,9 @@ typedef int (*event_func_t)(event_ptr_t*, void *);
 
 struct th_task_info
 {
-	int th_id;
-	enum thread_task_type task_type;
-	void *thread_data;
+	int task_id;							/* task id, should be set by main thread */
+	enum thread_task_type task_type;		/* task type */
+	void *thread_data;					/* data for the worker thread to execute the task */
 };
 
 struct th_data_nd_eligible
@@ -194,21 +194,21 @@ struct th_data_nd_eligible
 
 struct th_data_dup_nd_info
 {
+	unsigned int err:1;
 	node_info **onodes;
 	node_info **nnodes;
 	server_info *nsinfo;
 	unsigned int flags;
-	unsigned int malloc_err:1;
 	int sidx;
 	int eidx;
 };
 
 struct th_data_query_ninfo
 {
+	unsigned int err:1;
 	struct batch_status *nodes;
 	server_info *sinfo;
 	node_info **oarr;
-	unsigned int malloc_err:1;
 	int sidx;
 	int eidx;
 };
@@ -222,24 +222,24 @@ struct th_data_free_ninfo
 
 struct th_data_dup_resresv
 {
+	unsigned int err:1;
 	resource_resv **oresresv_arr;
 	resource_resv **nresresv_arr;
 	server_info *nsinfo;
 	queue_info *nqinfo;
-	unsigned int malloc_err:1;
 	int sidx;
 	int eidx;
 };
 
 struct th_data_query_jinfo
 {
+	unsigned int err:1;
 	struct batch_status *jobs;
 	server_info *sinfo;
 	queue_info *qinfo;
 	resource_resv **oarr;
 	status *policy;
 	int pbs_sd;
-	unsigned int malloc_err:1;
 	int sidx;
 	int eidx;
 };

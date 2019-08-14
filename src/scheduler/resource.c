@@ -324,7 +324,7 @@ new_resdef(void)
 	resdef *newdef;
 
 	if ((newdef = calloc(1, sizeof(resdef))) == NULL) {
-		log_err(errno, "new_resdef", MEM_ERR_MSG);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
 
@@ -629,8 +629,6 @@ is_res_avail_set(schd_resource *res)
 int
 add_resource_sig(char **sig, int *sig_size, schd_resource *res)
 {
-	char *resstr = NULL;
-
 	if (sig == NULL || res == NULL)
 		return 0;
 
@@ -638,14 +636,8 @@ add_resource_sig(char **sig, int *sig_size, schd_resource *res)
 		return 0;
 	if (pbs_strcat(sig, sig_size, "=") == 0)
 		return 0;
-	resstr = res_to_str(res, RF_AVAIL);
-	if (resstr == NULL)
+	if (pbs_strcat(sig, sig_size, res_to_str(res, RF_AVAIL)) == 0)
 		return 0;
-	if (pbs_strcat(sig, sig_size, resstr) == 0) {
-		free(resstr);
-		return 0;
-	}
-	free(resstr);
 
 	return 1;
 }

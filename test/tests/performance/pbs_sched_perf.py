@@ -271,8 +271,7 @@ class TestSchedPerf(TestPerformance):
             for i in range(chunk_size):
                 nchunks = i + 1
                 a = {'Resource_List.select':
-                     str(nchunks) + ":ncpus=1:color=" +
-                     str(self.colors[i % 7])}
+                     str(nchunks) + ":ncpus=1:color=" + self.colors[i % 7]}
                 njobs = chunk_size / nchunks
                 _jids = self.submit_jobs(a, njobs, wt_start=1000)
                 jids.append(_jids)
@@ -281,9 +280,8 @@ class TestSchedPerf(TestPerformance):
                     break
 
         t1 = time.time()
-        # Run 100 sched cycles
         for _ in range(100):
             self.scheduler.run_scheduling_cycle()
-
         t2 = time.time()
+
         self.logger.info("Time taken by 100 sched cycles: " + str(t2 - t1))

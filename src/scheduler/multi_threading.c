@@ -40,10 +40,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h>
 
 #include "log.h"
 #include "avltree.h"
 
+#include "constant.h"
 #include "misc.h"
 #include "node_info.h"
 #include "data_types.h"
@@ -70,8 +72,7 @@ create_id_key(void)
 
 	mainid = malloc(sizeof(int));
 	if (mainid == NULL) {
-		snprintf(log_buffer, sizeof(log_buffer), "Malloc error");
-		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+		log_err(errno, __func__, MEM_ERR_MSG);
 		return;
 	}
 	*mainid = 0;
@@ -87,8 +88,8 @@ create_id_key(void)
  * @param	void
  *
  * @return	int
- * @retval	0 for success
- * @retval	1 for malloc error
+ * @retval	1 for success
+ * @retval	0 for malloc error
  */
 int
 init_multi_threading(void)
@@ -99,34 +100,33 @@ init_multi_threading(void)
 		pthread_mutexattr_t attr;
 
 		/* Create task and result queues */
-		work_queue = new_schd_queue();
-		result_queue = new_schd_queue();
+		work_queue = new_ds_queue();
+		result_queue = new_ds_queue();
 		if (work_queue == NULL || result_queue == NULL) {
-			snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+			log_err(errno, __func__, MEM_ERR_MSG);
 			return 1;
 		}
 
 		threads_die = 0;
 		if (pthread_cond_init(&work_cond, NULL) != 0) {
-			snprintf(log_buffer, sizeof(log_buffer), "pthread_cond_init failed");
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
+					"pthread_cond_init failed");
 			return 1;
 		}
 		if (pthread_cond_init(&result_cond, NULL) != 0) {
-			snprintf(log_buffer, sizeof(log_buffer), "pthread_cond_init failed");
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
+					"pthread_cond_init failed");
 			return 1;
 		}
 
 		if (pthread_mutexattr_init(&attr) != 0) {
-			snprintf(log_buffer, sizeof(log_buffer), "pthread_mutexattr_init failed");
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
+					"pthread_mutexattr_init failed");
 			return 1;
 		}
 		if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE)) {
-			snprintf(log_buffer, sizeof(log_buffer), "pthread_mutexattr_settype failed");
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
+					"pthread_mutexattr_settype failed");
 			return 1;
 		}
 		pthread_mutex_init(&work_lock, &attr);
@@ -143,8 +143,7 @@ init_multi_threading(void)
 		num_threads = num_cores;
 		threads = malloc(num_threads * sizeof(pthread_t));
 		if (threads == NULL) {
-			snprintf(log_buffer, sizeof(log_buffer), "Error malloc'ing thread memory");
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+			log_err(errno, __func__, MEM_ERR_MSG);
 			return 1;
 		}
 
@@ -153,8 +152,10 @@ init_multi_threading(void)
 			int *thid;
 
 			thid = malloc(sizeof(int));
-			if (thid == NULL)
+			if (thid == NULL) {
+				log_err(errno, __func__, MEM_ERR_MSG);
 				return 1;
+			}
 			*thid = i + 1;
 			pthread_create(&(threads[i]), NULL, &worker, (void *) thid);
 		}
@@ -163,6 +164,13 @@ init_multi_threading(void)
 	return 0;
 }
 
+/**
+ * @brief	Main pthread routine for worker threads
+ *
+ * @param[in]	tid  - thread id of the thread
+ *
+ * @return void
+ */
 void *
 worker(void *tid)
 {
@@ -174,10 +182,10 @@ worker(void *tid)
 	while (!threads_die) {
 		/* Get the next work task from work queue */
 		pthread_mutex_lock(&work_lock);
-		while (schd_is_empty(work_queue) && !threads_die) {
+		while (ds_queue_is_empty(work_queue) && !threads_die) {
 			pthread_cond_wait(&work_cond, &work_lock);
 		}
-		work = schd_dequeue(work_queue);
+		work = ds_dequeue(work_queue);
 		pthread_mutex_unlock(&work_lock);
 
 		/* find out what task we need to do */
@@ -205,13 +213,13 @@ worker(void *tid)
 				free_resource_resv_array_chunk((th_data_free_resresv *) work->thread_data);
 				break;
 			default:
-				snprintf(log_buffer, sizeof(log_buffer), "Invalid task type passed to worker thread");
-				schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, log_buffer);
+				schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
+						"Invalid task type passed to worker thread");
 			}
 
 			/* Post results */
 			pthread_mutex_lock(&result_lock);
-			schd_enqueue(result_queue, (void *) work);
+			ds_enqueue(result_queue, (void *) work);
 			pthread_cond_signal(&result_cond);
 			pthread_mutex_unlock(&result_lock);
 		}
