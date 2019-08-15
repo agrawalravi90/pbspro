@@ -101,33 +101,37 @@ init_multi_threading(void)
 
 		/* Create task and result queues */
 		work_queue = new_ds_queue();
-		result_queue = new_ds_queue();
-		if (work_queue == NULL || result_queue == NULL) {
+		if (work_queue == NULL) {
 			log_err(errno, __func__, MEM_ERR_MSG);
-			return 1;
+			return 0;
+		}
+		result_queue = new_ds_queue();
+		if (result_queue == NULL) {
+			log_err(errno, __func__, MEM_ERR_MSG);
+			return 0;
 		}
 
 		threads_die = 0;
 		if (pthread_cond_init(&work_cond, NULL) != 0) {
 			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
 					"pthread_cond_init failed");
-			return 1;
+			return 0;
 		}
 		if (pthread_cond_init(&result_cond, NULL) != 0) {
 			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
 					"pthread_cond_init failed");
-			return 1;
+			return 0;
 		}
 
 		if (pthread_mutexattr_init(&attr) != 0) {
 			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
 					"pthread_mutexattr_init failed");
-			return 1;
+			return 0;
 		}
 		if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE)) {
 			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
 					"pthread_mutexattr_settype failed");
-			return 1;
+			return 0;
 		}
 		pthread_mutex_init(&work_lock, &attr);
 		pthread_mutex_init(&result_lock, &attr);
@@ -144,7 +148,7 @@ init_multi_threading(void)
 		threads = malloc(num_threads * sizeof(pthread_t));
 		if (threads == NULL) {
 			log_err(errno, __func__, MEM_ERR_MSG);
-			return 1;
+			return 0;
 		}
 
 		pthread_once(&key_once, create_id_key);
@@ -154,14 +158,14 @@ init_multi_threading(void)
 			thid = malloc(sizeof(int));
 			if (thid == NULL) {
 				log_err(errno, __func__, MEM_ERR_MSG);
-				return 1;
+				return 0;
 			}
 			*thid = i + 1;
 			pthread_create(&(threads[i]), NULL, &worker, (void *) thid);
 		}
 	}
 
-	return 0;
+	return 1;
 }
 
 /**
