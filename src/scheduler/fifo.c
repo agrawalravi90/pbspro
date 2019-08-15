@@ -702,8 +702,11 @@ scheduling_cycle(int sd, char *jobid)
 		"", "Starting Scheduling Cycle");
 
 	if (threads == NULL) {
-		if (init_multi_threading() != 1)
-			return 1;
+		if (init_multi_threading() != 1) {
+			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_REQUEST, LOG_ERR,
+					"", "Error initializing pthreads");
+			return -1;
+		}
 	}
 
 	update_cycle_status(&cstat, 0);
@@ -1215,7 +1218,9 @@ end_cycle_tasks(server_info *sinfo)
 
 	/* Kill all threads */
 	threads_die = 1;
+	pthread_mutex_lock(&work_lock);
 	pthread_cond_broadcast(&work_cond);
+	pthread_mutex_unlock(&work_lock);
 	/* Wait until all threads to finish */
 	for (i = 0; i < num_threads; i++) {
 		pthread_join(threads[i], NULL);
