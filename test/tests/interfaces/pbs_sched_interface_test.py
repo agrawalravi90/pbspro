@@ -35,6 +35,7 @@
 # "PBS Professional®", and "PBS Pro™" and Altair’s logos is subject to Altair's
 # trademark licensing policies.
 
+import multiprocessing
 from tests.interfaces import *
 
 
@@ -156,20 +157,58 @@ class TestSchedulerInterface(TestInterfaces):
                 self.assertTrue(
                     'qmgr: Error (15214) returned from server' in e.msg[1])
 
-    def test_set_and_unset_sched_attributes(self):
+    def test_set_and_unset_sched_cycle_length(self):
         """
-        Set and unset an attribute of a scheduler object .
+        Set and unset sched_cycle_len attribute of the scheduler object .
         """
-        # Set an attribute of a scheduler object.
         self.server.manager(MGR_CMD_SET, SCHED,
                             {'sched_cycle_length': 1234}, id="TestCommonSched")
 
-        # Unset an attribute of a scheduler object.
         self.server.manager(MGR_CMD_UNSET,
                             SCHED,
                             'sched_cycle_length',
                             id="TestCommonSched")
         a = {'sched_cycle_length': '00:20:00'}
+        self.server.expect(SCHED, a, id='TestCommonSched', max_attempts=10)
+
+    def test_set_and_unset_sched_threads(self):
+        """
+        Set and unset sched_threads attribute of the scheduler object .
+        """
+        error = "Illegal attribute or resource value"
+        error_code = "15014"
+
+        # Set to illegal values (<= 0, >= 100000 & non-numeric)
+        try:
+            self.server.manager(MGR_CMD_SET, SCHED, {'sched_threads': 0},
+                                id="TestCommonSched")
+        except PbsManagerError as e:
+            self.assertTrue(error in e.msg[0])
+            self.assertTrue(error_code in e.msg[1])
+        try:
+            self.server.manager(MGR_CMD_SET, SCHED, {'sched_threads': 100000},
+                                id="TestCommonSched")
+        except PbsManagerError as e:
+            self.assertTrue(error in e.msg[0])
+            self.assertTrue(error_code in e.msg[1])
+        try:
+            self.server.manager(MGR_CMD_SET, SCHED, {'sched_threads': '12ab'},
+                                id="TestCommonSched")
+        except PbsManagerError as e:
+            self.assertTrue(error in e.msg[0])
+            self.assertTrue(error_code in e.msg[1])
+
+        # Try a legal value
+        self.server.manager(MGR_CMD_SET, SCHED, {'sched_threads': 2},
+                            id="TestCommonSched")
+
+        # Try unset and verify that it got reset to number of cores on system
+        self.server.manager(MGR_CMD_UNSET,
+                            SCHED,
+                            'sched_threads',
+                            id="TestCommonSched")
+        num_cores = multiprocessing.cpu_count()
+        a = {'sched_threads': str(num_cores)}
         self.server.expect(SCHED, a, id='TestCommonSched', max_attempts=10)
 
     def test_sched_default_attrs(self):

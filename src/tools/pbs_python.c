@@ -335,6 +335,12 @@ action_sched_iteration(attribute *pattr, void *pobj, int actmode)
 }
 
 int
+action_sched_threads(attribute *pattr, void *pobj, int actmode)
+{
+	return 0;
+}
+
+int
 action_sched_user(attribute *pattr, void *pobj, int actmode)
 {
 	return 0;

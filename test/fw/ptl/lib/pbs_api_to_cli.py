@@ -215,6 +215,7 @@ api_to_cli = {
     ATTR_PNames: 'pnames',
     ATTR_schedit: 'scheduler_iteration',
     ATTR_scheduling: 'scheduling',
+    ATTR_scheduler_threads: 'scheduler_threads',
     ATTR_status: 'server_state',
     ATTR_syscost: 'system_cost',
     ATTR_FlatUID: 'flatuid',

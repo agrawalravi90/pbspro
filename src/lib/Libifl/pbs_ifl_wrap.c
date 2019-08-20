@@ -7272,6 +7272,7 @@ SWIG_init(void) {
   SWIG_Python_SetConstant(d, "ATTR_maxarraysize",SWIG_FromCharPtr("max_array_size"));
   SWIG_Python_SetConstant(d, "ATTR_PNames",SWIG_FromCharPtr("pnames"));
   SWIG_Python_SetConstant(d, "ATTR_schediteration",SWIG_FromCharPtr("scheduler_iteration"));
+  SWIG_Python_SetConstant(d, "ATTR_sched_threads",SWIG_FromCharPtr("sched_threads"));
   SWIG_Python_SetConstant(d, "ATTR_scheduling",SWIG_FromCharPtr("scheduling"));
   SWIG_Python_SetConstant(d, "ATTR_status",SWIG_FromCharPtr("server_state"));
   SWIG_Python_SetConstant(d, "ATTR_syscost",SWIG_FromCharPtr("system_cost"));

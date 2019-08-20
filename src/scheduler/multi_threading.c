@@ -41,6 +41,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <errno.h>
+#include <signal.h>
 
 #include "log.h"
 #include "avltree.h"
@@ -81,6 +82,42 @@ create_id_key(void)
 	pthread_setspecific(th_id_key, (void *) mainid);
 }
 
+/**
+ * @brief	convenience function to kill worker threads
+ *
+ * @param	void
+ *
+ * @return	void
+ */
+void
+kill_threads(void)
+{
+	int i;
+
+	schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
+				"", "Killing worker threads");
+
+	threads_die = 1;
+	pthread_mutex_lock(&work_lock);
+	pthread_cond_broadcast(&work_cond);
+	pthread_mutex_unlock(&work_lock);
+
+	/* Wait until all threads to finish */
+	for (i = 0; i < num_threads; i++) {
+		pthread_join(threads[i], NULL);
+	}
+	pthread_mutex_destroy(&work_lock);
+	pthread_cond_destroy(&work_cond);
+	pthread_mutex_destroy(&result_lock);
+	pthread_cond_destroy(&result_cond);
+	free(threads);
+	free_ds_queue(work_queue);
+	free_ds_queue(result_queue);
+	threads = NULL;
+	num_threads = 0;
+	work_queue = NULL;
+	result_queue = NULL;
+}
 
 /**
  * @brief	initialize multi-threading
@@ -94,48 +131,55 @@ create_id_key(void)
 int
 init_multi_threading(void)
 {
-	if (threads == NULL) {
-		int i;
-		int num_cores;
-		pthread_mutexattr_t attr;
+	int i;
+	int num_cores;
+	pthread_mutexattr_t attr;
 
-		/* Create task and result queues */
-		work_queue = new_ds_queue();
-		if (work_queue == NULL) {
-			log_err(errno, __func__, MEM_ERR_MSG);
-			return 0;
-		}
-		result_queue = new_ds_queue();
-		if (result_queue == NULL) {
-			log_err(errno, __func__, MEM_ERR_MSG);
-			return 0;
-		}
+	/* Kill any existing worker threads */
+	if (num_threads > 0)
+		kill_threads();
 
-		threads_die = 0;
-		if (pthread_cond_init(&work_cond, NULL) != 0) {
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
-					"pthread_cond_init failed");
-			return 0;
-		}
-		if (pthread_cond_init(&result_cond, NULL) != 0) {
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
-					"pthread_cond_init failed");
-			return 0;
-		}
+	schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
+			"", "Launching worker threads");
 
-		if (pthread_mutexattr_init(&attr) != 0) {
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
-					"pthread_mutexattr_init failed");
-			return 0;
-		}
-		if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE)) {
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
-					"pthread_mutexattr_settype failed");
-			return 0;
-		}
-		pthread_mutex_init(&work_lock, &attr);
-		pthread_mutex_init(&result_lock, &attr);
+	/* Create task and result queues */
+	work_queue = new_ds_queue();
+	if (work_queue == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return 0;
+	}
+	result_queue = new_ds_queue();
+	if (result_queue == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return 0;
+	}
 
+	threads_die = 0;
+	if (pthread_cond_init(&work_cond, NULL) != 0) {
+		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
+				"pthread_cond_init failed");
+		return 0;
+	}
+	if (pthread_cond_init(&result_cond, NULL) != 0) {
+		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
+				"pthread_cond_init failed");
+		return 0;
+	}
+
+	if (pthread_mutexattr_init(&attr) != 0) {
+		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
+				"pthread_mutexattr_init failed");
+		return 0;
+	}
+	if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE)) {
+		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
+				"pthread_mutexattr_settype failed");
+		return 0;
+	}
+	pthread_mutex_init(&work_lock, &attr);
+	pthread_mutex_init(&result_lock, &attr);
+
+	if (conf.nthreads < 1) {
 		/* Create as many threads as the number of cores */
 #ifdef WIN32
 		SYSTEM_INFO sysinfo;
@@ -145,24 +189,26 @@ init_multi_threading(void)
 		num_cores = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
 		num_threads = num_cores;
-		threads = malloc(num_threads * sizeof(pthread_t));
-		if (threads == NULL) {
+	} else
+		num_threads = conf.nthreads;
+
+	threads = malloc(num_threads * sizeof(pthread_t));
+	if (threads == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return 0;
+	}
+
+	pthread_once(&key_once, create_id_key);
+	for (i = 0; i < num_threads; i++) {
+		int *thid;
+
+		thid = malloc(sizeof(int));
+		if (thid == NULL) {
 			log_err(errno, __func__, MEM_ERR_MSG);
 			return 0;
 		}
-
-		pthread_once(&key_once, create_id_key);
-		for (i = 0; i < num_threads; i++) {
-			int *thid;
-
-			thid = malloc(sizeof(int));
-			if (thid == NULL) {
-				log_err(errno, __func__, MEM_ERR_MSG);
-				return 0;
-			}
-			*thid = i + 1;
-			pthread_create(&(threads[i]), NULL, &worker, (void *) thid);
-		}
+		*thid = i + 1;
+		pthread_create(&(threads[i]), NULL, &worker, (void *) thid);
 	}
 
 	return 1;
@@ -180,8 +226,24 @@ worker(void *tid)
 {
 	th_task_info *work = NULL;
 	void *ts = NULL;
+	sigset_t set;
 
 	pthread_setspecific(th_id_key, tid);
+
+	sigemptyset(&set);
+	sigaddset(&set, SIGHUP);
+	sigaddset(&set, SIGPIPE);
+
+#ifdef NAS
+	sigaddset(&set, SIGUSR1);
+	sigaddset(&set, SIGUSR2);
+#endif
+
+	if (pthread_sigmask(SIG_BLOCK, &set, NULL) != 0) {
+		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
+				"pthread_sigmask failed");
+		pthread_exit(NULL);
+	}
 
 	while (!threads_die) {
 		/* Get the next work task from work queue */

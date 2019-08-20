@@ -159,6 +159,11 @@ run_update_resresv(status *policy, int pbs_sd, server_info *sinfo, queue_info *q
 int update_job_can_not_run(int pbs_sd, resource_resv *job, schd_error *err);
 
 /*
+ * schedexit - cleanup routine for scheduler exit
+ */
+void schedexit(void);
+
+/*
  *	end_cycle_tasks - stuff which needs to happen at the end of a cycle
  */
 void end_cycle_tasks(server_info *sinfo);

@@ -672,14 +672,6 @@ scheduling_cycle(int sd, char *jobid)
 	schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
 		"", "Starting Scheduling Cycle");
 
-	if (threads == NULL) {
-		if (init_multi_threading() != 1) {
-			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_REQUEST, LOG_ERR,
-					"", "Error initializing pthreads");
-			return -1;
-		}
-	}
-
 	update_cycle_status(&cstat, 0);
 
 #ifdef NAS /* localmod 030 */
@@ -1143,6 +1135,34 @@ main_sched_loop(status *policy, int sd, server_info *sinfo, schd_error **rerr)
 }
 
 /**
+ * @brief	cleanup routine for scheduler exit
+ *
+ * @param	void
+ *
+ * @return void
+ */
+void
+schedexit(void)
+{
+	int i;
+
+	/* close any open connections to peers */
+	for (i = 0; (i < NUM_PEERS) &&
+		(conf.peer_queues[i].local_queue != NULL); i++) {
+		if (conf.peer_queues[i].peer_sd >= 0) {
+			/* When peering "local", do not disconnect server */
+			if (conf.peer_queues[i].remote_server != NULL)
+				pbs_disconnect(conf.peer_queues[i].peer_sd);
+			conf.peer_queues[i].peer_sd = -1;
+		}
+	}
+
+	/* Kill all worker threads */
+	if (num_threads > 0)
+		kill_threads();
+}
+
+/**
  * @brief
  *		end_cycle_tasks - stuff which needs to happen at the end of a cycle
  *
@@ -1186,27 +1206,6 @@ end_cycle_tasks(server_info *sinfo)
 	}
 
 	got_sigpipe = 0;
-
-	/* Kill all threads */
-	threads_die = 1;
-	pthread_mutex_lock(&work_lock);
-	pthread_cond_broadcast(&work_cond);
-	pthread_mutex_unlock(&work_lock);
-	/* Wait until all threads to finish */
-	for (i = 0; i < num_threads; i++) {
-		pthread_join(threads[i], NULL);
-	}
-	pthread_mutex_destroy(&work_lock);
-	pthread_cond_destroy(&work_cond);
-	pthread_mutex_destroy(&result_lock);
-	pthread_cond_destroy(&result_cond);
-	free(threads);
-	free_ds_queue(work_queue);
-	free_ds_queue(result_queue);
-	threads = NULL;
-	num_threads = 0;
-	work_queue = NULL;
-	result_queue = NULL;
 
 	schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
 		"", "Leaving Scheduling Cycle");
