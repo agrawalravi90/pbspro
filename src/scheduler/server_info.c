@@ -144,6 +144,7 @@
 #include "fifo.h"
 #include "buckets.h"
 #include "parse.h"
+#include "multi_threading.h"
 #ifdef NAS
 #include "site_code.h"
 #endif
@@ -244,6 +245,15 @@ query_server(status *pol, int pbs_sd)
 	}
 	query_sched_obj(policy, sched, sinfo);
 	pbs_statfree(all_sched);
+
+	if (num_threads == 0 || (conf.nthreads != -1 && conf.nthreads != num_threads)) {
+		/* (Re-)Initialize worker threads */
+		if (init_multi_threading() != 1) {
+			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_REQUEST, LOG_ERR,
+					"", "Error initializing pthreads");
+			return NULL;
+		}
+	}
 
 	if (!dflt_sched && (sinfo->partitions == NULL)) {
 		snprintf(log_buffer, sizeof(log_buffer), "Scheduler does not contain a partition");
@@ -832,9 +842,14 @@ query_sched_obj(status *policy, struct batch_status *sched, server_info *sinfo)
 		sinfo->throughput_mode = 1;
 	}
 
+	conf.nthreads = -1;
 	while (attrp != NULL) {
 		if (!strcmp(attrp->name, ATTR_sched_cycle_len)) {
 			sinfo->sched_cycle_len = res_to_num(attrp->value, NULL);
+		} else if (!strcmp(attrp->name, ATTR_sched_threads)) {
+			conf.nthreads = strtol(attrp->value, &endp, 10);
+			if (*endp == '\0')
+				conf.nthreads = -1;
 		} else if (!strcmp(attrp->name, ATTR_partition)) {
 			sinfo->partitions = break_comma_list(attrp->value);
 		} else if (!strcmp(attrp->name, ATTR_do_not_span_psets)) {

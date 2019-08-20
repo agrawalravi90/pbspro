@@ -285,7 +285,6 @@ free_resource_resv_array(resource_resv **resresv_arr)
 		pthread_mutex_lock(&result_lock);
 		while (ds_queue_is_empty(result_queue))
 			pthread_cond_wait(&result_cond, &result_lock);
-		pthread_mutex_unlock(&result_lock);
 		while (!ds_queue_is_empty(result_queue)) {
 			task = (th_task_info *) ds_dequeue(result_queue);
 			tdata = task->thread_data;
@@ -293,6 +292,7 @@ free_resource_resv_array(resource_resv **resresv_arr)
 			free(task);
 			i++;
 		}
+		pthread_mutex_unlock(&result_lock);
 	}
 
 	free(resresv_arr);
@@ -396,7 +396,7 @@ dup_resource_resv_array_chunk(th_data_dup_resresv *data)
 	err = new_schd_error();
 	if (err == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
-		data->err = 1;
+		data->error = 1;
 		return;
 	}
 
@@ -406,10 +406,10 @@ dup_resource_resv_array_chunk(th_data_dup_resresv *data)
 	nqinfo = data->nqinfo;
 	start = data->sidx;
 	end = data->eidx;
-	data->err = 0;
+	data->error = 0;
 	for (i = start; i <= end && oresresv_arr[i] != NULL; i++) {
 		if ((nresresv_arr[i] = dup_resource_resv(oresresv_arr[i], nsinfo, nqinfo, err)) == NULL) {
-			data->err = 1;
+			data->error = 1;
 			free_schd_error(err);
 			return;
 		}
@@ -466,7 +466,7 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 		tdata->sidx = 0;
 		tdata->eidx = num_resresv - 1;
 		dup_resource_resv_array_chunk(tdata);
-		th_err = tdata->err;
+		th_err = tdata->error;
 		free(tdata);
 	} else { /* We are multithreading */
 		j = 0;
@@ -500,16 +500,16 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 			pthread_mutex_lock(&result_lock);
 			while (ds_queue_is_empty(result_queue))
 				pthread_cond_wait(&result_cond, &result_lock);
-			pthread_mutex_unlock(&result_lock);
 			while (!ds_queue_is_empty(result_queue)) {
 				task = (th_task_info *) ds_dequeue(result_queue);
 				tdata = (th_data_dup_resresv *) task->thread_data;
-				if (tdata->err)
+				if (tdata->error)
 					th_err = 1;
 				free(tdata);
 				free(task);
 				i++;
 			}
+			pthread_mutex_unlock(&result_lock);
 		}
 	}
 

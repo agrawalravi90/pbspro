@@ -531,14 +531,14 @@ query_jobs_chunk(th_data_query_jinfo *data)
 	err = new_schd_error();
 	if(err == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
-		data->err = 1;
+		data->error = 1;
 		return;
 	}
 
 	resresv_arr = (resource_resv **) malloc(sizeof(resource_resv *) * (num_jobs_chunk + 1));
 	if (resresv_arr == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
-		data->err = 1;
+		data->error = 1;
 		return;
 	}
 	resresv_arr[0] = NULL;
@@ -562,7 +562,7 @@ query_jobs_chunk(th_data_query_jinfo *data)
 		long starve_num;
 
 		if ((resresv = query_job(cur_job, sinfo, err)) == NULL) {
-			data->err = 1;
+			data->error = 1;
 			free_schd_error(err);
 			free_resource_resv_array(resresv_arr);
 			return;
@@ -1010,7 +1010,7 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 			th_err = 1;
 			break;
 		}
-		tdata->err = 0;
+		tdata->error = 0;
 		tdata->jobs = jobs;
 		tdata->oarr = NULL; /* Will be filled by the thread routine */
 		tdata->sinfo = qinfo->server;
@@ -1049,17 +1049,17 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 		pthread_mutex_lock(&result_lock);
 		while (ds_queue_is_empty(result_queue))
 			pthread_cond_wait(&result_cond, &result_lock);
-		pthread_mutex_unlock(&result_lock);
 		while (!ds_queue_is_empty(result_queue)) {
 			task = (th_task_info *) ds_dequeue(result_queue);
 			tdata = (th_data_query_jinfo *) task->thread_data;
-			if (tdata->err)
+			if (tdata->error)
 				th_err = 1;
 			jinfo_arrs_tasks[task->task_id] = tdata->oarr;
 			free(tdata);
 			free(task);
 			i++;
 		}
+		pthread_mutex_unlock(&result_lock);
 	}
 	if (th_err) {
 		pbs_statfree(jobs);

@@ -156,8 +156,8 @@ pthread_cond_t result_cond;
 ds_queue *work_queue = NULL;
 ds_queue *result_queue = NULL;
 pthread_t *threads = NULL;
-int num_threads = 0;
 int threads_die = 0;
+int num_threads = 0;
 pthread_key_t th_id_key;
 pthread_once_t key_once = PTHREAD_ONCE_INIT;
 

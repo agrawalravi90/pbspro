@@ -194,7 +194,7 @@ struct th_data_nd_eligible
 
 struct th_data_dup_nd_info
 {
-	unsigned int err:1;
+	unsigned int error:1;
 	node_info **onodes;
 	node_info **nnodes;
 	server_info *nsinfo;
@@ -205,7 +205,7 @@ struct th_data_dup_nd_info
 
 struct th_data_query_ninfo
 {
-	unsigned int err:1;
+	unsigned int error:1;
 	struct batch_status *nodes;
 	server_info *sinfo;
 	node_info **oarr;
@@ -222,7 +222,7 @@ struct th_data_free_ninfo
 
 struct th_data_dup_resresv
 {
-	unsigned int err:1;
+	unsigned int error:1;
 	resource_resv **oresresv_arr;
 	resource_resv **nresresv_arr;
 	server_info *nsinfo;
@@ -233,7 +233,7 @@ struct th_data_dup_resresv
 
 struct th_data_query_jinfo
 {
-	unsigned int err:1;
+	unsigned int error:1;
 	struct batch_status *jobs;
 	server_info *sinfo;
 	queue_info *qinfo;
@@ -1152,6 +1152,7 @@ struct config
 	unsigned non_prime_sto:1;
 #endif /* localmod 034 */
 
+	int nthreads;			/* Number of worker threads to create */
 	struct sort_info *prime_sort;		/* prime time sort */
 	struct sort_info *non_prime_sort;	/* non-prime time sort */
 

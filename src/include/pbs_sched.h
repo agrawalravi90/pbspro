@@ -84,6 +84,7 @@ enum sched_atr {
 	SCHED_ATR_sched_log,
 	SCHED_ATR_scheduling,
 	SCHED_ATR_schediteration,
+	SCHED_ATR_sched_threads,
 	SCHED_ATR_sched_user,
 	SCHED_ATR_sched_comment,
 	SCHED_ATR_sched_state,

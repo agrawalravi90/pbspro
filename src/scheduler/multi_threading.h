@@ -40,6 +40,7 @@
 #define SRC_SCHEDULER_MULTI_THREADING_H_
 
 int init_multi_threading(void);
+void kill_threads(void);
 void *worker(void);
 
 #endif /* SRC_SCHEDULER_MULTI_THREADING_H_ */

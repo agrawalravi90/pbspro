@@ -81,8 +81,8 @@ extern pthread_cond_t result_cond;
 extern ds_queue *work_queue;
 extern ds_queue *result_queue;
 extern pthread_t *threads;
-extern int num_threads;
 extern int threads_die;
+extern int num_threads;
 extern pthread_key_t th_id_key;
 extern pthread_once_t key_once;
 

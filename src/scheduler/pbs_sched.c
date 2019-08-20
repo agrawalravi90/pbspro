@@ -111,6 +111,7 @@
 #include	"config.h"
 #include	"fifo.h"
 #include	"globals.h"
+#include "multi_threading.h"
 
 struct		connect_handle connection[NCONNECTS];
 int		connector;
@@ -159,6 +160,11 @@ extern char *msg_startup1;
 void
 on_segv(int sig)
 {
+	int *thid;
+
+	thid = (int *) pthread_getspecific(th_id_key);
+	if (thid != NULL && *thid != 0)
+		pthread_exit(NULL);
 
 	/* we crashed less then 5 minutes ago, lets not restart ourself */
 	if ((segv_last_time - segv_start_time) < 300) {
@@ -201,6 +207,12 @@ sigfunc_pipe(int sig)
 void
 die(int sig)
 {
+	int *thid;
+
+	thid = (int *) pthread_getspecific(th_id_key);
+
+	if (thid != NULL && *thid != 0)
+		pthread_exit(NULL);	/* Kill worker threads */
 
 	if (sig > 0) {
 		sprintf(log_buffer, "caught signal %d", sig);
@@ -211,6 +223,8 @@ die(int sig)
 		log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_INFO,
 				__func__, "abnormal termination");
 	}
+
+	schedexit();
 
 	{
 		int csret;
@@ -434,20 +448,26 @@ read_config(char *file)
 void
 restart(int sig)
 {
+	int *thid;
 
-	if (sig) {
-		log_close(1);
-		log_open(logfile, path_log);
-		sprintf(log_buffer, "restart on signal %d", sig);
-	} else {
-		sprintf(log_buffer, "restart command");
+	thid = (int *) pthread_getspecific(th_id_key);
+
+	if (thid == NULL || *thid == 0) {
+		if (sig) {
+			log_close(1);
+			log_open(logfile, path_log);
+			sprintf(log_buffer, "restart on signal %d", sig);
+		} else {
+			sprintf(log_buffer, "restart command");
+		}
+		log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_INFO, __func__,
+				log_buffer);
+		if (configfile) {
+			if (read_config(configfile) != 0)
+				die(0);
+		}
+		schedule(SCH_CONFIGURE, -1, NULL);
 	}
-	log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_INFO, __func__, log_buffer);
-	if (configfile) {
-		if (read_config(configfile) != 0)
-			die(0);
-	}
-	schedule(SCH_CONFIGURE, -1, NULL);
 }
 
 #ifdef NAS /* localmod 030 */
@@ -1256,17 +1276,6 @@ main(int argc, char *argv[])
 		sigaction(SIGBUS, &act, NULL);
 	}
 
-	/*
-	 *  Local initialization stuff
-	 */
-	if (schedinit()) {
-		(void) sprintf(log_buffer,
-			"local initialization failed, terminating");
-		log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_INFO,
-				__func__, log_buffer);
-		exit(1);
-	}
-
 #ifndef	DEBUG
 	if (stalone != 1) {
 		if ((pid = fork()) == -1) {     /* error on fork */
@@ -1322,6 +1331,17 @@ main(int argc, char *argv[])
 
 	sprintf(log_buffer, "%s startup pid %ld", argv[0], (long)pid);
 	log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_INFO, __func__, log_buffer);
+
+	/*
+	 *  Local initialization stuff
+	 */
+	if (schedinit()) {
+		(void) sprintf(log_buffer,
+			"local initialization failed, terminating");
+		log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_INFO,
+				__func__, log_buffer);
+		exit(1);
+	}
 
 	rpp_fd = -1;
 	if (pbs_conf.pbs_use_tcp == 1) {
@@ -1470,6 +1490,7 @@ main(int argc, char *argv[])
 				log_err(errno, __func__, "sigprocmask(SIG_SETMASK)");
 		}
 	}
+	schedexit();
 
 	sprintf(log_buffer, "%s normal finish pid %ld", argv[0], (long)pid);
 	log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_INFO, __func__, log_buffer);

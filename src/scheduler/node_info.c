@@ -182,7 +182,7 @@ query_node_info_chunk(th_data_query_ninfo *data)
 
 	if ((ninfo_arr = (node_info **) malloc((num_nodes_chunk + 1) * sizeof(node_info *))) == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
-		data->err = 1;
+		data->error = 1;
 		return;
 	}
 	ninfo_arr[0] = NULL;
@@ -195,7 +195,7 @@ query_node_info_chunk(th_data_query_ninfo *data)
 		/* get node info from the batch_status */
 		if ((ninfo = query_node_info(cur_node, sinfo)) == NULL) {
 			free_nodes(ninfo_arr);
-			data->err = 1;
+			data->error = 1;
 			return;
 		}
 
@@ -328,7 +328,7 @@ query_nodes(int pbs_sd, server_info *sinfo)
 			th_err = 1;
 			break;
 		}
-		tdata->err = 0;
+		tdata->error = 0;
 		tdata->nodes = nodes;
 		tdata->oarr = NULL; /* Will be filled by the thread routine */
 		tdata->sinfo = sinfo;
@@ -365,17 +365,17 @@ query_nodes(int pbs_sd, server_info *sinfo)
 		pthread_mutex_lock(&result_lock);
 		while (ds_queue_is_empty(result_queue))
 			pthread_cond_wait(&result_cond, &result_lock);
-		pthread_mutex_unlock(&result_lock);
 		while (!ds_queue_is_empty(result_queue)) {
 			task = (th_task_info *) ds_dequeue(result_queue);
 			tdata = (th_data_query_ninfo *) task->thread_data;
-			if (tdata->err)
+			if (tdata->error)
 				th_err = 1;
 			ninfo_arrs_tasks[task->task_id] = tdata->oarr;
 			free(tdata);
 			free(task);
 			i++;
 		}
+		pthread_mutex_unlock(&result_lock);
 	}
 	if (th_err) {
 		pbs_statfree(nodes);
@@ -840,7 +840,6 @@ free_nodes(node_info **ninfo_arr)
 		pthread_mutex_lock(&result_lock);
 		while (ds_queue_is_empty(result_queue))
 			pthread_cond_wait(&result_cond, &result_lock);
-		pthread_mutex_unlock(&result_lock);
 		while (!ds_queue_is_empty(result_queue)) {
 			task = (th_task_info *) ds_dequeue(result_queue);
 			tdata = task->thread_data;
@@ -848,6 +847,7 @@ free_nodes(node_info **ninfo_arr)
 			free(task);
 			i++;
 		}
+		pthread_mutex_unlock(&result_lock);
 	}
 	free(ninfo_arr);
 }
@@ -1401,12 +1401,12 @@ dup_node_info_chunk(th_data_dup_nd_info *data)
 	onodes = data->onodes;
 	nnodes = data->nnodes;
 	nsinfo = data->nsinfo;
-	data->err = 0;
+	data->error = 0;
 	flags = data->flags;
 
 	for (i = start; i <= end && data->onodes[i] != NULL; i++) {
 		if ((nnodes[i] = dup_node_info(onodes[i], nsinfo, flags)) == NULL) {
-			data->err = 1;
+			data->error = 1;
 			return;
 		}
 
@@ -1493,7 +1493,7 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 		tdata->sidx = 0;
 		tdata->eidx = num_nodes - 1;
 		dup_node_info_chunk(tdata);
-		th_err = tdata->err;
+		th_err = tdata->error;
 		free(tdata);
 	} else { /* We are multithreading */
 		j = 0;
@@ -1538,16 +1538,16 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 			pthread_mutex_lock(&result_lock);
 			while (ds_queue_is_empty(result_queue))
 				pthread_cond_wait(&result_cond, &result_lock);
-			pthread_mutex_unlock(&result_lock);
 			while (!ds_queue_is_empty(result_queue)) {
 				task = (th_task_info *) ds_dequeue(result_queue);
 				tdata = (th_data_dup_nd_info *) task->thread_data;
-				if (tdata->err)
+				if (tdata->error)
 					th_err = 1;
 				free(tdata);
 				free(task);
 				i++;
 			}
+			pthread_mutex_unlock(&result_lock);
 		}
 	}
 
@@ -6338,7 +6338,6 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 			pthread_mutex_lock(&result_lock);
 			while (ds_queue_is_empty(result_queue))
 				pthread_cond_wait(&result_cond, &result_lock);
-			pthread_mutex_unlock(&result_lock);
 			while (!ds_queue_is_empty(result_queue)) {
 				task = (th_task_info *) ds_dequeue(result_queue);
 				tdata = (th_data_nd_eligible *) task->thread_data;
@@ -6350,6 +6349,7 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 				free(task);
 				i++;
 			}
+			pthread_mutex_unlock(&result_lock);
 		}
 	}
 }
