@@ -37,10 +37,7 @@
  */
 
 /**
- * @file    pbs_sched_win.c
- *
- * @brief
- * 		pbs_sched_win.c - contains functions related to Pbs scheduler for Windows.
+ * @file    check.c
  *
  * Functions included are:
  *	is_ok_to_run_queue()

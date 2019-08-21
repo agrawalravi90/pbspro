@@ -4823,8 +4823,10 @@ parse_execvnode(char *execvnode, server_info *sinfo)
 	int invalid = 0;
 
 	int num_chunk;
+	int nlkv = 0;
 	char *p;
 	char logbuf[256];
+	char *tailptr = NULL;
 
 	if (execvnode == NULL || sinfo == NULL)
 		return NULL;
@@ -4846,11 +4848,11 @@ parse_execvnode(char *execvnode, server_info *sinfo)
 		return NULL;
 	}
 
-	simplespec = parse_plus_spec(execvnode, &ret);
+	simplespec = parse_plus_spec_mt_safe(execvnode, &tailptr, &ret);
 
 	if (ret || simplespec == NULL)
 		invalid = 1;
-	else if (parse_node_resc(simplespec, &node_name, &num_el, &kv) != 0)
+	else if (parse_node_resc_r(simplespec, &node_name, &num_el, &nlkv, &kv) != 0)
 		invalid = 1;
 
 	for (i = 0; i < num_chunk && !invalid && simplespec != NULL; i++) {
@@ -4885,10 +4887,11 @@ parse_execvnode(char *execvnode, server_info *sinfo)
 			invalid = 1;
 
 		if (!invalid) {
-			simplespec = parse_plus_spec(NULL, &ret);
+			free(simplespec);
+			simplespec = parse_plus_spec_mt_safe(NULL, &tailptr, &ret);
 			if (!ret) {
 				if (simplespec != NULL) {
-					ret = parse_node_resc(simplespec, &node_name, &num_el, &kv);
+					ret = parse_node_resc_r(simplespec, &node_name, &num_el, &nlkv, &kv);
 					if (ret < 0)
 						invalid = 1;
 				}
@@ -4899,6 +4902,7 @@ parse_execvnode(char *execvnode, server_info *sinfo)
 	}
 
 	nspec_arr[i] = NULL;
+	free(kv);
 
 	if (invalid) {
 		snprintf(logbuf, sizeof(logbuf), "Failed to parse execvnode: %s", execvnode);

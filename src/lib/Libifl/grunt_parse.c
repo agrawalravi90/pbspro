@@ -209,7 +209,7 @@ parse_node_resc_r(char *str, char **nodep, int *pnelem, int *nlkv, struct key_va
 {
 	int	      i;
 	int	      nelm = 0;
-	static char  *pc;
+	char  *pc;
 	char	     *word;
 	char	     *value;
 	char	     *last;
@@ -541,8 +541,8 @@ char *
 parse_plus_spec_r(char *selstr, char **last, int *hp)
 {
 	int		haveparen = 0;
-	static char    *pe;
-	char           *ps;
+	char    *pe;
+	char    *ps;
 
 	if ((selstr == NULL) || (strlen(selstr)) == 0)
 		return NULL;
@@ -583,8 +583,10 @@ parse_plus_spec_r(char *selstr, char **last, int *hp)
 	}
 
 	if (*ps) {
-		*last = pe;
-		*hp = haveparen;
+		if (last != NULL)
+			*last = pe;
+		if (hp != NULL)
+			*hp = haveparen;
 		return ps;
 	} else
 		return NULL;
@@ -649,4 +651,83 @@ parse_plus_spec(char *selstr, int *rc)
 	}
 
 	return (parse_plus_spec_r(ps, &pe, &hp));
+}
+
+/**
+ * @brief
+ *	parse_plus_spec - thread safe
+ * @par
+ *	Called with "str" set for start of string of a set of plus connnected
+ *	substrings "substring1+substring2+...";  OR
+ *	called with null to continue where left off.
+ *
+ * @param[in] selstr - string holding select specs
+ * @param[in,out] tailptr - pointer to the end of the last substring
+ * @param[in] rc - flag
+ *
+ * @return 	A pointer to next substring
+ * @retval	next substring (char *)
+ * @retval	NULL if end of the spec
+ *
+ * @par
+ *	IMPORTANT: the "selstr" is copied into a locally allocated
+ *	char array for parsing.  The orignal string is untouched.  The array
+ *	is grown as need to hold "selstr".
+ */
+char *
+parse_plus_spec_mt_safe(char *selstr, char **tailptr, int *rc)
+{
+	size_t len;
+	char *substr = NULL;
+	char *ret = NULL;
+	char *spec = NULL;
+	char *ptr = NULL;
+
+	*rc = PBSE_NONE;
+
+	if (selstr == NULL && (tailptr == NULL || *tailptr == NULL)) {
+		*rc = PBSE_INTERNAL;
+		return NULL;
+	}
+
+	if (*tailptr == NULL) { /* dealing with this string first time */
+		if (*selstr == '+') {
+			/* invalid string, starts with + */
+			*rc = PBSE_BADNODESPEC;
+			return NULL;
+		}
+		ptr = selstr;
+		*tailptr = selstr;
+	} else if (*tailptr == '\0') {	/* Reached end of selstr */
+		return NULL;
+	} else
+		ptr = *tailptr;
+
+	/* Calculate length of next substring */
+	len = 0;
+	for (; *ptr != '+' && *ptr != '\0'; ptr++, len++)
+		;
+
+	if (len == 0)
+		return NULL;
+
+	substr = strndup(*tailptr, len);
+	if (substr == NULL) {
+		*rc = PBSE_SYSTEM;
+		return NULL;
+	}
+
+	*tailptr = ptr;
+	if (**tailptr == '+')
+		*tailptr += 1;
+
+	ret = parse_plus_spec_r(substr, NULL, NULL);
+	spec = strdup(ret);
+	if (spec == NULL) {
+		*rc = PBSE_SYSTEM;
+		return NULL;
+	}
+	free(substr);
+
+	return spec;
 }
