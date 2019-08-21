@@ -1616,9 +1616,6 @@ res_to_str_re(void *p, enum resource_fields fld, char **buf,
 			snprintf(*buf, *bufsize, "%s", str);
 		else
 			ret = pbs_strcat(buf, bufsize, str);
-
-		if (free_str)
-			free(str);
 	}
 	else if (rt->is_boolean) {
 		if (flags & NOEXPAND)
@@ -1687,6 +1684,9 @@ res_to_str_re(void *p, enum resource_fields fld, char **buf,
 		char resbuf[1024];
 		convert_duration_to_str((long) amount, resbuf, sizeof(resbuf));
 	}
+
+	if (free_str)
+		free(str);
 
 	if (ret == NULL)
 		return "";
