@@ -55,8 +55,7 @@
 #include "queue.h"
 #include "fifo.h"
 #include "resource_resv.h"
-
-void *worker(void* arg);
+#include "multi_threading.h"
 
 
 /**
@@ -110,6 +109,7 @@ kill_threads(void)
 	pthread_cond_destroy(&work_cond);
 	pthread_mutex_destroy(&result_lock);
 	pthread_cond_destroy(&result_cond);
+	pthread_mutex_destroy(&general_lock);
 	free(threads);
 	free_ds_queue(work_queue);
 	free_ds_queue(result_queue);
@@ -142,18 +142,6 @@ init_multi_threading(void)
 	schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
 			"", "Launching worker threads");
 
-	/* Create task and result queues */
-	work_queue = new_ds_queue();
-	if (work_queue == NULL) {
-		log_err(errno, __func__, MEM_ERR_MSG);
-		return 0;
-	}
-	result_queue = new_ds_queue();
-	if (result_queue == NULL) {
-		log_err(errno, __func__, MEM_ERR_MSG);
-		return 0;
-	}
-
 	threads_die = 0;
 	if (pthread_cond_init(&work_cond, NULL) != 0) {
 		schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
@@ -178,16 +166,11 @@ init_multi_threading(void)
 	}
 	pthread_mutex_init(&work_lock, &attr);
 	pthread_mutex_init(&result_lock, &attr);
+	pthread_mutex_init(&general_lock, &attr);
 
 	if (conf.nthreads < 1) {
 		/* Create as many threads as the number of cores */
-#ifdef WIN32
-		SYSTEM_INFO sysinfo;
-		GetSystemInfo(&sysinfo);
-		num_cores = sysinfo.dwNumberOfProcessors;
-#else
 		num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-#endif
 		num_threads = num_cores;
 	} else
 		num_threads = conf.nthreads;
@@ -198,12 +181,31 @@ init_multi_threading(void)
 		return 0;
 	}
 
+	/* Create task and result queues */
+	work_queue = new_ds_queue();
+	if (work_queue == NULL) {
+		free(threads);
+		return 0;
+	}
+	result_queue = new_ds_queue();
+	if (result_queue == NULL) {
+		free(threads);
+		free_ds_queue(work_queue);
+		work_queue = NULL;
+		return 0;
+	}
+
 	pthread_once(&key_once, create_id_key);
 	for (i = 0; i < num_threads; i++) {
 		int *thid;
 
 		thid = malloc(sizeof(int));
 		if (thid == NULL) {
+			free(threads);
+			free_ds_queue(work_queue);
+			free_ds_queue(result_queue);
+			work_queue = NULL;
+			result_queue = NULL;
 			log_err(errno, __func__, MEM_ERR_MSG);
 			return 0;
 		}
@@ -227,8 +229,11 @@ worker(void *tid)
 	th_task_info *work = NULL;
 	void *ts = NULL;
 	sigset_t set;
+	int ntid;
+	char buf[1024];
 
 	pthread_setspecific(th_id_key, tid);
+	ntid = *(int *)tid;
 
 	sigemptyset(&set);
 	sigaddset(&set, SIGHUP);
@@ -258,24 +263,38 @@ worker(void *tid)
 		if (work != NULL) {
 			switch (work->task_type) {
 			case TS_IS_ND_ELIGIBLE:
+				snprintf(buf, sizeof(buf), "Thread %d calling check_node_eligibility_chunk()", ntid);
+				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
 				check_node_eligibility_chunk((th_data_nd_eligible *) work->thread_data);
 				break;
 			case TS_DUP_ND_INFO:
+				snprintf(buf, sizeof(buf), "Thread %d calling dup_node_info_chunk()", ntid);
+				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
 				dup_node_info_chunk((th_data_dup_nd_info *) work->thread_data);
 				break;
 			case TS_QUERY_ND_INFO:
+				snprintf(buf, sizeof(buf), "Thread %d calling query_node_info_chunk()", ntid);
+				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
 				query_node_info_chunk((th_data_query_ninfo *) work->thread_data);
 				break;
 			case TS_FREE_ND_INFO:
+				snprintf(buf, sizeof(buf), "Thread %d calling free_node_info_chunk()", ntid);
+				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
 				free_node_info_chunk((th_data_free_ninfo *) work->thread_data);
 				break;
 			case TS_DUP_RESRESV:
+				snprintf(buf, sizeof(buf), "Thread %d calling dup_resource_resv_array_chunk()", ntid);
+				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
 				dup_resource_resv_array_chunk((th_data_dup_resresv *) work->thread_data);
 				break;
 			case TS_QUERY_JOB_INFO:
+				snprintf(buf, sizeof(buf), "Thread %d calling query_jobs_chunk()", ntid);
+				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
 				query_jobs_chunk((th_data_query_jinfo *) work->thread_data);
 				break;
 			case TS_FREE_RESRESV:
+				snprintf(buf, sizeof(buf), "Thread %d calling free_resource_resv_array_chunk()", ntid);
+				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
 				free_resource_resv_array_chunk((th_data_free_resresv *) work->thread_data);
 				break;
 			default:
@@ -296,4 +315,20 @@ worker(void *tid)
 		free(ts);
 
 	pthread_exit(NULL);
+}
+
+/**
+ * @brief	Convenience function to queue up work for worker threads
+ *
+ * @param[in]	task - the task to queue up
+ *
+ * @return void
+ */
+void
+queue_work_for_threads(th_task_info *task)
+{
+	pthread_mutex_lock(&work_lock);
+	ds_enqueue(work_queue, (void *) task);
+	pthread_cond_signal(&work_cond);
+	pthread_mutex_unlock(&work_lock);
 }

@@ -537,7 +537,7 @@ dup_string_array(char **ostrs)
 	int i;
 
 	if (ostrs != NULL) {
-		for (i = 0; ostrs[i] != NULL; i++);
+		i = count_array((void **) ostrs);
 
 		if ((nstrs = (char **)malloc((i + 1) * sizeof(char *))) == NULL) {
 			log_err(errno, __func__, MEM_ERR_MSG);
@@ -1393,34 +1393,6 @@ res_to_str(void *p, enum resource_fields fld)
 		if ((resbuf = malloc(resbuf_size)) == NULL)
 		return "";
 	}
-
-	return res_to_str_re(p, fld, &resbuf, &resbuf_size, NO_FLAGS);
-
-}
-
-
-/**
- * @brief
- * 		MT safe version of res_to_str
- *
- * @param[in]	p	-	pointer to resource/req
- * @param[in] fld	-	the field of the resource to print
- *
- * @return	char *
- * @retval	the resource in string format
- * @retval	NULL on error
- *
- * @par	MT-Safe: Yes
- *
- */
-char *
-res_to_str_mt_safe(void *p, enum resource_fields fld)
-{
-	char *resbuf = NULL;
-	int resbuf_size = 1024;
-
-	if ((resbuf = malloc(resbuf_size)) == NULL)
-		return NULL;
 
 	return res_to_str_re(p, fld, &resbuf, &resbuf_size, NO_FLAGS);
 

@@ -77,15 +77,15 @@ new_ds_queue(void)
 /**
  * @brief	Destructor for a queue object
  *
- * @param[in]	obj - a queue object to deallocate
+ * @param[in]	queue - the queue object to deallocate
  *
  * @return void
  */
 void
-free_ds_queue(ds_queue *obj)
+free_ds_queue(ds_queue *queue)
 {
-	free(obj->content_arr);
-	free(obj);
+	free(queue->content_arr);
+	free(queue);
 }
 
 
@@ -152,8 +152,12 @@ ds_dequeue(ds_queue *queue)
 	if (queue == NULL)
 		return NULL;
 
-	if (queue->front == queue->rear) /* queue is empty */
+	if (queue->front == queue->rear) { /* queue is empty */
+		/* Reset front and rear pointers */
+		queue->front = 0;
+		queue->rear = 0;
 		return NULL;
+	}
 
 	return queue->content_arr[queue->front++];
 }
@@ -170,8 +174,12 @@ ds_dequeue(ds_queue *queue)
 int
 ds_queue_is_empty(ds_queue *queue)
 {
-	if (queue == NULL || queue->front == queue->rear)
+	if (queue == NULL || queue->front == queue->rear) {
+		/* Make sure front and rear pointers are set to 0 */
+		queue->front = 0;
+		queue->rear = 0;
 		return 1;
+	}
 	else
 		return 0;
 }

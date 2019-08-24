@@ -51,7 +51,7 @@ struct ds_queue {
 };
 
 ds_queue *new_ds_queue(void);
-void free_ds_queue(ds_queue *obj);
+void free_ds_queue(ds_queue *queue);
 int ds_enqueue(ds_queue *queue, void *obj);
 void *ds_dequeue(ds_queue *queue);
 int ds_queue_is_empty(ds_queue *queue);

@@ -149,6 +149,7 @@ int got_sigpipe;
 int	second_connection;
 
 /* Stuff needed for multi-threading */
+pthread_mutex_t general_lock;
 pthread_mutex_t work_lock;
 pthread_mutex_t result_lock;
 pthread_cond_t work_cond;
