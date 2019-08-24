@@ -351,25 +351,6 @@ action_sched_iteration(attribute *pattr, void *pobj, int actmode)
 
 /**
  * @brief
- * 		action routine for the sched's "sched_threads" attribute
- *
- * @param[in]	pattr	-	attribute being set
- * @param[in]	pobj	-	Object on which attribute is being set
- * @param[in]	actmode	-	the mode of setting, recovery or just alter
- *
- * @return	error code
- * @retval	PBSE_NONE	-	Success
- * @retval	!PBSE_NONE	-	Failure
- *
- */
-int
-action_sched_threads(attribute *pattr, void *pobj, int actmode)
-{
-	return PBSE_NONE;
-}
-
-/**
- * @brief
  * 		action routine for the sched's "sched_user" attribute
  *
  * @param[in]	pattr	-	attribute being set
@@ -573,21 +554,6 @@ set_sched_default(pbs_sched *psched, int unset_flag, int from_scheduler)
 	if (!unset_flag && (psched->sch_attr[(int) SCHED_ATR_schediteration].at_flags & ATR_VFLAG_SET) == 0) {
 		set_attr_svr(&(psched->sch_attr[(int) SCHED_ATR_schediteration]), &sched_attr_def[(int) SCHED_ATR_schediteration],
 			TOSTR(PBS_SCHEDULE_CYCLE));
-	}
-	if (!unset_flag && (psched->sch_attr[(int) SCHED_ATR_sched_threads].at_flags & ATR_VFLAG_SET) == 0) {
-		int num_cores;
-		char tmpbuf[8];
-
-#ifdef WIN32
-		SYSTEM_INFO sysinfo;
-		GetSystemInfo(&sysinfo);
-		num_cores = sysinfo.dwNumberOfProcessors;
-#else
-		num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-#endif
-		snprintf(tmpbuf, sizeof(tmpbuf), "%d", num_cores);
-		set_attr_svr(&(psched->sch_attr[(int) SCHED_ATR_sched_threads]), &sched_attr_def[(int) SCHED_ATR_sched_threads],
-				tmpbuf);
 	}
 	if ((psched->sch_attr[(int) SCHED_ATR_scheduling].at_flags & ATR_VFLAG_SET) == 0) {
 		if (psched != dflt_scheduler)

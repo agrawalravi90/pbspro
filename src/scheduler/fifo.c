@@ -136,15 +136,14 @@ extern int	get_sched_cmd_noblk(int sock, int *val, char **jobid);
  * @brief
  * 		initialize conf struct and parse conf files
  *
- * @param[in]	argc	-	passed in from main (may be 0)
- * @param[in]	argv	-	passed in from main (may be NULL)
+ * @param[in]	nthreads - number of worker threads to launch, -1 to use num cores
  *
  * @return	Success/Failure
  * @retval	0	: success
  * @retval	!= 0	: failure
  */
 int
-schedinit(void)
+schedinit(int nthreads)
 {
 	char zone_dir[MAXPATHLEN];
 	struct tm *tmptr;
@@ -244,6 +243,15 @@ schedinit(void)
 	}
 
 #endif
+
+	/* (Re-)Initialize multithreading */
+	if (num_threads == 0 || (nthreads != -1 && nthreads != num_threads)) {
+		if (init_multi_threading(nthreads) != 1) {
+			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_REQUEST, LOG_ERR,
+					"", "Error initializing pthreads");
+			return -1;
+		}
+	}
 
 	return 0;
 }
@@ -573,7 +581,7 @@ schedule(int cmd, int sd, char *runjobid)
 			schdlog(PBSEVENT_SCHED, PBS_EVENTCLASS_SCHED, LOG_INFO,
 				"reconfigure", "Scheduler is reconfiguring");
 			reset_global_resource_ptrs();
-			if(schedinit() != 0) {
+			if(schedinit(-1) != 0) {
 				return 0;
 			}
 			break;

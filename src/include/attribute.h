@@ -569,7 +569,6 @@ extern int action_backfill_depth(attribute *pattr,  void *pobj,  int actmode);
 extern int action_est_start_time_freq(attribute *pattr,  void *pobj,  int actmode);
 extern int check_for_bgl_nodes(attribute *patr,  void *pobject,  int actmode);
 extern int action_sched_iteration(attribute *pattr, void *pobj, int actmode);
-extern int action_sched_threads(attribute *pattr, void *pobj, int actmode);
 extern int action_sched_priv(attribute *pattr, void *pobj, int actmode);
 extern int action_sched_log(attribute *pattr, void *pobj, int actmode);
 extern int action_sched_user(attribute *pattr, void *pobj, int actmode);

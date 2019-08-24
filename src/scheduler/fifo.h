@@ -48,7 +48,7 @@ int connector;
 /*
  *      schedinit - initialize conf struct and parse conf files
  */
-int schedinit(void);
+int schedinit(int nthreads);
 
 /*
  *      schedule - this function gets called to start each scheduling cycle

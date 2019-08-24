@@ -122,14 +122,14 @@ kill_threads(void)
 /**
  * @brief	initialize multi-threading
  *
- * @param	void
+ * @param[in]	nthreads - number of threads to create, or -1 to use default
  *
  * @return	int
  * @retval	1 for success
  * @retval	0 for malloc error
  */
 int
-init_multi_threading(void)
+init_multi_threading(int nthreads)
 {
 	int i;
 	int num_cores;
@@ -168,12 +168,12 @@ init_multi_threading(void)
 	pthread_mutex_init(&result_lock, &attr);
 	pthread_mutex_init(&general_lock, &attr);
 
-	if (conf.nthreads < 1) {
+	if (nthreads < 1) {
 		/* Create as many threads as the number of cores */
 		num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-		num_threads = num_cores;
+		num_threads = num_cores / 2;
 	} else
-		num_threads = conf.nthreads;
+		num_threads = nthreads;
 
 	threads = malloc(num_threads * sizeof(pthread_t));
 	if (threads == NULL) {
