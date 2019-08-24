@@ -1649,7 +1649,8 @@ mgr_server_unset(struct batch_request *preq)
 						ATR_VFLAG_SET | ATR_VFLAG_MODIFY | ATR_VFLAG_MODCACHE;
 				(void)sched_save_db(dflt_scheduler, SVR_SAVE_FULL);
 			}
-		} else if (strcasecmp(plist->al_name, ATTR_schediteration) == 0) {
+		} else if (strcasecmp(plist->al_name,
+				ATTR_schediteration) == 0) {
 			if (dflt_scheduler) {
 				svrattrl *tm_list;
 				/* value is 600 so it is of size 4 including terminating character */
@@ -1846,36 +1847,6 @@ mgr_sched_unset(struct batch_request *preq)
 				svr_save_db(&server, SVR_SAVE_FULL);
 				free_svrattrl(t_list);
 			}
-		}  else if (strcasecmp(tmp_plist->al_name, ATTR_sched_threads) == 0) {
-			svrattrl *t_list;
-			int num_cores;
-
-			/* By default, set sched_threads to the number of cores on the machine */
-
-#ifdef WIN32
-			SYSTEM_INFO sysinfo;
-			GetSystemInfo(&sysinfo);
-			num_cores = sysinfo.dwNumberOfProcessors;
-#else
-			num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-#endif
-			t_list = attrlist_create(tmp_plist->al_name, NULL, 8);
-			if (t_list == NULL) {
-				reply_badattr(-1, bad_attr, tmp_plist, preq);
-			}
-			t_list->al_link.ll_next->ll_struct = NULL;
-
-			/* when unset, set sched_threads to number of cores */
-			snprintf(t_list->al_value, 8, "%d", num_cores);
-			rc = mgr_set_attr(psched->sch_attr, sched_attr_def, SCHED_ATR_LAST, t_list,
-				MGR_ONLY_SET, &bad_attr, (void *) psched, ATR_ACTION_ALTER);
-			if (rc != 0) {
-				free_svrattrl(t_list);
-				reply_badattr(rc, bad_attr, tmp_plist, preq);
-				return;
-			}
-			(void)sched_save_db(psched, SVR_SAVE_FULL);
-			free_svrattrl(t_list);
 		}
 	}
 

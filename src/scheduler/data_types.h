@@ -1152,7 +1152,6 @@ struct config
 	unsigned non_prime_sto:1;
 #endif /* localmod 034 */
 
-	int nthreads;			/* Number of worker threads to create */
 	struct sort_info *prime_sort;		/* prime time sort */
 	struct sort_info *non_prime_sort;	/* non-prime time sort */
 

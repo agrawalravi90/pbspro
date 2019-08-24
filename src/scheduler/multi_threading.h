@@ -41,9 +41,9 @@
 
 #include "data_types.h"
 
-int init_multi_threading(void);
+int init_multi_threading(int nthreads);
 void kill_threads(void);
-void *worker(void);
+void *worker(void *);
 void queue_work_for_threads(th_task_info *task);
 
 #endif /* SRC_SCHEDULER_MULTI_THREADING_H_ */

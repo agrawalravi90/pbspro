@@ -276,7 +276,6 @@ extern "C" {
 #define ATTR_maxarraysize "max_array_size"
 #define ATTR_PNames	"pnames"
 #define ATTR_schediteration	"scheduler_iteration"
-#define ATTR_sched_threads	"sched_threads"
 #define ATTR_scheduling	"scheduling"
 #define ATTR_status	"server_state"
 #define ATTR_syscost	"system_cost"

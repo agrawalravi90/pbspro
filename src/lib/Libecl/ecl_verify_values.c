@@ -1949,37 +1949,3 @@ verify_value_preempt_sort(int batch_request, int parent_object, int cmd,
 	return 0;
 }
 
-/**
- * @brief
- * 	Checks that the Sched attribute 'sched_threads' is set to a legal value
- *
- * @param[in]	batch_request	-	Batch Request Type
- * @param[in]	parent_object	-	Parent Object Type
- * @param[in]	cmd		-	Command Type
- * @param[in]	pattr		-	address of attribute to verify
- * @param[out]	err_msg		-	error message list
- *
- * @return	int
- * @retval	0 	- 	Attribute passed verification
- * @retval	>0 	- 	Failed verification - pbs errcode is returned
- *
- * @par	Side effects:
- * 	None
- */
-int
-verify_value_sched_threads(int batch_request, int parent_object, int cmd,
-	struct attropl *pattr, char **err_msg)
-{
-	char *endp = NULL;
-	int numval;
-
-	if (pattr->value == NULL)
-		return PBSE_BADATVAL;
-
-	numval = strtol(pattr->value, &endp, 10);
-	if (*endp != '\0' || numval <= 0 || numval >= 100000)
-		return PBSE_BADATVAL;
-
-	return 0;
-}
-
