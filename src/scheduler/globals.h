@@ -74,6 +74,7 @@ extern int got_sigpipe;
 const struct enum_conv resind[RES_HIGH+1];
 
 /* Stuff needed for multi-threading */
+extern pthread_mutex_t general_lock;
 extern pthread_mutex_t work_lock;
 extern pthread_cond_t work_cond;
 extern pthread_mutex_t result_lock;

@@ -160,6 +160,8 @@
 /* name of the last node a job ran on - used in smp_dist = round robin */
 static char last_node_name[PBS_MAXSVRJOBID];
 
+int first_talk_with_mom = 1;
+
 void
 query_node_info_chunk(th_data_query_ninfo *data)
 {
@@ -200,6 +202,11 @@ query_node_info_chunk(th_data_query_ninfo *data)
 		}
 
 		if (node_in_partition(ninfo, sinfo->partitions)) {
+			if (first_talk_with_mom) {	/* need to acquire a lock for talk_with_mom the first time */
+				pthread_mutex_lock(&general_lock);
+				if (!first_talk_with_mom)
+					pthread_mutex_unlock(&general_lock);
+			}
 			/* get node info from mom */
 			if (talk_with_mom(ninfo)) {
 				/* failed to get information from node, mark it not free for this cycle */
@@ -207,6 +214,10 @@ query_node_info_chunk(th_data_query_ninfo *data)
 				ninfo->is_offline = 1;
 				schdlog(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, LOG_INFO, ninfo->name,
 					"Failed to talk with mom, marking node offline");
+			}
+			if (first_talk_with_mom) {
+				first_talk_with_mom = 0;
+				pthread_mutex_unlock(&general_lock);
 			}
 			ninfo_arr[nidx++] = ninfo;
 		} else
@@ -347,10 +358,7 @@ query_nodes(int pbs_sd, server_info *sinfo)
 		task->task_type = TS_QUERY_ND_INFO;
 		task->thread_data = (void *) tdata;
 
-		pthread_mutex_lock(&work_lock);
-		ds_enqueue(work_queue, (void *) task);
-		pthread_cond_signal(&work_cond);
-		pthread_mutex_unlock(&work_lock);
+		queue_work_for_threads(task);
 
 		num_tasks++;
 		num_nodes -= chunk_size;
@@ -826,10 +834,7 @@ free_nodes(node_info **ninfo_arr)
 		task->task_type = TS_FREE_ND_INFO;
 		task->thread_data = (void *) tdata;
 
-		pthread_mutex_lock(&work_lock);
-		ds_enqueue(work_queue, (void *) task);
-		pthread_cond_signal(&work_cond);
-		pthread_mutex_unlock(&work_lock);
+		queue_work_for_threads(task);
 
 		num_nodes -= chunk_size;
 		num_tasks++;
@@ -1228,7 +1233,7 @@ talk_with_mom(node_info *ninfo)
 		for (i = 0; conf.dyn_res_to_get[i] && (mom_ans = getreq(mom_sd));  i++) {
 			res = find_alloc_resource_by_str(ninfo->res, conf.dyn_res_to_get[i]);
 			if (res != NULL) {
-				char *resstr = NULL;
+				char resstr[MAX_LOG_SIZE];
 
 				if (mom_ans[0] != '?') {
 					if (set_resource(res, mom_ans, RF_AVAIL) == 0) {
@@ -1239,14 +1244,13 @@ talk_with_mom(node_info *ninfo)
 				else if (res->avail == SCHD_INFINITY_RES)
 					res->avail = 0;
 
-				resstr = res_to_str_mt_safe(res, RF_AVAIL);
-				if (resstr == NULL) {
+				res_to_str_r(res, RF_AVAIL, resstr, sizeof(resstr));
+				if (resstr[0] == '\0') {
 					ret = 1;
 					break;
 				}
 				snprintf(errbuf, sizeof(errbuf), "%s = %s (\"%s\")",
 					res->name, resstr, mom_ans);
-				free(resstr);
 				schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, LOG_DEBUG,
 					"mom_resources", errbuf);
 			}
@@ -1524,10 +1528,7 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 			task->task_type = TS_DUP_ND_INFO;
 			task->thread_data = (void *) tdata;
 
-			pthread_mutex_lock(&work_lock);
-			ds_enqueue(work_queue, (void *) task);
-			pthread_cond_signal(&work_cond);
-			pthread_mutex_unlock(&work_lock);
+			queue_work_for_threads(task);
 
 			thread_node_ct_left -= chunk_size;
 			num_tasks++;
@@ -6328,10 +6329,7 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 			task->task_type = TS_IS_ND_ELIGIBLE;
 			task->thread_data = (void *) tdata;
 
-			pthread_mutex_lock(&work_lock);
-			ds_enqueue(work_queue, (void *) task);
-			pthread_cond_signal(&work_cond);
-			pthread_mutex_unlock(&work_lock);
+			queue_work_for_threads(task);
 
 			num_nodes -= chunk_size;
 			num_tasks++;

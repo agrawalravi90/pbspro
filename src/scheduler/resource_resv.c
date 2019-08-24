@@ -272,10 +272,7 @@ free_resource_resv_array(resource_resv **resresv_arr)
 		task->task_type = TS_FREE_RESRESV;
 		task->thread_data = (void *) tdata;
 
-		pthread_mutex_lock(&work_lock);
-		ds_enqueue(work_queue, (void *) task);
-		pthread_cond_signal(&work_cond);
-		pthread_mutex_unlock(&work_lock);
+		queue_work_for_threads(task);
 
 		num_jobs -= chunk_size;
 	}
@@ -480,10 +477,7 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 			task->task_type = TS_DUP_RESRESV;
 			task->thread_data = (void *) tdata;
 
-			pthread_mutex_lock(&work_lock);
-			ds_enqueue(work_queue, (void *) task);
-			pthread_cond_signal(&work_cond);
-			pthread_mutex_unlock(&work_lock);
+			queue_work_for_threads(task);
 
 			thread_job_ct_left -= chunk_size;
 		}
@@ -2448,15 +2442,14 @@ create_select_from_nspec(nspec **nspec_array)
 				return NULL;
 			}
 			for (req = nspec_array[i]->resreq; req != NULL; req = req->next) {
-				char *resstr = NULL;
+				char resstr[MAX_LOG_SIZE];
 
-				resstr = res_to_str_mt_safe(req, RF_REQUEST);
-				if (resstr ==  NULL) {
+				res_to_str_r(req, RF_REQUEST, resstr, sizeof(resstr));
+				if (resstr[0] == '\0') {
 					free(select_spec);
 					return NULL;
 				}
 				snprintf(buf, sizeof(buf), ":%s=%s", req->name, resstr);
-				free(resstr);
 				if (pbs_strcat(&select_spec, &selsize, buf) == NULL) {
 					if (selsize > 0)
 						free(select_spec);

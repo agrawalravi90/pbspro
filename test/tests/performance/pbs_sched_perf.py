@@ -265,11 +265,10 @@ class TestSchedPerf(TestPerformance):
         chunk_size = 100
         total_jobs = 10000
         while total_jobs > 0:
-            for i in range(chunk_size):
-                nchunks = i + 1
+            for i in range(1, chunk_size + 1):
                 a = {'Resource_List.select':
-                     str(nchunks) + ":ncpus=1:color=" + self.colors[i % 7]}
-                njobs = chunk_size / nchunks
+                     str(i) + ":ncpus=1:color=" + self.colors[i % 7]}
+                njobs = chunk_size / i
                 _jids = self.submit_jobs(a, njobs, wt_start=1000)
                 jids.append(_jids)
                 total_jobs -= njobs

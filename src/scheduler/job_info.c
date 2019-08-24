@@ -886,9 +886,6 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	/* array of internal scheduler structures for jobs */
 	resource_resv **resresv_arr;
 
-	/* current job in resresv_arr array */
-	resource_resv *resresv;
-
 	/* number of jobs in resresv_arr */
 	int num_jobs = 0;
 	/* number of jobs in pjobs */
@@ -1069,8 +1066,8 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	/* Assemble job info objects from various threads into the resresv_arr */
 	for (i = 0, jidx = num_prev_jobs; i < num_tasks; i++) {
 		if (jinfo_arrs_tasks[i] != NULL) {
-			for (j = 0; (resresv = jinfo_arrs_tasks[i][j]) != NULL; j++) {
-				resresv_arr[jidx++] = resresv;
+			for (j = 0; jinfo_arrs_tasks[i][j] != NULL; j++) {
+				resresv_arr[jidx++] = jinfo_arrs_tasks[i][j];
 			}
 			free(jinfo_arrs_tasks[i]);
 		}
