@@ -205,12 +205,15 @@ new_resource_resv()
  * @return void
  */
 void
-free_resource_resv_array_chunk(th_data_free_resresv *data)
+free_resource_resv_array_chunk(void *indata)
 {
 	resource_resv **resresv_arr;
 	int start;
 	int end;
 	int i;
+	th_data_free_resresv *data;
+
+	data = (th_data_free_resresv *) indata;
 
 	resresv_arr = data->resresv_arr;
 	start = data->sidx;
@@ -272,6 +275,7 @@ free_resource_resv_array(resource_resv **resresv_arr)
 		task = malloc(sizeof(th_task_info));
 		task->task_type = TS_FREE_RESRESV;
 		task->thread_data = (void *) tdata;
+		task->task_handler = free_resource_resv_array_chunk;
 
 		queue_work_for_threads(task);
 
@@ -373,7 +377,7 @@ free_resource_resv(resource_resv *resresv)
  * @return void
  */
 void
-dup_resource_resv_array_chunk(th_data_dup_resresv *data)
+dup_resource_resv_array_chunk(void *indata)
 {
 	resource_resv **nresresv_arr;
 	resource_resv **oresresv_arr;
@@ -383,6 +387,9 @@ dup_resource_resv_array_chunk(th_data_dup_resresv *data)
 	int end;
 	int i;
 	schd_error *err;
+	th_data_dup_resresv *data;
+
+	data = (th_data_dup_resresv *) indata;
 
 	err = new_schd_error();
 	if (err == NULL) {
@@ -477,6 +484,7 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 			task = malloc(sizeof(th_task_info));
 			task->task_type = TS_DUP_RESRESV;
 			task->thread_data = (void *) tdata;
+			task->task_handler = dup_resource_resv_array_chunk;
 
 			queue_work_for_threads(task);
 

@@ -229,11 +229,8 @@ worker(void *tid)
 	th_task_info *work = NULL;
 	void *ts = NULL;
 	sigset_t set;
-	int ntid;
-	char buf[1024];
 
 	pthread_setspecific(th_id_key, tid);
-	ntid = *(int *)tid;
 
 	sigemptyset(&set);
 	sigaddset(&set, SIGHUP);
@@ -261,46 +258,7 @@ worker(void *tid)
 
 		/* find out what task we need to do */
 		if (work != NULL) {
-			switch (work->task_type) {
-			case TS_IS_ND_ELIGIBLE:
-				snprintf(buf, sizeof(buf), "Thread %d calling check_node_eligibility_chunk()", ntid);
-				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				check_node_eligibility_chunk((th_data_nd_eligible *) work->thread_data);
-				break;
-			case TS_DUP_ND_INFO:
-				snprintf(buf, sizeof(buf), "Thread %d calling dup_node_info_chunk()", ntid);
-				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				dup_node_info_chunk((th_data_dup_nd_info *) work->thread_data);
-				break;
-			case TS_QUERY_ND_INFO:
-				snprintf(buf, sizeof(buf), "Thread %d calling query_node_info_chunk()", ntid);
-				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				query_node_info_chunk((th_data_query_ninfo *) work->thread_data);
-				break;
-			case TS_FREE_ND_INFO:
-				snprintf(buf, sizeof(buf), "Thread %d calling free_node_info_chunk()", ntid);
-				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				free_node_info_chunk((th_data_free_ninfo *) work->thread_data);
-				break;
-			case TS_DUP_RESRESV:
-				snprintf(buf, sizeof(buf), "Thread %d calling dup_resource_resv_array_chunk()", ntid);
-				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				dup_resource_resv_array_chunk((th_data_dup_resresv *) work->thread_data);
-				break;
-			case TS_QUERY_JOB_INFO:
-				snprintf(buf, sizeof(buf), "Thread %d calling query_jobs_chunk()", ntid);
-				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				query_jobs_chunk((th_data_query_jinfo *) work->thread_data);
-				break;
-			case TS_FREE_RESRESV:
-				snprintf(buf, sizeof(buf), "Thread %d calling free_resource_resv_array_chunk()", ntid);
-				schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				free_resource_resv_array_chunk((th_data_free_resresv *) work->thread_data);
-				break;
-			default:
-				schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
-						"Invalid task type passed to worker thread");
-			}
+			work->task_handler(work->thread_data);
 
 			/* Post results */
 			pthread_mutex_lock(&result_lock);

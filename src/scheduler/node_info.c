@@ -164,7 +164,7 @@ static char last_node_name[PBS_MAXSVRJOBID];
 int first_talk_with_mom = 1;
 
 void
-query_node_info_chunk(th_data_query_ninfo *data)
+query_node_info_chunk(void *indata)
 {
 	struct batch_status *nodes;
 	struct batch_status *cur_node;
@@ -176,7 +176,9 @@ query_node_info_chunk(th_data_query_ninfo *data)
 	int start;
 	int end;
 	int num_nodes_chunk;
+	th_data_query_ninfo *data;
 
+	data = (th_data_query_ninfo *) indata;
 	nodes = data->nodes;
 	sinfo = data->sinfo;
 	start = data->sidx;
@@ -358,6 +360,7 @@ query_nodes(int pbs_sd, server_info *sinfo)
 		task->task_id = num_tasks;
 		task->task_type = TS_QUERY_ND_INFO;
 		task->thread_data = (void *) tdata;
+		task->task_handler = query_node_info_chunk;
 
 		queue_work_for_threads(task);
 
@@ -756,12 +759,15 @@ new_node_info()
  * @return void
  */
 void
-free_node_info_chunk(th_data_free_ninfo *data)
+free_node_info_chunk(void *indata)
 {
 	node_info **ninfo_arr;
 	int start;
 	int end;
 	int i;
+	th_data_free_ninfo *data;
+
+	data = (th_data_free_ninfo *) indata;
 
 	ninfo_arr = data->ninfo_arr;
 	start = data->sidx;
@@ -834,6 +840,7 @@ free_nodes(node_info **ninfo_arr)
 		}
 		task->task_type = TS_FREE_ND_INFO;
 		task->thread_data = (void *) tdata;
+		task->task_handler = free_node_info_chunk;
 
 		queue_work_for_threads(task);
 
@@ -1391,7 +1398,7 @@ find_node_by_host(node_info **ninfo_arr, char *host)
  * @return void
  */
 void
-dup_node_info_chunk(th_data_dup_nd_info *data)
+dup_node_info_chunk(void *indata)
 {
 	int i;
 	int start;
@@ -1400,7 +1407,9 @@ dup_node_info_chunk(th_data_dup_nd_info *data)
 	node_info **nnodes;
 	server_info *nsinfo;
 	unsigned int flags;
+	th_data_dup_nd_info *data;
 
+	data = (th_data_dup_nd_info *) indata;
 	start = data->sidx;
 	end = data->eidx;
 	onodes = data->onodes;
@@ -1528,6 +1537,7 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 			}
 			task->task_type = TS_DUP_ND_INFO;
 			task->thread_data = (void *) tdata;
+			task->task_handler = dup_node_info_chunk;
 
 			queue_work_for_threads(task);
 
@@ -6171,7 +6181,7 @@ is_exclhost(place *placespec, enum vnode_sharing sharing)
  * @return void
  */
 void
-check_node_eligibility_chunk(th_data_nd_eligible *data)
+check_node_eligibility_chunk(void *indata)
 {
 	int i;
 	int start, end;
@@ -6181,6 +6191,9 @@ check_node_eligibility_chunk(th_data_nd_eligible *data)
 	place *pl;
 	char *exclerr_buf;
 	node_info **ninfo_arr;
+	th_data_nd_eligible *data;
+
+	data = (th_data_nd_eligible *) indata;
 
 	if (data == NULL)
 		return;
@@ -6329,6 +6342,7 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 			}
 			task->task_type = TS_IS_ND_ELIGIBLE;
 			task->thread_data = (void *) tdata;
+			task->task_handler = check_node_eligibility_chunk;
 
 			queue_work_for_threads(task);
 

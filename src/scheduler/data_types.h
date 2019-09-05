@@ -179,6 +179,7 @@ struct th_task_info
 	int task_id;							/* task id, should be set by main thread */
 	enum thread_task_type task_type;		/* task type */
 	void *thread_data;					/* data for the worker thread to execute the task */
+	void (*task_handler)(void *);	/* Task handler */
 };
 
 struct th_data_nd_eligible

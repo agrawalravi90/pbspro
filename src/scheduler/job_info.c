@@ -502,7 +502,7 @@ static struct fc_translation_table fctt[] = {
  * @return void
  */
 void
-query_jobs_chunk(th_data_query_jinfo *data)
+query_jobs_chunk(void *indata)
 {
 	struct batch_status *jobs;
 	resource_resv **resresv_arr;
@@ -518,6 +518,9 @@ query_jobs_chunk(th_data_query_jinfo *data)
 	time_t server_time;
 	int pbs_sd;
 	status *policy;
+	th_data_query_jinfo *data;
+
+	data = (th_data_query_jinfo *) indata;
 
 	jobs = data->jobs;
 	sinfo = data->sinfo;
@@ -1027,6 +1030,7 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 		task->task_id = num_tasks;
 		task->task_type = TS_QUERY_JOB_INFO;
 		task->thread_data = (void *) tdata;
+		task->task_handler = query_jobs_chunk;
 
 		pthread_mutex_lock(&work_lock);
 		ds_enqueue(work_queue, (void *) task);

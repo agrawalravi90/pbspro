@@ -44,7 +44,7 @@ extern "C" {
 #include "data_types.h"
 #include <pbs_ifl.h>
 
-void query_node_info_chunk(th_data_query_ninfo *data);
+void query_node_info_chunk(void *data);
 
 /*
  *      query_nodes - query all the nodes associated with a server
@@ -61,7 +61,7 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo);
  * pthread routine for freeing up a node_info array
  */
 void
-free_node_info_chunk(th_data_free_ninfo *data);
+free_node_info_chunk(void *data);
 
 /*
  *      free_nodes - free all the nodes in a node_info array
@@ -127,7 +127,7 @@ node_info *find_node_info(node_info **ninfo_arr, char *nodename);
  */
 node_info *dup_node(node_info *oninfo, server_info *nsinfo);
 
-void dup_node_info_chunk(th_data_dup_nd_info *data);
+void dup_node_info_chunk(void *data);
 
 /*
  *      dup_nodes - duplicate an array of nodes
@@ -672,7 +672,7 @@ void set_current_eoe(node_info *node, char *eoe);
  * Check eligibility for a chunk of nodes, a supplementary function to check_node_array_eligibility
  */
 void
-check_node_eligibility_chunk(th_data_nd_eligible *data);
+check_node_eligibility_chunk(void *data);
 
 /* check nodes for eligibility and mark them ineligible if not */
 void check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, place *pl,
