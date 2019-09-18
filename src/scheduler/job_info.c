@@ -904,6 +904,7 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	int num_tasks = 0;
 	int th_err = 0;
 	resource_resv ***jinfo_arrs_tasks;
+	int tid;
 
 	char *jobattrs[] = {
 			ATTR_p,
@@ -996,17 +997,10 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	}
 	resresv_arr[num_prev_jobs] = NULL;
 
-	j = 0;
-	chunk_size = num_new_jobs / num_threads;
-	chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
-	chunk_size = (chunk_size < 8192) ? chunk_size : 8192;
-	while (num_new_jobs > 0) {
+	tid = *((int *) pthread_getspecific(th_id_key));
+	if (tid != 0 || num_threads == 1) {
+		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
 		tdata = malloc(sizeof(th_data_query_jinfo));
-		if (tdata == NULL) {
-			log_err(errno, __func__, MEM_ERR_MSG);
-			th_err = 1;
-			break;
-		}
 		tdata->error = 0;
 		tdata->jobs = jobs;
 		tdata->oarr = NULL; /* Will be filled by the thread routine */
@@ -1014,66 +1008,98 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 		tdata->qinfo = qinfo;
 		tdata->pbs_sd = pbs_sd;
 		tdata->policy = policy;
-		tdata->sidx = j;
-		j += chunk_size;
-		tdata->eidx = j - 1;
-		task = malloc(sizeof(th_task_info));
-		if (task == NULL) {
-			free(tdata);
+		tdata->sidx = 0;
+		tdata->eidx = num_new_jobs - 1;
+		query_jobs_chunk(tdata);
+
+		if (tdata->error || tdata->oarr == NULL)
+			return NULL;
+
+		for (j = 0, jidx = num_prev_jobs; tdata->oarr[j] != NULL; j++) {
+			resresv_arr[jidx++] = tdata->oarr[j];
+		}
+		free(tdata);
+		resresv_arr[jidx] = NULL;
+	} else {
+		j = 0;
+		chunk_size = num_new_jobs / num_threads;
+		chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
+		chunk_size = (chunk_size < 8192) ? chunk_size : 8192;
+		while (num_new_jobs > 0) {
+			tdata = malloc(sizeof(th_data_query_jinfo));
+			if (tdata == NULL) {
+				log_err(errno, __func__, MEM_ERR_MSG);
+				th_err = 1;
+				break;
+			}
+			tdata->error = 0;
+			tdata->jobs = jobs;
+			tdata->oarr = NULL; /* Will be filled by the thread routine */
+			tdata->sinfo = qinfo->server;
+			tdata->qinfo = qinfo;
+			tdata->pbs_sd = pbs_sd;
+			tdata->policy = policy;
+			tdata->sidx = j;
+			j += chunk_size;
+			tdata->eidx = j - 1;
+			task = malloc(sizeof(th_task_info));
+			if (task == NULL) {
+				free(tdata);
+				log_err(errno, __func__, MEM_ERR_MSG);
+				th_err = 1;
+				break;
+			}
+			task->task_id = num_tasks;
+			task->task_type = TS_QUERY_JOB_INFO;
+			task->thread_data = (void*) tdata;
+
+			pthread_mutex_lock(&work_lock);
+			ds_enqueue(work_queue, (void*) task);
+			pthread_cond_signal(&work_cond);
+			pthread_mutex_unlock(&work_lock);
+
+			num_tasks++;
+			num_new_jobs -= chunk_size;
+		}
+		jinfo_arrs_tasks = malloc(num_tasks * sizeof(resource_resv**));
+		if (jinfo_arrs_tasks == NULL) {
 			log_err(errno, __func__, MEM_ERR_MSG);
 			th_err = 1;
-			break;
 		}
-		task->task_id = num_tasks;
-		task->task_type = TS_QUERY_JOB_INFO;
-		task->thread_data = (void *) tdata;
-
-		pthread_mutex_lock(&work_lock);
-		ds_enqueue(work_queue, (void *) task);
-		pthread_cond_signal(&work_cond);
-		pthread_mutex_unlock(&work_lock);
-
-		num_tasks++;
-		num_new_jobs -= chunk_size;
-	}
-	jinfo_arrs_tasks = malloc(num_tasks * sizeof(resource_resv **));
-	if (jinfo_arrs_tasks == NULL) {
-		log_err(errno, __func__, MEM_ERR_MSG);
-		th_err = 1;
-	}
-	/* Get results from worker threads */
-	for (i = 0; i < num_tasks;) {
-		pthread_mutex_lock(&result_lock);
-		while (ds_queue_is_empty(result_queue))
-			pthread_cond_wait(&result_cond, &result_lock);
-		while (!ds_queue_is_empty(result_queue)) {
-			task = (th_task_info *) ds_dequeue(result_queue);
-			tdata = (th_data_query_jinfo *) task->thread_data;
-			if (tdata->error)
-				th_err = 1;
-			jinfo_arrs_tasks[task->task_id] = tdata->oarr;
-			free(tdata);
-			free(task);
-			i++;
-		}
-		pthread_mutex_unlock(&result_lock);
-	}
-	if (th_err) {
-		pbs_statfree(jobs);
-		free_resource_resv_array(resresv_arr);
-		return NULL;
-	}
-	/* Assemble job info objects from various threads into the resresv_arr */
-	for (i = 0, jidx = num_prev_jobs; i < num_tasks; i++) {
-		if (jinfo_arrs_tasks[i] != NULL) {
-			for (j = 0; jinfo_arrs_tasks[i][j] != NULL; j++) {
-				resresv_arr[jidx++] = jinfo_arrs_tasks[i][j];
+		/* Get results from worker threads */
+		for (i = 0; i < num_tasks;) {
+			pthread_mutex_lock(&result_lock);
+			while (ds_queue_is_empty(result_queue))
+				pthread_cond_wait(&result_cond, &result_lock);
+			while (!ds_queue_is_empty(result_queue)) {
+				task = (th_task_info*) ds_dequeue(result_queue);
+				tdata = (th_data_query_jinfo*) task->thread_data;
+				if (tdata->error)
+					th_err = 1;
+				jinfo_arrs_tasks[task->task_id] = tdata->oarr;
+				free(tdata);
+				free(task);
+				i++;
 			}
-			free(jinfo_arrs_tasks[i]);
+			pthread_mutex_unlock(&result_lock);
 		}
+		if (th_err) {
+			pbs_statfree(jobs);
+			free_resource_resv_array(resresv_arr);
+			return NULL;
+		}
+		/* Assemble job info objects from various threads into the resresv_arr */
+		for (i = 0, jidx = num_prev_jobs; i < num_tasks; i++) {
+			if (jinfo_arrs_tasks[i] != NULL) {
+				for (j = 0; jinfo_arrs_tasks[i][j] != NULL; j++) {
+					resresv_arr[jidx++] = jinfo_arrs_tasks[i][j];
+				}
+				free(jinfo_arrs_tasks[i]);
+			}
+		}
+		resresv_arr[jidx] = NULL;
+		free(jinfo_arrs_tasks);
 	}
-	resresv_arr[jidx] = NULL;
-	free(jinfo_arrs_tasks);
 
 	pbs_statfree(jobs);
 

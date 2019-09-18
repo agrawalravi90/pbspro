@@ -247,7 +247,8 @@ free_resource_resv_array(resource_resv **resresv_arr)
 	num_jobs = count_array((void **) resresv_arr);
 
 	tid = *((int *) pthread_getspecific(th_id_key));
-	if (tid != 0) { /* worker thread, don't use multithreading */
+	if (tid != 0 || num_threads == 1) {
+		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
 		tdata = malloc(sizeof(th_data_free_resresv));
 		tdata->resresv_arr = resresv_arr;
 		tdata->sidx = 0;
@@ -455,7 +456,8 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 	nresresv_arr[0] = NULL;
 
 	tid = *((int *) pthread_getspecific(th_id_key));
-	if (tid != 0) { /* worker thread, don't use multithreading */
+	if (tid != 0 || num_threads == 1) {
+		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
 		tdata = malloc(sizeof(th_data_dup_resresv));
 		tdata->oresresv_arr = oresresv_arr;
 		tdata->nresresv_arr = nresresv_arr;

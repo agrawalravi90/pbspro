@@ -967,6 +967,8 @@ main(int argc, char *argv[])
 	if (pbs_loadconf(0) == 0)
 		return (1);
 
+	nthreads = pbs_conf.pbs_sched_threads;
+
 	glob_argv = argv;
 	segv_start_time = segv_last_time = time(NULL);
 

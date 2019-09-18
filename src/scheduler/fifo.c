@@ -1195,7 +1195,7 @@ schedexit(void)
 	}
 
 	/* Kill all worker threads */
-	if (num_threads > 0)
+	if (num_threads > 1)
 		kill_threads();
 }
 

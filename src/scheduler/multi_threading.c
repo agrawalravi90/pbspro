@@ -136,11 +136,8 @@ init_multi_threading(int nthreads)
 	pthread_mutexattr_t attr;
 
 	/* Kill any existing worker threads */
-	if (num_threads > 0)
+	if (num_threads > 1)
 		kill_threads();
-
-	schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
-			"", "Launching worker threads");
 
 	threads_die = 0;
 	if (pthread_cond_init(&work_cond, NULL) != 0) {
@@ -174,6 +171,12 @@ init_multi_threading(int nthreads)
 		num_threads = num_cores / 2;
 	} else
 		num_threads = nthreads;
+
+	if (num_threads == 1)
+		return 1; /* main thread will act as the only worker thread */
+
+	schdlog(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
+			"", "Launching worker threads");
 
 	threads = malloc(num_threads * sizeof(pthread_t));
 	if (threads == NULL) {
