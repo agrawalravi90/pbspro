@@ -122,7 +122,7 @@ struct pbs_config pbs_conf = {
 	4,					/* default number of threads */
 	NULL,					/* mom short name override */
 	0,					/* high resolution timestamp logging */
-	-1					/* number of scheduler threads */
+	0					/* number of scheduler threads */
 #ifdef WIN32
 	,NULL					/* remote viewer launcher executable along with launch options */
 #endif

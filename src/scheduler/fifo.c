@@ -138,7 +138,7 @@ extern int	get_sched_cmd_noblk(int sock, int *val, char **jobid);
  * @brief
  * 		initialize conf struct and parse conf files
  *
- * @param[in]	nthreads - number of worker threads to launch, -1 to use num cores
+ * @param[in]	nthreads - number of worker threads to launch, < 1 to use num cores
  *
  * @return	Success/Failure
  * @retval	0	: success
@@ -274,7 +274,7 @@ schedinit(int nthreads)
 #endif
 
 	/* (Re-)Initialize multithreading */
-	if (num_threads == 0 || (nthreads != -1 && nthreads != num_threads)) {
+	if (num_threads == 0 || (nthreads > 0 && nthreads != num_threads)) {
 		if (init_multi_threading(nthreads) != 1) {
 			schdlog(PBSEVENT_ERROR, PBS_EVENTCLASS_REQUEST, LOG_ERR,
 					"", "Error initializing pthreads");
