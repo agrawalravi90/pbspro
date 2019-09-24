@@ -241,7 +241,7 @@ query_node_info_chunk(th_data_query_ninfo *data)
  * @retval a newly allocated th_data_query_ninfo object
  * @retval NULL for malloc error
  */
-static th_data_query_ninfo *
+static inline th_data_query_ninfo *
 alloc_tdata_nd_query(struct batch_status *nodes, server_info *sinfo, int sidx, int eidx)
 {
 	th_data_query_ninfo *tdata = NULL;
@@ -828,7 +828,7 @@ free_node_info_chunk(th_data_free_ninfo *data)
  * @retval a newly allocated th_data_free_ninfo object
  * @retval NULL for malloc error
  */
-static th_data_free_ninfo *
+static inline th_data_free_ninfo *
 alloc_tdata_free_nodes(node_info **ninfo_arr, int sidx, int eidx)
 {
 	th_data_free_ninfo *tdata = NULL;
@@ -1501,7 +1501,7 @@ dup_node_info_chunk(th_data_dup_nd_info *data)
  * @retval a newly allocated th_data_dup_nd_info object
  * @retval NULL for malloc error
  */
-static th_data_dup_nd_info *
+static inline th_data_dup_nd_info *
 alloc_tdata_dup_nodes(unsigned int flags, server_info *nsinfo, node_info **onodes, node_info **nnodes,
 		int sidx, int eidx)
 {
@@ -6335,7 +6335,7 @@ check_node_eligibility_chunk(th_data_nd_eligible *data)
  * @retval a newly allocated th_data_nd_eligible object
  * @retval NULL for malloc error
  */
-static th_data_nd_eligible *
+static inline th_data_nd_eligible *
 alloc_tdata_nd_eligible(place *pl, resource_resv *resresv, char *exclerr_buf, node_info **ninfo_arr,
 		int sidx, int eidx)
 {

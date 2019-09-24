@@ -232,7 +232,7 @@ free_resource_resv_array_chunk(th_data_free_resresv *data)
  * @retval a newly allocated th_data_free_resresv object
  * @retval NULL for malloc error
  */
-static th_data_free_resresv *
+static inline th_data_free_resresv *
 alloc_tdata_free_rr_arr(resource_resv **resresv_arr, int sidx, int eidx)
 {
 	th_data_free_resresv *tdata = NULL;
@@ -456,7 +456,7 @@ dup_resource_resv_array_chunk(th_data_dup_resresv *data)
  * @retval a newly allocated th_data_dup_resresv object
  * @retval NULL for malloc error
  */
-static th_data_dup_resresv *
+static inline th_data_dup_resresv *
 alloc_tdata_dup_nodes(resource_resv **oresresv_arr, resource_resv **nresresv_arr, server_info *nsinfo,
 		queue_info *nqinfo, int sidx, int eidx)
 {

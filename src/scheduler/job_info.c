@@ -860,7 +860,7 @@ query_jobs_chunk(th_data_query_jinfo *data)
  * @retval a newly allocated th_data_query_jinfo object
  * @retval NULL for malloc error
  */
-static th_data_query_jinfo *
+static inline th_data_query_jinfo *
 alloc_tdata_jquery(status *policy, int pbs_sd, struct batch_status *jobs, queue_info *qinfo,
 		int sidx, int eidx)
 {
