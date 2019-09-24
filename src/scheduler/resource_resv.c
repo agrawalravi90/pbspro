@@ -222,6 +222,35 @@ free_resource_resv_array_chunk(th_data_free_resresv *data)
 }
 
 /**
+ * @brief	Allocates th_data_free_resresv for multi-threading of free_resource_resv_array
+ *
+ * @param[in,out]	resresv_arr	-	the resresv array to free
+ * @param[in]	sidx	-	start index for the resresv array for the thread
+ * @param[in]	eidx	-	end index for the resresv array for the thread
+ *
+ * @return th_data_free_resresv *
+ * @retval a newly allocated th_data_free_resresv object
+ * @retval NULL for malloc error
+ */
+static th_data_free_resresv *
+alloc_tdata_free_rr_arr(resource_resv **resresv_arr, int sidx, int eidx)
+{
+	th_data_free_resresv *tdata = NULL;
+
+	tdata = malloc(sizeof(th_data_free_resresv));
+	if (tdata == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return NULL;
+	}
+
+	tdata->resresv_arr = resresv_arr;
+	tdata->sidx = sidx;
+	tdata->eidx = eidx;
+
+	return tdata;
+}
+
+/**
  * @brief
  *		free_resource_resv_array - free an array of resource resvs
  *
@@ -237,7 +266,7 @@ free_resource_resv_array(resource_resv **resresv_arr)
 	int chunk_size;
 	th_data_free_resresv *tdata = NULL;
 	th_task_info *task = NULL;
-	int num_tasks = 0;
+	int num_tasks;
 	int num_jobs;
 	int tid;
 
@@ -249,34 +278,30 @@ free_resource_resv_array(resource_resv **resresv_arr)
 	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0 || num_threads == 1) {
 		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
-		tdata = malloc(sizeof(th_data_free_resresv));
-		tdata->resresv_arr = resresv_arr;
-		tdata->sidx = 0;
-		tdata->eidx = num_jobs - 1;
+		tdata = alloc_tdata_free_rr_arr(resresv_arr, 0, num_jobs - 1);
+		if (tdata == NULL)
+			return;
+
 		free_resource_resv_array_chunk(tdata);
 		free(tdata);
 		free(resresv_arr);
 		return;
 	}
 
-	i = 0;
 	chunk_size = num_jobs / num_threads;
 	chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
 	chunk_size = (chunk_size < 8192) ? chunk_size : 8192;
-	while (num_jobs > 0) {
-		num_tasks++;
-		tdata = malloc(sizeof(th_data_free_resresv));
-		tdata->resresv_arr = resresv_arr;
-		tdata->sidx = i;
-		i += chunk_size;
-		tdata->eidx = i - 1;
+	for (i = 0, num_tasks = 0; num_jobs > 0;
+			num_tasks++, i += chunk_size, num_jobs -= chunk_size) {
+		tdata = alloc_tdata_free_rr_arr(resresv_arr, i, i + chunk_size - 1);
+		if (tdata == NULL)
+			break;
+
 		task = malloc(sizeof(th_task_info));
 		task->task_type = TS_FREE_RESRESV;
 		task->thread_data = (void *) tdata;
 
 		queue_work_for_threads(task);
-
-		num_jobs -= chunk_size;
 	}
 
 	/* Get results from worker threads */
@@ -418,6 +443,41 @@ dup_resource_resv_array_chunk(th_data_dup_resresv *data)
 }
 
 /**
+ * @brief	Allocates th_data_dup_resresv for multi-threading of dup_resource_resv_array
+ *
+ * @param[in]	oresresv_arr	-	the array to duplicate
+ * @param[out]	nresresv_arr	-	the duplicated array
+ * @param[in]	nsinfo	-	new server ptr for new resresv array
+ * @param[in]	nqinfo	-	new queue ptr for new resresv array
+ * @param[in]	sidx	-	start index for the resresv list for the thread
+ * @param[in]	eidx	-	end index for the resresv list for the thread
+ *
+ * @return th_data_dup_resresv *
+ * @retval a newly allocated th_data_dup_resresv object
+ * @retval NULL for malloc error
+ */
+static th_data_dup_resresv *
+alloc_tdata_dup_nodes(resource_resv **oresresv_arr, resource_resv **nresresv_arr, server_info *nsinfo,
+		queue_info *nqinfo, int sidx, int eidx)
+{
+	th_data_dup_resresv *tdata = NULL;
+
+	tdata = malloc(sizeof(th_data_dup_resresv));
+	if (tdata == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return NULL;
+	}
+	tdata->oresresv_arr = oresresv_arr;
+	tdata->nresresv_arr = nresresv_arr;
+	tdata->nsinfo = nsinfo;
+	tdata->nqinfo = nqinfo;
+	tdata->sidx = sidx;
+	tdata->eidx = eidx;
+
+	return tdata;
+}
+
+/**
  * @brief
  *		dup_resource_resv_array - dup a array of pointers of resource resvs
  *
@@ -438,7 +498,7 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 	int chunk_size;
 	th_data_dup_resresv *tdata = NULL;
 	th_task_info *task = NULL;
-	int num_tasks = 0;
+	int num_tasks;
 	int num_resresv;
 	int thread_job_ct_left;
 	int th_err = 0;
@@ -458,38 +518,31 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0 || num_threads == 1) {
 		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
-		tdata = malloc(sizeof(th_data_dup_resresv));
-		tdata->oresresv_arr = oresresv_arr;
-		tdata->nresresv_arr = nresresv_arr;
-		tdata->nsinfo = nsinfo;
-		tdata->nqinfo = nqinfo;
-		tdata->sidx = 0;
-		tdata->eidx = num_resresv - 1;
-		dup_resource_resv_array_chunk(tdata);
-		th_err = tdata->error;
-		free(tdata);
+		tdata = alloc_tdata_dup_nodes(oresresv_arr, nresresv_arr, nsinfo, nqinfo, 0, num_resresv - 1);
+		if (tdata == NULL)
+			th_err = 1;
+		else {
+			dup_resource_resv_array_chunk(tdata);
+			th_err = tdata->error;
+			free(tdata);
+		}
 	} else { /* We are multithreading */
-		j = 0;
 		chunk_size = num_resresv / num_threads;
 		chunk_size = (chunk_size > 1024)? chunk_size: 1024;
 		chunk_size = (chunk_size < 8192)? chunk_size: 8192;
-		while (thread_job_ct_left > 0) {
-			num_tasks++;
-			tdata = malloc(sizeof(th_data_dup_resresv));
-			tdata->oresresv_arr = oresresv_arr;
-			tdata->nresresv_arr = nresresv_arr;
-			tdata->nsinfo = nsinfo;
-			tdata->nqinfo = nqinfo;
-			tdata->sidx = j;
-			j += chunk_size;
-			tdata->eidx = j - 1;
+		for (j = 0, num_tasks = 0; thread_job_ct_left > 0;
+				num_tasks++, j += chunk_size, thread_job_ct_left -= chunk_size) {
+			tdata = alloc_tdata_dup_nodes(oresresv_arr, nresresv_arr, nsinfo, nqinfo, j, j + chunk_size - 1);
+			if (tdata == NULL) {
+				th_err = 1;
+				break;
+			}
 			task = malloc(sizeof(th_task_info));
 			task->task_type = TS_DUP_RESRESV;
 			task->thread_data = (void *) tdata;
 
 			queue_work_for_threads(task);
 
-			thread_job_ct_left -= chunk_size;
 		}
 
 		/* Get results from worker threads */

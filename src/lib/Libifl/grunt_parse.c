@@ -207,12 +207,12 @@ parse_resc_equal_string(char  *start, char **name, char **value, char **last)
 int
 parse_node_resc_r(char *str, char **nodep, int *pnelem, int *nlkv, struct key_value_pair **kv)
 {
-	int	      i;
-	int	      nelm = 0;
-	char  *pc;
-	char	     *word;
-	char	     *value;
-	char	     *last;
+	int i;
+	int nelm = 0;
+	char *pc;
+	char *word;
+	char *value;
+	char *last;
 
 
 	if (str == NULL)
@@ -601,7 +601,7 @@ parse_plus_spec_r(char *selstr, char **last, int *hp)
  *	called with null to continue where left off.
  *
  * @param[in] selstr - string holding select specs
- * @param[in] rc - flag
+ * @param[out] rc - flag
  *
  * @return 	A pointer to next substring
  * @retval	next substring (char *)
@@ -663,7 +663,7 @@ parse_plus_spec(char *selstr, int *rc)
  *
  * @param[in] selstr - string holding select specs
  * @param[in,out] tailptr - pointer to the end of the last substring
- * @param[in] rc - flag
+ * @param[out] ec - error code
  *
  * @return 	A pointer to next substring
  * @retval	next substring (char *)
@@ -675,7 +675,7 @@ parse_plus_spec(char *selstr, int *rc)
  *	is grown as need to hold "selstr".
  */
 char *
-parse_plus_spec_mt_safe(char *selstr, char **tailptr, int *rc)
+parse_plus_spec_mt_safe(char *selstr, char **tailptr, int *ec)
 {
 	size_t len;
 	char *substr = NULL;
@@ -683,17 +683,17 @@ parse_plus_spec_mt_safe(char *selstr, char **tailptr, int *rc)
 	char *spec = NULL;
 	char *ptr = NULL;
 
-	*rc = PBSE_NONE;
+	*ec = PBSE_NONE;
 
 	if (selstr == NULL && (tailptr == NULL || *tailptr == NULL)) {
-		*rc = PBSE_INTERNAL;
+		*ec = PBSE_INTERNAL;
 		return NULL;
 	}
 
 	if (*tailptr == NULL) { /* dealing with this string first time */
 		if (*selstr == '+') {
 			/* invalid string, starts with + */
-			*rc = PBSE_BADNODESPEC;
+			*ec = PBSE_BADNODESPEC;
 			return NULL;
 		}
 		ptr = selstr;
@@ -713,7 +713,7 @@ parse_plus_spec_mt_safe(char *selstr, char **tailptr, int *rc)
 
 	substr = strndup(*tailptr, len);
 	if (substr == NULL) {
-		*rc = PBSE_SYSTEM;
+		*ec = PBSE_SYSTEM;
 		return NULL;
 	}
 
@@ -724,7 +724,7 @@ parse_plus_spec_mt_safe(char *selstr, char **tailptr, int *rc)
 	ret = parse_plus_spec_r(substr, NULL, NULL);
 	spec = strdup(ret);
 	if (spec == NULL) {
-		*rc = PBSE_SYSTEM;
+		*ec = PBSE_SYSTEM;
 		return NULL;
 	}
 	free(substr);

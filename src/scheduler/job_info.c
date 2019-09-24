@@ -847,6 +847,44 @@ query_jobs_chunk(th_data_query_jinfo *data)
 }
 
 /**
+ * @brief	Allocates th_data_query_jinfo for multi-threading of query_jobs
+ *
+ * @param[in]	policy	-	policy info
+ * @param[in]	pbs_sd	-	connection to pbs_server
+ * @param[in]	jobs	-	batch_status of jobs
+ * @param[in]	qinfo	-	queue to get jobs from
+ * @param[in]	sidx	-	start index for the jobs list for the thread
+ * @param[in]	eidx	-	end index for the jobs list for the thread
+ *
+ * @return th_data_query_jinfo *
+ * @retval a newly allocated th_data_query_jinfo object
+ * @retval NULL for malloc error
+ */
+static th_data_query_jinfo *
+alloc_tdata_jquery(status *policy, int pbs_sd, struct batch_status *jobs, queue_info *qinfo,
+		int sidx, int eidx)
+{
+	th_data_query_jinfo *tdata = NULL;
+
+	tdata = malloc(sizeof(th_data_query_jinfo));
+	if (tdata == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return NULL;
+	}
+	tdata->error = 0;
+	tdata->jobs = jobs;
+	tdata->oarr = NULL; /* Will be filled by the thread routine */
+	tdata->sinfo = qinfo->server;
+	tdata->qinfo = qinfo;
+	tdata->pbs_sd = pbs_sd;
+	tdata->policy = policy;
+	tdata->sidx = sidx;
+	tdata->eidx = eidx;
+
+	return tdata;
+}
+
+/**
  * @brief
  * 		create an array of jobs in a specified queue
  *
@@ -901,7 +939,7 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	int jidx;
 	th_data_query_jinfo *tdata = NULL;
 	th_task_info *task = NULL;
-	int num_tasks = 0;
+	int num_tasks;
 	int th_err = 0;
 	resource_resv ***jinfo_arrs_tasks;
 	int tid;
@@ -1000,20 +1038,17 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0 || num_threads == 1) {
 		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
-		tdata = malloc(sizeof(th_data_query_jinfo));
-		tdata->error = 0;
-		tdata->jobs = jobs;
-		tdata->oarr = NULL; /* Will be filled by the thread routine */
-		tdata->sinfo = qinfo->server;
-		tdata->qinfo = qinfo;
-		tdata->pbs_sd = pbs_sd;
-		tdata->policy = policy;
-		tdata->sidx = 0;
-		tdata->eidx = num_new_jobs - 1;
+		tdata = alloc_tdata_jquery(policy, pbs_sd, jobs, qinfo, 0, num_new_jobs - 1);
+		if (tdata == NULL) {
+			pbs_statfree(jobs);
+			return NULL;
+		}
 		query_jobs_chunk(tdata);
 
-		if (tdata->error || tdata->oarr == NULL)
+		if (tdata->error || tdata->oarr == NULL) {
+			pbs_statfree(jobs);
 			return NULL;
+		}
 
 		for (j = 0, jidx = num_prev_jobs; tdata->oarr[j] != NULL; j++) {
 			resresv_arr[jidx++] = tdata->oarr[j];
@@ -1021,27 +1056,16 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 		free(tdata);
 		resresv_arr[jidx] = NULL;
 	} else {
-		j = 0;
 		chunk_size = num_new_jobs / num_threads;
 		chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
 		chunk_size = (chunk_size < 8192) ? chunk_size : 8192;
-		while (num_new_jobs > 0) {
-			tdata = malloc(sizeof(th_data_query_jinfo));
+		for (j = 0, num_tasks = 0; num_new_jobs > 0;
+				num_tasks++, j += chunk_size, num_new_jobs -= chunk_size) {
+			tdata = alloc_tdata_jquery(policy, pbs_sd, jobs, qinfo, j, j + chunk_size - 1);
 			if (tdata == NULL) {
-				log_err(errno, __func__, MEM_ERR_MSG);
 				th_err = 1;
 				break;
 			}
-			tdata->error = 0;
-			tdata->jobs = jobs;
-			tdata->oarr = NULL; /* Will be filled by the thread routine */
-			tdata->sinfo = qinfo->server;
-			tdata->qinfo = qinfo;
-			tdata->pbs_sd = pbs_sd;
-			tdata->policy = policy;
-			tdata->sidx = j;
-			j += chunk_size;
-			tdata->eidx = j - 1;
 			task = malloc(sizeof(th_task_info));
 			if (task == NULL) {
 				free(tdata);
@@ -1057,9 +1081,6 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 			ds_enqueue(work_queue, (void*) task);
 			pthread_cond_signal(&work_cond);
 			pthread_mutex_unlock(&work_lock);
-
-			num_tasks++;
-			num_new_jobs -= chunk_size;
 		}
 		jinfo_arrs_tasks = malloc(num_tasks * sizeof(resource_resv**));
 		if (jinfo_arrs_tasks == NULL) {

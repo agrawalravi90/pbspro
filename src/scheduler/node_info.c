@@ -230,6 +230,38 @@ query_node_info_chunk(th_data_query_ninfo *data)
 }
 
 /**
+ * @brief	Allocates th_data_query_ninfo for multi-threading of query_nodes
+ *
+ * @param[in]	nodes	-	batch_status of nodes queried from server
+ * @param[in]	sinfo	-	server information
+ * @param[in]	sidx	-	start index for the jobs list for the thread
+ * @param[in]	eidx	-	end index for the jobs list for the thread
+ *
+ * @return th_data_query_ninfo *
+ * @retval a newly allocated th_data_query_ninfo object
+ * @retval NULL for malloc error
+ */
+static th_data_query_ninfo *
+alloc_tdata_nd_query(struct batch_status *nodes, server_info *sinfo, int sidx, int eidx)
+{
+	th_data_query_ninfo *tdata = NULL;
+
+	tdata = malloc(sizeof(th_data_query_ninfo));
+	if (tdata == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return NULL;
+	}
+	tdata->error = 0;
+	tdata->nodes = nodes;
+	tdata->oarr = NULL; /* Will be filled by the thread routine */
+	tdata->sinfo = sinfo;
+	tdata->sidx = sidx;
+	tdata->eidx = eidx;
+
+	return tdata;
+}
+
+/**
  * @brief
  *      query_nodes - query all the nodes associated with a server
  *
@@ -255,7 +287,7 @@ query_nodes(int pbs_sd, server_info *sinfo)
 	int chunk_size;
 	th_data_query_ninfo *tdata = NULL;
 	th_task_info *task = NULL;
-	int num_tasks = 0;
+	int num_tasks;
 	int th_err = 0;
 	node_info ***ninfo_arrs_tasks = NULL;
 	int tid;
@@ -334,13 +366,11 @@ query_nodes(int pbs_sd, server_info *sinfo)
 	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0 || num_threads == 1) {
 		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
-		tdata = malloc(sizeof(th_data_query_ninfo));
-		tdata->error = 0;
-		tdata->nodes = nodes;
-		tdata->oarr = NULL; /* Will be filled by the thread routine */
-		tdata->sinfo = sinfo;
-		tdata->sidx = 0;
-		tdata->eidx = num_nodes - 1;
+		tdata = alloc_tdata_nd_query(nodes, sinfo, 0, num_nodes - 1);
+		if (tdata == NULL) {
+			pbs_statfree(nodes);
+			return NULL;
+		}
 		query_node_info_chunk(tdata);
 		ninfo_arr = tdata->oarr;
 		free(tdata);
@@ -357,20 +387,13 @@ query_nodes(int pbs_sd, server_info *sinfo)
 		j = 0;
 		chunk_size = num_nodes / num_threads;
 		chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
-		while (num_nodes > 0) {
-			tdata = malloc(sizeof(th_data_query_ninfo));
+		for (j = 0, num_tasks = 0; num_nodes > 0;
+				j += chunk_size, num_tasks++, num_nodes -= chunk_size) {
+			tdata = alloc_tdata_nd_query(nodes, sinfo, j, j + chunk_size - 1);
 			if (tdata == NULL) {
-				log_err(errno, __func__, MEM_ERR_MSG);
 				th_err = 1;
 				break;
 			}
-			tdata->error = 0;
-			tdata->nodes = nodes;
-			tdata->oarr = NULL; /* Will be filled by the thread routine */
-			tdata->sinfo = sinfo;
-			tdata->sidx = j;
-			j += chunk_size;
-			tdata->eidx = j - 1;
 			task = malloc(sizeof(th_task_info));
 			if (task == NULL) {
 				free(tdata);
@@ -384,9 +407,6 @@ query_nodes(int pbs_sd, server_info *sinfo)
 			task->thread_data = (void *) tdata;
 
 			queue_work_for_threads(task);
-
-			num_tasks++;
-			num_nodes -= chunk_size;
 		}
 		ninfo_arrs_tasks = malloc(num_tasks * sizeof(node_info **));
 		if (ninfo_arrs_tasks == NULL) {
@@ -798,6 +818,35 @@ free_node_info_chunk(th_data_free_ninfo *data)
 }
 
 /**
+ * @brief	Allocates th_data_free_ninfo for multi-threading of free_nodes
+ *
+ * @param[in,out]	ninfo_arr	-	the node array to free
+ * @param[in]	sidx	-	start index for the nodes array for the thread
+ * @param[in]	eidx	-	end index for the nodes array for the thread
+ *
+ * @return th_data_free_ninfo *
+ * @retval a newly allocated th_data_free_ninfo object
+ * @retval NULL for malloc error
+ */
+static th_data_free_ninfo *
+alloc_tdata_free_nodes(node_info **ninfo_arr, int sidx, int eidx)
+{
+	th_data_free_ninfo *tdata = NULL;
+
+	tdata = malloc(sizeof(th_data_free_ninfo));
+	if (tdata == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return NULL;
+	}
+
+	tdata->ninfo_arr = ninfo_arr;
+	tdata->sidx = sidx;
+	tdata->eidx = eidx;
+
+	return tdata;
+}
+
+/**
  * @brief
  *		free_nodes - free all the nodes in a node_info array
  *
@@ -813,7 +862,7 @@ free_nodes(node_info **ninfo_arr)
 	int chunk_size;
 	th_data_free_ninfo *tdata = NULL;
 	th_task_info *task = NULL;
-	int num_tasks = 0;
+	int num_tasks;
 	int num_nodes;
 	int tid;
 
@@ -825,33 +874,23 @@ free_nodes(node_info **ninfo_arr)
 	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0 || num_threads == 1) {
 		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
-		tdata = malloc(sizeof(th_data_free_ninfo));
-		if (tdata == NULL) {
-			log_err(errno, __func__, MEM_ERR_MSG);
+		tdata = alloc_tdata_free_nodes(ninfo_arr, 0, num_nodes - 1);
+		if (tdata == NULL)
 			return;
-		}
-		tdata->ninfo_arr = ninfo_arr;
-		tdata->sidx = 0;
-		tdata->eidx = num_nodes - 1;
+
 		free_node_info_chunk(tdata);
 		free(tdata);
 		free(ninfo_arr);
 		return;
 	}
-	i = 0;
 	chunk_size = num_nodes / num_threads;
 	chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
-	while (num_nodes > 0) {
-		tdata = malloc(sizeof(th_data_free_ninfo));
-		if (tdata == NULL) {
-			log_err(errno, __func__, MEM_ERR_MSG);
+	for (i = 0, num_tasks = 0; num_nodes > 0;
+			num_tasks++, i += chunk_size, num_nodes -= chunk_size) {
+		tdata = alloc_tdata_free_nodes(ninfo_arr, i, i + chunk_size - 1);
+		if (tdata == NULL)
 			break;
-		}
 
-		tdata->ninfo_arr = ninfo_arr;
-		tdata->sidx = i;
-		i += chunk_size;
-		tdata->eidx = i - 1;
 		task = malloc(sizeof(th_task_info));
 		if (task == NULL) {
 			free(tdata);
@@ -862,9 +901,6 @@ free_nodes(node_info **ninfo_arr)
 		task->thread_data = (void *) tdata;
 
 		queue_work_for_threads(task);
-
-		num_nodes -= chunk_size;
-		num_tasks++;
 	}
 
 	/* Get results from worker threads */
@@ -1452,6 +1488,41 @@ dup_node_info_chunk(th_data_dup_nd_info *data)
 }
 
 /**
+ * @brief	Allocates th_data_dup_nd_info for multi-threading of dup_nodes
+ *
+ * @param[in]	flags	-	flags passed to dup_nodes
+ * @param[in]	nsinfo	-	the new server
+ * @param[in]	onodes	-	the array to duplicate
+ * @param[out]	nnodes	-	the duplicated array
+ * @param[in]	sidx	-	start index for the nodes list for the thread
+ * @param[in]	eidx	-	end index for the nodes list for the thread
+ *
+ * @return th_data_dup_nd_info *
+ * @retval a newly allocated th_data_dup_nd_info object
+ * @retval NULL for malloc error
+ */
+static th_data_dup_nd_info *
+alloc_tdata_dup_nodes(unsigned int flags, server_info *nsinfo, node_info **onodes, node_info **nnodes,
+		int sidx, int eidx)
+{
+	th_data_dup_nd_info *tdata = NULL;
+
+	tdata = malloc(sizeof(th_data_dup_nd_info));
+	if (tdata == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return NULL;
+	}
+	tdata->flags = flags;
+	tdata->nsinfo = nsinfo;
+	tdata->onodes = onodes;
+	tdata->nnodes = nnodes;
+	tdata->sidx = sidx;
+	tdata->eidx = eidx;
+
+	return tdata;
+}
+
+/**
  * @brief
  *		dup_nodes - duplicate an array of nodes
  *
@@ -1486,7 +1557,7 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 	int chunk_size;
 	th_data_dup_nd_info *tdata = NULL;
 	th_task_info *task = NULL;
-	int num_tasks = 0;
+	int num_tasks;
 	int th_err = 0;
 	int tid;
 
@@ -1512,18 +1583,13 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0 || num_threads == 1) {
 		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
-		tdata = malloc(sizeof(th_data_dup_nd_info));
+		tdata = alloc_tdata_dup_nodes(flags, nsinfo, onodes, nnodes, 0, num_nodes - 1);
 		if (tdata == NULL) {
 			free_nodes(nnodes);
 			log_err(errno, __func__, MEM_ERR_MSG);
 			return NULL;
 		}
-		tdata->flags = flags;
-		tdata->nsinfo = nsinfo;
-		tdata->onodes = onodes;
-		tdata->nnodes = nnodes;
-		tdata->sidx = 0;
-		tdata->eidx = num_nodes - 1;
+
 		dup_node_info_chunk(tdata);
 		th_err = tdata->error;
 		free(tdata);
@@ -1531,20 +1597,13 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 		j = 0;
 		chunk_size = num_nodes / num_threads;
 		chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
-		while (thread_node_ct_left > 0) {
-			tdata = malloc(sizeof(th_data_dup_nd_info));
+		for (j = 0, num_tasks = 0; thread_node_ct_left > 0;
+				num_tasks++, j+= chunk_size, thread_node_ct_left -= chunk_size) {
+			tdata = alloc_tdata_dup_nodes(flags, nsinfo, onodes, nnodes, j, j + chunk_size - 1);
 			if (tdata == NULL) {
 				th_err = 1;
-				log_err(errno, __func__, MEM_ERR_MSG);
 				break;
 			}
-			tdata->flags = flags;
-			tdata->nsinfo = nsinfo;
-			tdata->onodes = onodes;
-			tdata->nnodes = nnodes;
-			tdata->sidx = j;
-			j += chunk_size;
-			tdata->eidx = j - 1;
 			task = malloc(sizeof(th_task_info));
 			if (task == NULL) {
 				free(tdata);
@@ -1557,9 +1616,6 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 			task->thread_data = (void *) tdata;
 
 			queue_work_for_threads(task);
-
-			thread_node_ct_left -= chunk_size;
-			num_tasks++;
 		}
 
 		/* Get results from worker threads */
@@ -6266,6 +6322,42 @@ check_node_eligibility_chunk(th_data_nd_eligible *data)
 }
 
 /**
+ * @brief	 Allocates th_data_nd_eligible for multi-threading of check_node_array_eligibility
+ *
+ * @param[in]	pl	-	the placement object
+ * @param[in]	resresv	-	resresv to check to place on nodes
+ * @param[in]	exclerr_buf	-	buffer for not exclusive error message
+ * @param[in]	ninfo_arr	-	array to check
+ * @param[in]	sidx	-	the start index in ninfo_arr for the thread
+ * @param[in]	eidx	-	the end index in ninfo_arr for the thread
+ *
+ * @return th_data_nd_eligible *
+ * @retval a newly allocated th_data_nd_eligible object
+ * @retval NULL for malloc error
+ */
+static th_data_nd_eligible *
+alloc_tdata_nd_eligible(place *pl, resource_resv *resresv, char *exclerr_buf, node_info **ninfo_arr,
+		int sidx, int eidx)
+{
+	th_data_nd_eligible *tdata = NULL;
+
+	tdata = malloc(sizeof(th_data_nd_eligible));
+	if (tdata == NULL)  {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return NULL;
+	}
+	tdata->err = NULL;
+	tdata->pl = pl;
+	tdata->resresv = resresv;
+	tdata->exclerr_buf = exclerr_buf;
+	tdata->ninfo_arr = ninfo_arr;
+	tdata->sidx = sidx;
+	tdata->eidx = eidx;
+
+	return tdata;
+}
+
+/**
  * @brief
  * 		check nodes for eligibility and mark them ineligible if not
  *
@@ -6290,7 +6382,7 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 	th_data_nd_eligible *tdata = NULL;
 	th_task_info *task = NULL;
 	int chunk_size;
-	int num_tasks = 0;
+	int num_tasks;
 	int tid;
 
 	if (ninfo_arr == NULL || resresv == NULL || pl == NULL || err == NULL)
@@ -6315,41 +6407,22 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0 || num_threads == 1) {
 		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
-		tdata = malloc(sizeof(th_data_nd_eligible));
-		if (tdata == NULL) {
-			log_err(errno, __func__, MEM_ERR_MSG);
+		tdata = alloc_tdata_nd_eligible(pl, resresv, exclerr_buf, ninfo_arr, 0, num_nodes - 1);
+		if (tdata == NULL)
 			return;
-		}
-		tdata->err = NULL;
-		tdata->pl = pl;
-		tdata->resresv = resresv;
-		tdata->exclerr_buf = exclerr_buf;
-		tdata->sidx = 0;
-		tdata->ninfo_arr = ninfo_arr;
-		tdata->eidx = num_nodes - 1;
 		check_node_eligibility_chunk(tdata);
 		copy_schd_error(err, tdata->err);
 		free_schd_error(tdata->err);
 		free(tdata);
 	} else {	 /* We are multithreading */
-		j = 0;
 		chunk_size = num_nodes / num_threads;
 		chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
-		while (num_nodes > 0) {
-			tdata = malloc(sizeof(th_data_nd_eligible));
-			if (tdata == NULL)  {
-				log_err(errno, __func__, MEM_ERR_MSG);
+		for (j = 0, num_tasks = 0; num_nodes > 0;
+				num_tasks++, j += chunk_size, num_nodes -= chunk_size) {
+			tdata = alloc_tdata_nd_eligible(pl, resresv, exclerr_buf, ninfo_arr, j, j + chunk_size - 1);
+			if (tdata == NULL)
 				break;
-			}
-			tdata->err = NULL;
-			tdata->pl = pl;
-			tdata->resresv = resresv;
-			tdata->exclerr_buf = exclerr_buf;
-			tdata->sidx = j;
-			tdata->ninfo_arr = ninfo_arr;
-			j += chunk_size;
 
-			tdata->eidx = j - 1;
 			task = malloc(sizeof(th_task_info));
 			if (task == NULL) {
 				free(tdata);
@@ -6360,9 +6433,6 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 			task->thread_data = (void *) tdata;
 
 			queue_work_for_threads(task);
-
-			num_nodes -= chunk_size;
-			num_tasks++;
 		}
 
 		/* Get results from worker threads */
