@@ -347,13 +347,6 @@ query_nodes(int pbs_sd, server_info *sinfo)
 		cur_node = cur_node->next;
 	}
 
-	if ((ninfo_arr = (node_info **) malloc((num_nodes + 1) * sizeof(node_info *))) == NULL) {
-		log_err(errno, __func__, MEM_ERR_MSG);
-		pbs_statfree(nodes);
-		return NULL;
-	}
-	ninfo_arr[0] = NULL;
-
 #ifdef NAS /* localmod 049 */
 	if ((sinfo->nodes_by_NASrank = (node_info **) malloc(num_nodes * sizeof(node_info *))) == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
@@ -384,9 +377,14 @@ query_nodes(int pbs_sd, server_info *sinfo)
 		}
 		ninfo_arr[nidx] = NULL;
 	} else {
-		j = 0;
+		if ((ninfo_arr = (node_info **) malloc((num_nodes + 1) * sizeof(node_info *))) == NULL) {
+			log_err(errno, __func__, MEM_ERR_MSG);
+			pbs_statfree(nodes);
+			return NULL;
+		}
+		ninfo_arr[0] = NULL;
 		chunk_size = num_nodes / num_threads;
-		chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
+		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
 		for (j = 0, num_tasks = 0; num_nodes > 0;
 				j += chunk_size, num_tasks++, num_nodes -= chunk_size) {
 			tdata = alloc_tdata_nd_query(nodes, sinfo, j, j + chunk_size - 1);
@@ -884,7 +882,7 @@ free_nodes(node_info **ninfo_arr)
 		return;
 	}
 	chunk_size = num_nodes / num_threads;
-	chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
+	chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
 	for (i = 0, num_tasks = 0; num_nodes > 0;
 			num_tasks++, i += chunk_size, num_nodes -= chunk_size) {
 		tdata = alloc_tdata_free_nodes(ninfo_arr, i, i + chunk_size - 1);
@@ -1596,7 +1594,7 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 	} else { /* We are multithreading */
 		j = 0;
 		chunk_size = num_nodes / num_threads;
-		chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
+		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
 		for (j = 0, num_tasks = 0; thread_node_ct_left > 0;
 				num_tasks++, j+= chunk_size, thread_node_ct_left -= chunk_size) {
 			tdata = alloc_tdata_dup_nodes(flags, nsinfo, onodes, nnodes, j, j + chunk_size - 1);
@@ -6261,8 +6259,8 @@ check_node_eligibility_chunk(th_data_nd_eligible *data)
 	schd_error *misc_err;
 	resource_resv *resresv;
 	place *pl;
-	char *exclerr_buf;
 	node_info **ninfo_arr;
+	char exclerr_buf[MAX_LOG_SIZE] = {0};
 
 	if (data == NULL)
 		return;
@@ -6282,7 +6280,6 @@ check_node_eligibility_chunk(th_data_nd_eligible *data)
 	end = data->eidx;
 	resresv = data->resresv;
 	pl = data->pl;
-	exclerr_buf = data->exclerr_buf;
 	ninfo_arr = data->ninfo_arr;
 
 	for (i = start; i <= end && ninfo_arr[i] != NULL; i++) {
@@ -6302,6 +6299,9 @@ check_node_eligibility_chunk(th_data_nd_eligible *data)
 						for (j = 0; node->hostset->ninfo_arr[j] != NULL; j++) {
 							node_info *n = node->hostset->ninfo_arr[j];
 							n->nscr.ineligible = 1;
+							set_schd_error_codes(misc_err, NOT_RUN, NODE_NOT_EXCL);
+							translate_fail_code(misc_err, NULL, exclerr_buf);
+							clear_schd_error(misc_err);
 							if (exclerr_buf != NULL)
 								schdlog(PBSEVENT_DEBUG3, PBS_EVENTCLASS_NODE,
 										LOG_DEBUG, n->name, exclerr_buf);
@@ -6336,7 +6336,7 @@ check_node_eligibility_chunk(th_data_nd_eligible *data)
  * @retval NULL for malloc error
  */
 static inline th_data_nd_eligible *
-alloc_tdata_nd_eligible(place *pl, resource_resv *resresv, char *exclerr_buf, node_info **ninfo_arr,
+alloc_tdata_nd_eligible(place *pl, resource_resv *resresv, node_info **ninfo_arr,
 		int sidx, int eidx)
 {
 	th_data_nd_eligible *tdata = NULL;
@@ -6349,7 +6349,6 @@ alloc_tdata_nd_eligible(place *pl, resource_resv *resresv, char *exclerr_buf, no
 	tdata->err = NULL;
 	tdata->pl = pl;
 	tdata->resresv = resresv;
-	tdata->exclerr_buf = exclerr_buf;
 	tdata->ninfo_arr = ninfo_arr;
 	tdata->sidx = sidx;
 	tdata->eidx = eidx;
@@ -6377,8 +6376,6 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 		int num_nodes, schd_error *err)
 {
 	int i, j;
-	static char exclerr_buf[MAX_LOG_SIZE] = {0};
-	static schd_error *misc_err = NULL;		/* used to keep err */
 	th_data_nd_eligible *tdata = NULL;
 	th_task_info *task = NULL;
 	int chunk_size;
@@ -6388,26 +6385,13 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 	if (ninfo_arr == NULL || resresv == NULL || pl == NULL || err == NULL)
 		return;
 
-	if (misc_err == NULL) {
-		misc_err = new_schd_error();
-		if (misc_err == NULL)
-			return;
-	}
-
-	/* Translate this once and keep it around so we can use it later */
-	if (exclerr_buf[0] == '\0') {
-		set_schd_error_codes(misc_err, NOT_RUN, NODE_NOT_EXCL);
-		translate_fail_code(misc_err, NULL, exclerr_buf);
-	}
-	clear_schd_error(misc_err);
-
 	if (num_nodes == -1)
 		num_nodes = count_array((void **) ninfo_arr);
 
 	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0 || num_threads == 1) {
 		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
-		tdata = alloc_tdata_nd_eligible(pl, resresv, exclerr_buf, ninfo_arr, 0, num_nodes - 1);
+		tdata = alloc_tdata_nd_eligible(pl, resresv, ninfo_arr, 0, num_nodes - 1);
 		if (tdata == NULL)
 			return;
 		check_node_eligibility_chunk(tdata);
@@ -6416,10 +6400,10 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 		free(tdata);
 	} else {	 /* We are multithreading */
 		chunk_size = num_nodes / num_threads;
-		chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
+		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
 		for (j = 0, num_tasks = 0; num_nodes > 0;
 				num_tasks++, j += chunk_size, num_nodes -= chunk_size) {
-			tdata = alloc_tdata_nd_eligible(pl, resresv, exclerr_buf, ninfo_arr, j, j + chunk_size - 1);
+			tdata = alloc_tdata_nd_eligible(pl, resresv, ninfo_arr, j, j + chunk_size - 1);
 			if (tdata == NULL)
 				break;
 

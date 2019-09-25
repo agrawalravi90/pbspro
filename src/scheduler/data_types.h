@@ -186,7 +186,6 @@ struct th_data_nd_eligible
 	resource_resv *resresv;
 	place *pl;
 	schd_error *err;
-	char *exclerr_buf;
 	node_info **ninfo_arr;
 	int sidx;
 	int eidx;

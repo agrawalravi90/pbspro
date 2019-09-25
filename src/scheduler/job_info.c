@@ -122,6 +122,7 @@
 #include "resource.h"
 #include "server_info.h"
 #include "attribute.h"
+#include "multi_threading.h"
 
 #ifdef NAS
 #include "site_code.h"
@@ -1053,12 +1054,13 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 		for (j = 0, jidx = num_prev_jobs; tdata->oarr[j] != NULL; j++) {
 			resresv_arr[jidx++] = tdata->oarr[j];
 		}
+		free(tdata->oarr);
 		free(tdata);
 		resresv_arr[jidx] = NULL;
 	} else {
 		chunk_size = num_new_jobs / num_threads;
-		chunk_size = (chunk_size > 1024) ? chunk_size : 1024;
-		chunk_size = (chunk_size < 8192) ? chunk_size : 8192;
+		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
+		chunk_size = (chunk_size < MT_CHUNK_SIZE_MAX) ? chunk_size : MT_CHUNK_SIZE_MAX;
 		for (j = 0, num_tasks = 0; num_new_jobs > 0;
 				num_tasks++, j += chunk_size, num_new_jobs -= chunk_size) {
 			tdata = alloc_tdata_jquery(policy, pbs_sd, jobs, qinfo, j, j + chunk_size - 1);
