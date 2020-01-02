@@ -276,6 +276,7 @@ class TestSchedPerf(TestPerformance):
         """
         # Turn strict ordering on and backfill_depth=20
         a = {'strict_ordering': 'True'}
+        self.scheduler.set_sched_config(a)
         self.server.manager(MGR_CMD_SET, MGR_OBJ_SERVER,
                             {'backfill_depth': '20'})
 
