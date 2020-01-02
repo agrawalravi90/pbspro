@@ -11089,7 +11089,7 @@ class Scheduler(PBSService):
         self.server.manager(MGR_CMD_SET, SCHED, {
                             'scheduling': 'True'}, id=sched)
         self.log_match("Starting Scheduling",
-                       starttime=tbefore)
+                       starttime=tbefore, max_attempts=1200)
 
         if old_val == 'False':
             # This will also ensure that the sched cycle is over before

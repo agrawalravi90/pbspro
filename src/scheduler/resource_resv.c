@@ -290,7 +290,6 @@ free_resource_resv_array(resource_resv **resresv_arr)
 
 	chunk_size = num_jobs / num_threads;
 	chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
-	chunk_size = (chunk_size < MT_CHUNK_SIZE_MAX) ? chunk_size : MT_CHUNK_SIZE_MAX;
 	for (i = 0, num_tasks = 0; num_jobs > 0;
 			num_tasks++, i += chunk_size, num_jobs -= chunk_size) {
 		tdata = alloc_tdata_free_rr_arr(resresv_arr, i, i + chunk_size - 1);
@@ -529,7 +528,6 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 	} else { /* We are multithreading */
 		chunk_size = num_resresv / num_threads;
 		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN)? chunk_size: MT_CHUNK_SIZE_MIN;
-		chunk_size = (chunk_size < MT_CHUNK_SIZE_MAX)? chunk_size: MT_CHUNK_SIZE_MAX;
 		for (j = 0, num_tasks = 0; thread_job_ct_left > 0;
 				num_tasks++, j += chunk_size, thread_job_ct_left -= chunk_size) {
 			tdata = alloc_tdata_dup_nodes(oresresv_arr, nresresv_arr, nsinfo, nqinfo, j, j + chunk_size - 1);

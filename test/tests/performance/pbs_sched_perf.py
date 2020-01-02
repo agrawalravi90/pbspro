@@ -269,13 +269,14 @@ class TestSchedPerf(TestPerformance):
 
         self.perf_test_result(times, m, "sec")
 
-    @timeout(10000)
+    @timeout(72000)
     def test_many_jobs_with_calendaring(self):
         """
         Performance test for when there are many jobs and calendaring is on
         """
         # Turn strict ordering on and backfill_depth=20
         a = {'strict_ordering': 'True'}
+        self.scheduler.set_sched_config(a)
         self.server.manager(MGR_CMD_SET, MGR_OBJ_SERVER,
                             {'backfill_depth': '20'})
 
