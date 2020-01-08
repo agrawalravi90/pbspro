@@ -1534,7 +1534,7 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 	char namebuf[1024];
 	int chunk_size;
 	th_data_dup_nd_info *tdata = NULL;
-	th_task_info *task = NULL;
+	th_task_info **task_arr = NULL;
 	int num_tasks;
 	int th_err = 0;
 	int tid;
@@ -1572,42 +1572,75 @@ dup_nodes(node_info **onodes, server_info *nsinfo,
 		th_err = tdata->error;
 		free(tdata);
 	} else { /* We are multithreading */
+		int t_id = -1;
 		j = 0;
 		chunk_size = num_nodes / num_threads;
 		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
-		for (j = 0, num_tasks = 0; thread_node_ct_left > 0;
-				num_tasks++, j+= chunk_size, thread_node_ct_left -= chunk_size) {
+		task_arr = malloc(sizeof(th_task_info *) * (num_threads + 1));
+		if (task_arr == NULL) {
+			free_nodes(nnodes);
+			log_err(errno, __func__, MEM_ERR_MSG);
+			return NULL;
+		}
+
+		for (j = 0, t_id = 0; t_id < (num_threads - 1);
+				t_id++, j+= chunk_size, thread_node_ct_left -= chunk_size) {
+
 			tdata = alloc_tdata_dup_nodes(flags, nsinfo, onodes, nnodes, j, j + chunk_size - 1);
 			if (tdata == NULL) {
 				th_err = 1;
 				break;
 			}
-			task = malloc(sizeof(th_task_info));
-			if (task == NULL) {
+			task_arr[t_id] = malloc(sizeof(th_task_info));
+			if (task_arr[t_id] == NULL) {
 				free(tdata);
 				th_err = 1;
 				log_err(errno, __func__, MEM_ERR_MSG);
 				break;
 
 			}
-			task->task_type = TS_DUP_ND_INFO;
-			task->thread_data = (void *) tdata;
-
-			queue_work_for_threads(task);
+			task_arr[t_id]->task_type = TS_DUP_ND_INFO;
+			task_arr[t_id]->thread_data = (void *) tdata;
 		}
+		/* Last task gets chunk_size + remainder, i.e thread_node_ct_left */
+		tdata = alloc_tdata_dup_nodes(flags, nsinfo, onodes, nnodes, j, j + thread_node_ct_left - 1);
+		if (tdata == NULL)
+			th_err = 1;
+		else {
+			task_arr[t_id] = malloc(sizeof(th_task_info));
+			if (task_arr[t_id] == NULL) {
+				free(tdata);
+				th_err = 1;
+				log_err(errno, __func__, MEM_ERR_MSG);
+			} else {
+				task_arr[t_id]->task_type = TS_DUP_ND_INFO;
+				task_arr[t_id]->thread_data = (void *) tdata;
+			}
+		}
+		if (!th_err) {
+			/* Give first thread the biggest task, so we go from the end of arr */
+			for (j = t_id; j >= 0; j--) {
+				queue_work_for_threads(task_arr[j]);
+			}
+			num_tasks = t_id + 1;
+		} else
+			num_tasks = 0;
+		free(task_arr);
 
 		/* Get results from worker threads */
 		for (i = 0; i < num_tasks;) {
+			th_task_info *res_th = NULL;
+
 			pthread_mutex_lock(&result_lock);
 			while (ds_queue_is_empty(result_queue))
 				pthread_cond_wait(&result_cond, &result_lock);
 			while (!ds_queue_is_empty(result_queue)) {
-				task = (th_task_info *) ds_dequeue(result_queue);
-				tdata = (th_data_dup_nd_info *) task->thread_data;
+				res_th = (th_task_info *) ds_dequeue(result_queue);
+				tdata = (th_data_dup_nd_info *) res_th->thread_data;
 				if (tdata->error)
 					th_err = 1;
 				free(tdata);
-				free(task);
+				free(res_th);
 				i++;
 			}
 			pthread_mutex_unlock(&result_lock);
