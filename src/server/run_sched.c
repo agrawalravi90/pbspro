@@ -468,9 +468,10 @@ schedule_jobs(pbs_sched *psched)
 	if (psched == NULL)
 		return -1;
 
-	if (first_time)
+	if (first_time) {
 		cmd = SCH_SCHEDULE_FIRST;
-	else
+		psched->sched_cycle_started = 0;
+	} else
 		cmd = psched->svr_do_schedule;
 
 	if (psched->sched_cycle_started == 0) {
