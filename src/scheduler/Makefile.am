@@ -123,10 +123,12 @@ common_libs = \
 	@PYTHON_LIBS@ \
 	@libz_lib@ \
 	@libical_lib@ \
-	@KRB5_LIBS@
+	@KRB5_LIBS@ \
+	-ldl
 
 pbs_sched_CPPFLAGS = ${common_cppflags}
 pbs_sched_LDADD = ${common_libs} @libundolr_lib@
+pbs_sched_LDFLAGS = `jemalloc-config --libdir`/libjemalloc.a
 pbs_sched_SOURCES = pbs_sched.c
 
 pbsfs_CPPFLAGS = ${common_cppflags}

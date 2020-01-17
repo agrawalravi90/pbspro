@@ -85,6 +85,7 @@
  */
 #include <pbs_config.h>
 
+#include <jemalloc/jemalloc.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
