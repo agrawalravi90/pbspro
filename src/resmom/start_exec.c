@@ -2962,6 +2962,11 @@ finish_exec(job *pjob)
 
 		/* Add a work task that runs when the job is supposed to end */
 		set_task(WORK_Timed, time_now + walltime, mock_run_end_job_task, pjob);
+
+		sprintf(log_buffer, "Started mock run of job");
+		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
+			LOG_INFO, pjob->ji_qs.ji_jobid, log_buffer);
+
 		return;
 	}
 
