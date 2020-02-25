@@ -43,6 +43,8 @@ extern "C" {
 
 #include <math.h>
 
+#define ATTR_UPDATE_FREQ 5	/* Num cycles after which job attr updates are sent to server */
+
 /* macro to turn a value from enum preempt into it's bit for the bitfield */
 #define PREEMPT_TO_BIT(X) (1 << (X) )
 
