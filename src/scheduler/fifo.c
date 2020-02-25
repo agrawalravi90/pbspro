@@ -778,6 +778,52 @@ scheduling_cycle(int sd, char *jobid)
 	/* localmod 034 */
 	site_list_shares(stdout, sinfo, "eoc_", 1);
 #endif
+
+	/* Send any pending job attribute updates */
+	if (attr_update_counter >= ATTR_UPDATE_FREQ && job_attr_updates_tree != NULL) {
+		AVL_IX_DESC *iter_attr_tree;
+		AVL_IX_REC *pkey;
+
+		iter_attr_tree = job_attr_updates_tree;
+		pkey = avlkey_create(iter_attr_tree, NULL);
+		if (pkey == NULL) {
+			avl_destroy_index(job_attr_updates_tree);
+			job_attr_updates_tree = NULL;
+			log_err(errno, __func__, "Error sending job attribute updates to server");
+		} else {
+			struct attrl *attrs = NULL;
+			char *jname = NULL;
+			struct attrl *iter_attr = NULL;
+			struct attrl *prev = NULL;
+
+			log_event(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB, LOG_INFO, "", "Sending attribute updates");
+			avl_first_key(iter_attr_tree);
+			while (avl_next_key(pkey, iter_attr_tree) == AVL_IX_OK) {
+				attrs = (struct attrl *) pkey->recptr;
+				/* Until we figure out the eligible time problem, remove eligible_time from attrs */
+				for (iter_attr = attrs; iter_attr != NULL; prev = iter_attr, iter_attr = iter_attr->next) {
+					if (strcmp(iter_attr->name, ATTR_eligible_time) == 0) {
+						if (prev == NULL)
+							attrs = attrs->next;
+						else
+							prev->next = attrs->next;
+						free_attrl(iter_attr);
+						break;
+					}
+				}
+				jname = pkey->key;
+				send_attr_updates(sd, jname, attrs);
+				free_attrl_list(attrs);
+			}
+			avl_destroy_index(job_attr_updates_tree);
+			job_attr_updates_tree = NULL;
+		}
+		attr_update_counter = 0;
+	} else
+		attr_update_counter++;
+
+	last_cycle_timestamp = time(NULL);
+
 	end_cycle_tasks(sinfo);
 
 	free_schd_error(err);
@@ -1108,7 +1154,7 @@ main_sched_loop(status *policy, int sd, server_info *sinfo, schd_error **rerr)
 #endif /* localmod 030 */
 
 		/* send any attribute updates to server that we've collected */
-		send_job_updates(sd, njob);
+		save_attr_updates(njob, njob->job->attr_updates);
 	}
 
 	*rerr = err;
@@ -1274,7 +1320,7 @@ update_job_can_not_run(int pbs_sd, resource_resv *job, schd_error *err)
 		/* We won't be looking at this job in main_sched_loop()
 		 * and we just updated some attributes just above.  Send Now.
 		 */
-		send_job_updates(pbs_sd, job);
+		save_attr_updates(job, job->job->attr_updates);
 	}
 	else
 		ret = 0;
@@ -1758,6 +1804,11 @@ run_update_resresv(status *policy, int pbs_sd, server_info *sinfo,
 		rr->job->time_preempted = UNSPECIFIED;
 		sinfo->num_preempted--;
 	}
+
+	/* Delete any pending attribute updates for this job */
+	if (job_attr_updates_tree != NULL)
+		tree_add_del(job_attr_updates_tree, rr->name, NULL, TREE_OP_DEL);
+
 	return ret;
 }
 

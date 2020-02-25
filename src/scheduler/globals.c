@@ -44,6 +44,11 @@
 #include "sort.h"
 #include "limits.h"
 
+int attr_update_counter = 0;
+
+int last_cycle_timestamp = -1;
+
+AVL_IX_DESC *job_attr_updates_tree = NULL;
 
 
 /**

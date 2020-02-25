@@ -44,6 +44,8 @@ extern "C" {
 #include <pbs_ifl.h>
 #include "data_types.h"
 
+int save_attr_updates(resource_resv *job, struct attrl *pattr);
+
 /*
  *	query_job - takes info from a batch_status about a job and puts
  */

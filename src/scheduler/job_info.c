@@ -129,6 +129,8 @@
 #include "site_queue.h"
 #endif
 
+static int add_attrl_to_resresv(resource_resv *resresv, server_info *sinfo, struct attrl *attrs,
+		schd_error *err, int update);
 
 extern char *pbse_to_txt(int err);
 
@@ -495,6 +497,77 @@ static struct fc_translation_table fctt[] = {
 #define	ERR2INFO(code)		(fctt[(code) - RET_BASE].fc_info)
 
 
+int
+save_attr_updates(resource_resv *job, struct attrl *pattr)
+{
+	char *job_name;
+	struct attrl *old_attrs = NULL;
+	struct attrl *iter_attr = NULL;
+
+	if (job == NULL)
+		return 0;
+
+	if (pattr == NULL)
+		return 1;
+
+	job_name = job->name;
+
+	if (job_attr_updates_tree == NULL) {
+		job_attr_updates_tree = create_tree(AVL_NO_DUP_KEYS, 0);
+		if (job_attr_updates_tree == NULL) {
+			log_err(errno, __func__, MEM_ERR_MSG);
+			return 0;
+		}
+	} else {
+		old_attrs = find_tree(job_attr_updates_tree, job->name);
+		if (old_attrs != NULL && old_attrs != pattr) {
+			struct attrl *endp = NULL;
+
+			for (endp = pattr; endp->next != NULL; endp = endp->next)
+				;
+			/* TODO: see if we need to check for an existing value of the same attr */
+			endp->next = old_attrs;
+		}
+	}
+
+	for (iter_attr = pattr; iter_attr != NULL; iter_attr = iter_attr->next) {
+		if (strcmp(iter_attr->name, ATTR_accrue_type) == 0) {
+			/* See if we need to cache eligible time */
+			if (iter_attr->value[0] == ACCRUE_ELIG[0] && !job->job->eligible_time) {
+				struct attrl *elig_time = NULL;
+
+				for (elig_time = pattr; elig_time != NULL; elig_time = elig_time->next) {
+					if (strcmp(elig_time->name, ATTR_eligible_time) == 0)
+						break;
+				}
+				if (elig_time == NULL) {
+					elig_time = new_attrl();
+					if (elig_time == NULL) {
+						log_err(errno, __func__, MEM_ERR_MSG);
+						return 0;
+					}
+
+					elig_time->name = string_dup(ATTR_eligible_time);
+					elig_time->value = string_dup("0");
+					elig_time->next = pattr;
+					pattr = elig_time;
+				}
+			}
+		}
+	}
+
+	if (old_attrs == pattr)
+		return 1;	/* since the ptr is same, the cached list is already up to date */
+
+	if (old_attrs != NULL) {
+		tree_add_del(job_attr_updates_tree, job_name, NULL, TREE_OP_DEL);
+	}
+
+	tree_add_del(job_attr_updates_tree, job_name, pattr, TREE_OP_ADD);
+
+	return 1;
+}
+
 /**
  * @brief	pthread routine for querying a chunk of jobs
  *
@@ -567,6 +640,21 @@ query_jobs_chunk(th_data_query_jinfo *data)
 			free_schd_error(err);
 			free_resource_resv_array(resresv_arr);
 			return;
+		}
+
+		/* Retrieve attribute updates from the cache */
+		if (job_attr_updates_tree != NULL) {
+			struct attrl *attrs;
+
+			attrs = (struct attrl *) find_tree(job_attr_updates_tree, resresv->name);
+			if (attrs != NULL) {
+				if (add_attrl_to_resresv(resresv, sinfo, attrs, err, 1) != 1) {
+					data->error = 1;
+					free_schd_error(err);
+					free_resource_resv_array(resresv_arr);
+					return;
+				}
+			}
 		}
 
 		/* do a validity check to see if the job is sane.  If we're peering and
@@ -1121,60 +1209,16 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	return resresv_arr;
 }
 
-/**
- * @brief
- *		query_job - takes info from a batch_status about a job and
- *			 converts it into a resource_resv struct
- *
- *	  @param[in] job - batch_status struct of job
- *	  @param[in] qinfo - queue where job resides
- *	  @param[out] err - returns error info
- *
- *	@return resource_resv
- *	@retval job (may be invalid, if so, err will report why)
- *	@retval  or NULL on error
- */
-
-resource_resv *
-query_job(struct batch_status *job, server_info *sinfo, schd_error *err)
+static int
+add_attrl_to_resresv(resource_resv *resresv, server_info *sinfo, struct attrl *attrs,
+		schd_error *err, int update)
 {
-	resource_resv *resresv;		/* converted job */
-	struct attrl *attrp;		/* list of attributes returned from server */
+	struct attrl *attrp;
 	long count;			/* long used in string->long conversion */
 	char *endp;			/* used for strtol() */
 	resource_req *resreq;		/* resource_req list for resources requested  */
 
-	if ((resresv = new_resource_resv()) == NULL)
-		return NULL;
-
-	if ((resresv->job = new_job_info()) ==NULL) {
-		free_resource_resv(resresv);
-		return NULL;
-	}
-
-	resresv->name = string_dup(job->name);
-	resresv->rank = get_sched_rank();
-
-	attrp = job->attribs;
-
-	resresv->server = sinfo;
-
-	resresv->is_job = 1;
-
-	resresv->job->can_checkpoint = 1;	/* default can be checkpointed */
-	resresv->job->can_requeue = 1;		/* default can be requeued */
-	resresv->job->can_suspend = 1;		/* default can be suspended */
-
-	/* A Job identifier must be of the form <numeric>.<alpha> or
-	 * <numeric>[<numeric>].<alpha> in the case of job arrays, any other
-	 * form is considered malformed
-	 */
-	resresv->job->job_id = strtol(resresv->name, &endp, 10);
-	if ((*endp != '.') && (*endp != '[')) {
-		set_schd_error_codes(err, NEVER_RUN, ERR_SPECIAL);
-		set_schd_error_arg(err, SPECMSG, "Malformed job identifier");
-		resresv->is_invalid = 1;
-	}
+	attrp = attrs;
 
 	while (attrp != NULL && !resresv->is_invalid) {
 		clear_schd_error(err);
@@ -1261,8 +1305,10 @@ query_job(struct batch_status *job, server_info *sinfo, schd_error *err)
 				resresv->job->is_preempted = 1;
 			}
 		}
-		else if (!strcmp(attrp->name, ATTR_comment))	/* job comment */
+		else if (!strcmp(attrp->name, ATTR_comment)) {	/* job comment */
+			free(resresv->job->comment);
 			resresv->job->comment = string_dup(attrp->value);
+		}
 		else if (!strcmp(attrp->name, ATTR_released)) /* resources_released */
 			resresv->job->resreleased = parse_execvnode(attrp->value, sinfo);
 		else if (!strcmp(attrp->name, ATTR_euser))	/* account name */
@@ -1324,10 +1370,8 @@ query_job(struct batch_status *job, server_info *sinfo, schd_error *err)
 		}
 		else if (!strcmp(attrp->name, ATTR_l)) { /* resources requested*/
 			resreq = find_alloc_resource_req_by_str(resresv->resreq, attrp->resource);
-			if (resreq == NULL) {
-				free_resource_resv(resresv);
-				return NULL;
-			}
+			if (resreq == NULL)
+				return 0;
 
 			if (set_resource_req(resreq, attrp->value) != 1) {
 				set_schd_error_codes(err, NEVER_RUN, ERR_SPECIAL);
@@ -1381,15 +1425,30 @@ query_job(struct batch_status *job, server_info *sinfo, schd_error *err)
 			else
 				resresv->job->accrue_type = 0;
 		}
-		else if (!strcmp(attrp->name, ATTR_eligible_time))
-			resresv->job->eligible_time = (time_t) res_to_num(attrp->value, NULL);
+		else if (!strcmp(attrp->name, ATTR_eligible_time)) {
+			int val;
+
+			val = (int) res_to_num(attrp->value, NULL);
+			if (update && last_cycle_timestamp > 0) {
+				char buf[1024];
+
+				val += last_cycle_timestamp - time(NULL);
+				snprintf(buf, sizeof(buf), "%d", val);
+				free(attrp->value);
+				attrp->value = string_dup(buf);
+			}
+			resresv->job->eligible_time = val;
+
+		}
 		else if (!strcmp(attrp->name, ATTR_estimated)) {
 			if (!strcmp(attrp->resource, "start_time")) {
 				resresv->job->est_start_time =
 					(time_t) res_to_num(attrp->value, NULL);
 			}
-			else if (!strcmp(attrp->resource, "execvnode"))
+			else if (!strcmp(attrp->resource, "execvnode")) {
+				free(resresv->job->est_execvnode);
 				resresv->job->est_execvnode = string_dup(attrp->value);
+			}
 		}
 		else if (!strcmp(attrp->name, ATTR_c)) { /* checkpoint allowed? */
 			if (strcmp(attrp->value, "n") == 0)
@@ -1401,6 +1460,64 @@ query_job(struct batch_status *job, server_info *sinfo, schd_error *err)
 		}
 
 		attrp = attrp->next;
+	}
+
+	return 1;
+}
+
+/**
+ * @brief
+ *		query_job - takes info from a batch_status about a job and
+ *			 converts it into a resource_resv struct
+ *
+ *	  @param[in] job - batch_status struct of job
+ *	  @param[in] qinfo - queue where job resides
+ *	  @param[out] err - returns error info
+ *
+ *	@return resource_resv
+ *	@retval job (may be invalid, if so, err will report why)
+ *	@retval  or NULL on error
+ */
+
+resource_resv *
+query_job(struct batch_status *job, server_info *sinfo, schd_error *err)
+{
+	resource_resv *resresv;		/* converted job */
+	char *endp;
+
+	if ((resresv = new_resource_resv()) == NULL)
+		return NULL;
+
+	if ((resresv->job = new_job_info()) ==NULL) {
+		free_resource_resv(resresv);
+		return NULL;
+	}
+
+	resresv->name = string_dup(job->name);
+	resresv->rank = get_sched_rank();
+
+	resresv->server = sinfo;
+
+	resresv->is_job = 1;
+
+	resresv->job->can_checkpoint = 1;	/* default can be checkpointed */
+	resresv->job->can_requeue = 1;		/* default can be requeued */
+	resresv->job->can_suspend = 1;		/* default can be suspended */
+
+	/* A Job identifier must be of the form <numeric>.<alpha> or
+	 * <numeric>[<numeric>].<alpha> in the case of job arrays, any other
+	 * form is considered malformed
+	 */
+	resresv->job->job_id = strtol(resresv->name, &endp, 10);
+	if ((*endp != '.') && (*endp != '[')) {
+		set_schd_error_codes(err, NEVER_RUN, ERR_SPECIAL);
+		set_schd_error_arg(err, SPECMSG, "Malformed job identifier");
+		resresv->is_invalid = 1;
+	}
+
+	if (add_attrl_to_resresv(resresv, sinfo, job->attribs, err, 0) != 1) {
+		free_resource_resv(resresv);
+		return NULL;
 	}
 
 	return resresv;
@@ -1534,7 +1651,9 @@ free_job_info(job_info *jinfo)
 
 	free_resource_req_list(jinfo->resused);
 
-	free_attrl_list(jinfo->attr_updates);
+	/* attr_updates get saved in job_attr_updates_tree */
+	if (ATTR_UPDATE_FREQ <= 1)
+		free_attrl_list(jinfo->attr_updates);
 
 	free_resource_req_list(jinfo->resreq_rel);
 
@@ -1713,8 +1832,7 @@ update_job_attr(int pbs_sd, resource_resv *resresv, char *attr_name,
 
 	if (pattr != NULL && (flags & UPDATE_NOW)) {
 		int rc;
-		rc = send_attr_updates(pbs_sd, resresv->name, pattr);
-		free_attrl_list(pattr);
+		rc = save_attr_updates(resresv, pattr);
 		return rc;
 	}
 
@@ -1737,7 +1855,9 @@ update_job_attr(int pbs_sd, resource_resv *resresv, char *attr_name,
  * @retval	1	- success
  * @retval	0	- failure to update
  */
-int send_job_updates(int pbs_sd, resource_resv *job) {
+int
+send_job_updates(int pbs_sd, resource_resv *job)
+{
 	int rc;
 
 	if(job == NULL)
@@ -1745,10 +1865,16 @@ int send_job_updates(int pbs_sd, resource_resv *job) {
 
 	rc = send_attr_updates(pbs_sd, job->name, job->job->attr_updates) ;
 
+
+	if (job_attr_updates_tree != NULL) {
+		tree_add_del(job_attr_updates_tree, job->name, NULL, TREE_OP_DEL);
+	}
+
 	free_attrl_list(job->job->attr_updates);
 	job->job->attr_updates = NULL;
 	return rc;
-	}
+}
+
 /**
  * @brief
  * 		send delayed attributes to the server for a job
@@ -1761,7 +1887,9 @@ int send_job_updates(int pbs_sd, resource_resv *job) {
  * @retval	1	success
  * @retval	0	failure to update
  */
-int send_attr_updates(int pbs_sd, char *job_name, struct attrl *pattr) {
+int
+send_attr_updates(int pbs_sd, char *job_name, struct attrl *pattr)
+{
 	char *errbuf;
 	int one_attr = 0;
 

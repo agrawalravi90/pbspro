@@ -45,6 +45,15 @@ extern "C" {
 #include "data_types.h"
 #include "limits.h"
 #include "queue.h"
+#include "avltree.h"
+
+extern int last_cycle_timestamp;
+
+extern int attr_update_counter;
+
+/* tree to store job attr updates */
+extern AVL_IX_DESC *job_attr_updates_tree;
+
 /* resources to check */
 extern const struct rescheck res_to_check[];
 
