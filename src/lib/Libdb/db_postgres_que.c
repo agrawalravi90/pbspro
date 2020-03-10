@@ -179,6 +179,8 @@ pg_db_save_que(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, int savetype)
 	int params;
 	char *raw_array = NULL;
 
+	return 0;
+
 	SET_PARAM_STR(conn, pq->qu_name, 0);
 	SET_PARAM_INTEGER(conn, pq->qu_type, 1);
 
@@ -339,6 +341,8 @@ pg_db_del_attr_que(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, void *obj_id, pb
 {
 	char *raw_array = NULL;
 	int len = 0;
+
+	return 0;
 
 	if ((len = convert_db_attr_list_to_array(&raw_array, attr_list)) <= 0)
 		return -1;

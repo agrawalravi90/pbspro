@@ -178,6 +178,8 @@ pg_db_save_svr(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, int savetype)
 	int params;
 	char *raw_array = NULL;
 
+	return 0;
+
 	SET_PARAM_INTEGER(conn, ps->sv_numjobs, 0);
 	SET_PARAM_INTEGER(conn, ps->sv_numque, 1);
 	SET_PARAM_BIGINT(conn, ps->sv_jobidnumber, 2);
@@ -326,6 +328,8 @@ pg_db_del_attr_svr(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, void *obj_id, pb
 {
 	char *raw_array = NULL;
 	int len = 0;
+
+	return 0;
 
 	if ((len = convert_db_attr_list_to_array(&raw_array, attr_list)) <= 0)
 		return -1;

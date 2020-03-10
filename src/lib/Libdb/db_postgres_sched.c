@@ -136,6 +136,8 @@ pg_db_save_sched(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, int savetype)
 	int params;
 	char *raw_array = NULL;
 
+	return 0;
+
 	SET_PARAM_STR(conn, psch->sched_name, 0);
 
 	if (savetype == PBS_UPDATE_DB_QUICK) {
@@ -294,6 +296,8 @@ pg_db_del_attr_sched(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, void *obj_id, 
 {
 	char *raw_array = NULL;
 	int len = 0;
+
+	return 0;
 
 	if ((len = convert_db_attr_list_to_array(&raw_array, attr_list)) <= 0)
 		return -1;

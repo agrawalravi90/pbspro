@@ -330,7 +330,6 @@ node_save_db(struct pbsnode *pnode)
 	pbs_db_conn_t *conn = (pbs_db_conn_t *) svr_db_conn;
 
 	return 0;
-
 	svr_to_db_node(pnode, &dbnode);
 	obj.pbs_db_obj_type = PBS_DB_NODE;
 	obj.pbs_db_un.pbs_db_node = &dbnode;

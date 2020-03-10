@@ -286,6 +286,7 @@ pbs_db_cursor_close(pbs_db_conn_t *conn, void *state)
 int
 pbs_db_delete_obj(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj)
 {
+	return 0;
 	return (db_fn_arr[obj->pbs_db_obj_type].pg_db_delete_obj(conn, obj));
 }
 
@@ -396,6 +397,8 @@ pbs_db_begin_trx(pbs_db_conn_t *conn, int isolation_level, int async)
 {
 	PGresult *res;
 
+	return 0;
+
 	if (conn->conn_trx_nest == 0) {
 		res = PQexec((PGconn *) conn->conn_db_handle, "BEGIN");
 		if (PQresultStatus(res) != PGRES_COMMAND_OK) {
@@ -449,6 +452,7 @@ pbs_db_end_trx(pbs_db_conn_t *conn, int commit)
 	char str[10] = "END";
 	PGresult *res;
 	int	rc = 0;
+	return 0;
 
 	if (conn->conn_trx_nest == 0)
 		return 0;
@@ -847,6 +851,7 @@ pbs_db_destroy_connection(pbs_db_conn_t *conn)
 int
 pbs_db_save_obj(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, int savetype)
 {
+	return 0;
 	return (db_fn_arr[obj->pbs_db_obj_type].pg_db_save_obj(conn, obj, savetype));
 }
 

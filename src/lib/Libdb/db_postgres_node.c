@@ -252,6 +252,8 @@ pg_db_save_node(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, int savetype)
 	int params;
 	char *raw_array = NULL;
 
+	return 0;
+
 	SET_PARAM_STR(conn, pnd->nd_name, 0);
 	SET_PARAM_INTEGER(conn, pnd->nd_index, 1);
 	SET_PARAM_BIGINT(conn, pnd->mom_modtime, 2);
@@ -392,6 +394,7 @@ pg_db_next_node(pbs_db_conn_t *conn, void *st, pbs_db_obj_info_t *obj)
 int
 pg_db_delete_node(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj)
 {
+	return 0;
 	pbs_db_node_info_t *pnd = obj->pbs_db_un.pbs_db_node;
 	SET_PARAM_STR(conn, pnd->nd_name, 0);
 	return (pg_db_cmd(conn, STMT_DELETE_NODE, 1));
@@ -418,6 +421,8 @@ pg_db_del_attr_node(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, void *obj_id, p
 {
 	char *raw_array = NULL;
 	int len = 0;
+
+	return 0;
 
 	if ((len = convert_db_attr_list_to_array(&raw_array, attr_list)) <= 0)
 		return -1;
@@ -453,6 +458,8 @@ pg_db_save_mominfo_tm(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, int savetype)
 {
 	char *stmt;
 	pbs_db_mominfo_time_t *pmi = obj->pbs_db_un.pbs_db_mominfo_tm;
+
+	return 0;
 
 	SET_PARAM_BIGINT(conn, pmi->mit_time, 0);
 	SET_PARAM_INTEGER(conn, pmi->mit_gen, 1);
@@ -560,6 +567,8 @@ pg_db_add_update_attr_node(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, void *ob
 {
 	char *raw_array = NULL;
 	int len = 0;
+
+	return 0;
 
 	if ((len = convert_db_attr_list_to_array(&raw_array, attr_list)) <= 0)
 		return -1;

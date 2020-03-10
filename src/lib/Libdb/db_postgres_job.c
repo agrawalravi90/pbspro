@@ -409,6 +409,8 @@ pg_db_save_job(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, int savetype)
 	int rc;
 	char *raw_array = NULL;
 
+	return 0;
+
 	SET_PARAM_STR(conn, pjob->ji_jobid, 0);
 	SET_PARAM_INTEGER(conn, pjob->ji_state, 1);
 	SET_PARAM_INTEGER(conn, pjob->ji_substate, 2);
@@ -578,6 +580,8 @@ pg_db_delete_job(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj)
 	pbs_db_job_info_t *pj = obj->pbs_db_un.pbs_db_job;
 	int rc = 0;
 
+	return 0;
+
 	SET_PARAM_STR(conn, pj->ji_jobid, 0);
 
 	if (pbs_db_begin_trx(conn, 0, 0) != 0)
@@ -617,6 +621,7 @@ int
 pg_db_save_jobscr(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, int savetype)
 {
 	pbs_db_jobscr_info_t *pscr = obj->pbs_db_un.pbs_db_jobscr;
+	return 0;
 
 	SET_PARAM_STR(conn, pscr->ji_jobid, 0);
 
@@ -697,6 +702,8 @@ pg_db_del_attr_job(pbs_db_conn_t *conn, pbs_db_obj_info_t *obj, void *obj_id, pb
 {
 	char *raw_array = NULL;
 	int len = 0;
+
+	return 0;
 
 	if ((len = convert_db_attr_list_to_array(&raw_array, attr_list)) <= 0)
 		return -1;
