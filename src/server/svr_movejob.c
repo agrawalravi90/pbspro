@@ -687,7 +687,6 @@ send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
 	long		 tempval;
 	int 		rpp = 0;
 
-	return 2;
 	/* if job has a script read it from database */
 	if (jobp->ji_qs.ji_svrflags & JOB_SVFLG_SCRIPT) {
 		if (svr_load_jobscript(jobp) == NULL) {

@@ -371,6 +371,8 @@ job_save_db(job *pjob, int updatetype)
 	int savetype = PBS_UPDATE_DB_FULL;
 	int rc;
 
+	return 0;
+
 	/*
 	 * if job has new_job flag set, then updatetype better be SAVEJOB_NEW
 	 * If not, ignore and return success
