@@ -250,6 +250,8 @@ char *msg_Resv_Cancel   = "Attempting to cancel reservation";
 char *msg_unknownResvtype = "unknown reservation type";
 char *msg_unkresvID	= "Unknown Reservation Id";
 char *msg_resvExist	= "Reservation with requested ID already exists";
+char *msg_resvfromresvjob	= "Reservation may not be created from a job already within a reservation";
+char *msg_resvfromarrjob	= "Reservation may not be created from an array job";
 char *msg_resvFail	= "reservation failure";
 char *msg_delProgress	= "Delete already in progress";
 char *msg_BadTspec	= "Bad time specification(s)";
@@ -418,7 +420,8 @@ char *msg_stdg_resv_occr_conflict = "Requested time(s) will interfere with a lat
 char *msg_alps_switch_err = "Switching ALPS reservation failed";
 
 char *msg_softwt_stf = "soft_walltime is not supported with Shrink to Fit jobs";
-
+char *msg_node_busy = "Node is busy";
+char *msg_default_partition = "Default partition name is not allowed";
 /*
  * The following table connects error numbers with text
  * to be returned to the client.  Each is guaranteed to be pure text.
@@ -492,6 +495,8 @@ struct pbs_err_to_txt pbs_err_to_txt[] = {
 	{ PBSE_IRESVE, &msg_resvsyserr },
 	{ PBSE_UNKRESVTYPE, &msg_unknownResvtype },
 	{ PBSE_RESVEXIST, &msg_resvExist },
+	{ PBSE_RESV_FROM_RESVJOB, &msg_resvfromresvjob },
+	{ PBSE_RESV_FROM_ARRJOB, &msg_resvfromarrjob },
 	{ PBSE_resvFail, &msg_resvFail },
 	{ PBSE_genBatchReq, &msg_genBatchReq },
 	{ PBSE_mgrBatchReq, &msg_mgrBatchReq },
@@ -598,6 +603,8 @@ struct pbs_err_to_txt pbs_err_to_txt[] = {
 	{PBSE_SCHED_PARTITION_ALREADY_EXISTS, &msg_sched_part_already_used},
 	{PBSE_INVALID_MAX_JOB_SEQUENCE_ID, &msg_invalid_max_job_sequence_id},
 	{PBSE_SVR_SCHED_JSF_INCOMPAT, &msg_jsf_incompatible},
+	{PBSE_NODE_BUSY, &msg_node_busy},
+	{PBSE_DEFAULT_PARTITION, &msg_default_partition},
 	{ 0, NULL }		/* MUST be the last entry */
 };
 

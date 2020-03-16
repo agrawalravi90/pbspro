@@ -1554,7 +1554,7 @@ check_block_wt(struct work_task *ptask)
 	**	All ready to talk... now send the info.
 	*/
 
-	DIS_tcp_setup(blockj->fd);
+	DIS_tcp_funcs();
 	ret = diswsi(blockj->fd, 1);		/* version */
 	if (ret != DIS_SUCCESS)
 		goto err;
@@ -1571,11 +1571,12 @@ check_block_wt(struct work_task *ptask)
 	ret = diswsi(blockj->fd, blockj->exitstat);
 	if (ret != DIS_SUCCESS)
 		goto err;
-	(void)DIS_tcp_wflush(blockj->fd);
+	(void)dis_flush(blockj->fd);
 
 	sprintf(log_buffer, "%s: Write successful to client %s for job %s ", __func__,
 	blockj->client, blockj->jobid);
 	log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_NOTICE, blockj->jobid, log_buffer);
+	dis_destroy_chan(blockj->fd);
 	CS_close_socket(blockj->fd);
 	goto end;
 
@@ -1588,6 +1589,8 @@ retry:
 		blockj->client, blockj->jobid);
 	}
 err:
+	DIS_tcp_funcs();
+	dis_destroy_chan(blockj->fd);
 	if (ret != DIS_SUCCESS) {
 		sprintf(log_buffer, "DIS error while replying to client %s for job %s",
 		blockj->client, blockj->jobid);
@@ -2010,7 +2013,7 @@ get_hostPart(char *from)
  *
  * @par MT-safe:	No.
  */
-static int
+int
 set_select_and_place(int objtype, void *pobj, attribute *patr)
 {
 	pbs_list_head     collectresc;
@@ -2056,7 +2059,7 @@ set_select_and_place(int objtype, void *pobj, attribute *patr)
 
 		/* Have a nodes spec, use it  to make select and place */
 
-		if ((rc=cvt_nodespec_to_select(ndspec, &cvt, &cvt_len, patr)) != 0)
+		if ((rc = cvt_nodespec_to_select(ndspec, &cvt, &cvt_len, patr)) != 0)
 			return rc;
 
 		if ((rc = prdefsl->rs_decode(&prescsl->rs_value, NULL, "select", cvt)) != 0)
@@ -2321,7 +2324,7 @@ set_chunk_sum(attribute  *pselectattr, attribute *pattr)
 
 extern int resc_access_perm;
 
-static int
+int
 make_schedselect(attribute *patrl, resource *pselect,
 	pbs_queue *pque, attribute *psched)
 {
@@ -2489,14 +2492,14 @@ set_resc_deflt(void *pobj, int objtype, pbs_queue *pque)
 	prdefsl = find_resc_def(svr_resc_def, "select", svr_resc_size);
 	presc   = find_resc_entry(pdest, prdefsl);
 	/* if not set, set select/place */
-	if ((presc == NULL) || ((presc->rs_value.at_flags & ATR_VFLAG_SET)==0))
+	if ((presc == NULL) || ((presc->rs_value.at_flags & ATR_VFLAG_SET) == 0))
 		if ((rc = set_select_and_place(objtype, pobj, pdest)) != 0)
 			return rc;
 
 	prdefpc = find_resc_def(svr_resc_def, "place", svr_resc_size);
 	presc = find_resc_entry(pdest, prdefpc);
 	/* if "place" still not set, force to "free" */
-	if ((presc == NULL) || ((presc->rs_value.at_flags&ATR_VFLAG_SET)==0)) {
+	if ((presc == NULL) || ((presc->rs_value.at_flags & ATR_VFLAG_SET) == 0)) {
 		presc = add_resource_entry(pdest, prdefpc);
 		if (presc == NULL)
 			return PBSE_SYSTEM;
@@ -3064,15 +3067,15 @@ Time4resv(struct work_task *ptask)
 		 *indicate that in the future resources have to be returned
 		 *and, setup so that the scheduler gets notified
 		 */
-		set_resc_assigned((void *)presv, 1, INCR);
+		if (!presv->resv_from_job)
+			set_resc_assigned((void *)presv, 1, INCR);
 		presv->ri_giveback = 1;
 
 		resv_exclusive_handler(presv);
-
-		set_scheduler_flag(SCH_SCHEDULE_JOBRESV,dflt_scheduler);
+		notify_scheds_about_resv(SCH_SCHEDULE_JOBRESV, presv);
 
 		/*notify the relevant persons that the reservation time has arrived*/
-		if(presv->ri_qs.ri_tactive == time_now){
+		if (presv->ri_qs.ri_tactive == time_now){
 			svr_mailownerResv(presv, MAIL_BEGIN, MAIL_NORMAL, "");
 			account_resvstart(presv);
 		}
@@ -3248,16 +3251,15 @@ Time4resvFinish(struct work_task *ptask)
 		strcpy(preq->rq_ind.rq_delete.rq_objname,
 			presv->ri_qs.ri_resvID);
 
-		(void)issue_Drequest(PBS_LOCAL_CONNECTION, preq,
-			resvFinishReply, NULL, 0);
-
 		/*notify relevant parties that the reservation's
 		 *ending time has arrived and reservation is being deleted
 		 */
 		svr_mailownerResv(presv, MAIL_END, MAIL_NORMAL, "");
 
-		tickle_for_reply();
 		set_last_used_time_node(presv, 1);
+		(void)issue_Drequest(PBS_LOCAL_CONNECTION, preq,
+			resvFinishReply, NULL, 0);
+		tickle_for_reply();
 	}
 }
 
@@ -3523,6 +3525,14 @@ Time4occurrenceFinish(resc_resv *presv)
 
 	if (sub == RESV_DEGRADED) {
 		DBPRT(("degraded_time of %s is %s", presv->ri_qs.ri_resvID, ctime(&presv->ri_degraded_time)))
+		/* If no jobs are running in this reservation, unset the scheduler name
+		 * so that the reservation can be confirmed by any scheduler
+		 */
+		if (presv->ri_qp->qu_njstate[JOB_STATE_RUNNING] + presv->ri_qp->qu_njstate[JOB_STATE_EXITING] == 0) {
+			resv_attr_def[(int)RESV_ATR_partition].at_free(&presv->ri_wattr[(int)RESV_ATR_partition]);
+			presv->rep_sched_count= 0;
+			presv->req_sched_count= 0;
+		}
 	}
 
 	/* Set the reservation state and substate */
@@ -3897,7 +3907,7 @@ resv_retry_handler(struct work_task *ptask)
 		return;
 
 	/* Notify scheduler that a reservation needs to be reconfirmed */
-	set_scheduler_flag(SCH_SCHEDULE_RESV_RECONFIRM, dflt_scheduler);
+	notify_scheds_about_resv(SCH_SCHEDULE_RESV_RECONFIRM, presv);
 }
 
 /**
@@ -4525,6 +4535,7 @@ start_end_dur_wall(void *pobj, int objtype)
 
 	int	swcode = 0;	/*"switch code"*/
 	int	rc = 0;		/*return code, assume success*/
+	short	check_start = 1;
 
 	if (pobj == 0)
 		return (-1);
@@ -4562,6 +4573,7 @@ start_end_dur_wall(void *pobj, int objtype)
 		pattr = &presv->ri_wattr[RESV_ATR_resource];
 		prsc = find_resc_entry(&presv->ri_wattr[RESV_ATR_resource],
 			rscdef);
+		check_start = !(presv->ri_wattr[RESV_ATR_job].at_flags & ATR_VFLAG_SET);
 	} else if (objtype == RESV_JOB_OBJECT) {
 		pjob = (job *)pobj;
 		presv = pjob->ji_resvp;
@@ -4598,7 +4610,7 @@ start_end_dur_wall(void *pobj, int objtype)
 	atemp.at_type = ATR_TYPE_LONG;
 	switch (swcode) {
 		case  3:	/*start, end*/
-			if (((pstime->at_val.at_long < time_now) && (pstate != RESV_BEING_ALTERED)) ||
+			if ((((check_start) && (pstime->at_val.at_long < time_now)) && (pstate != RESV_BEING_ALTERED)) ||
 				(petime->at_val.at_long <= pstime->at_val.at_long))
 				rc = -1;
 			else {
@@ -4612,7 +4624,7 @@ start_end_dur_wall(void *pobj, int objtype)
 			break;
 
 		case  5:	/*start, duration*/
-			if ((pstime->at_val.at_long < time_now) ||
+			if (((check_start) && (pstime->at_val.at_long < time_now)) ||
 				(pduration->at_val.at_long <= 0))
 				rc = -1;
 			else {
@@ -4624,7 +4636,7 @@ start_end_dur_wall(void *pobj, int objtype)
 			break;
 
 		case  7:	/*start, end, duration*/
-			if ((pstime->at_val.at_long < time_now) ||
+			if (((check_start) && (pstime->at_val.at_long < time_now)) ||
 				(petime->at_val.at_long < pstime->at_val.at_long) ||
 				(pduration->at_val.at_long <= 0) ||
 				((petime->at_val.at_long - pstime->at_val.at_long) !=
@@ -4647,7 +4659,7 @@ start_end_dur_wall(void *pobj, int objtype)
 			break;
 
 		case  9:	/*start, wall*/
-			if ((pstime->at_val.at_long < time_now) ||
+			if (((check_start) && (pstime->at_val.at_long < time_now)) ||
 				(prsc->rs_value.at_val.at_long <= 0))
 				rc = -1;
 			else {
@@ -4679,7 +4691,7 @@ start_end_dur_wall(void *pobj, int objtype)
 			break;
 
 		case 11:	/*start, end, wall*/
-			if ((pstime->at_val.at_long < time_now) ||
+			if (((check_start) && (pstime->at_val.at_long < time_now)) ||
 				(prsc->rs_value.at_val.at_long <= 0) ||
 				(petime->at_val.at_long - pstime->at_val.at_long !=
 					prsc->rs_value.at_val.at_long))
@@ -4692,7 +4704,7 @@ start_end_dur_wall(void *pobj, int objtype)
 			break;
 
 		case 13:	/*start, duration & wall*/
-			if ((pstime->at_val.at_long < time_now) ||
+			if (((check_start) && (pstime->at_val.at_long < time_now)) ||
 				(prsc->rs_value.at_val.at_long != pduration->at_val.at_long) ||
 				(pduration->at_val.at_long <= 0))
 				rc = -1;
@@ -4705,7 +4717,7 @@ start_end_dur_wall(void *pobj, int objtype)
 			break;
 
 		case 15:	/*start, end, duration & wall*/
-			if ((pstime->at_val.at_long < time_now) ||
+			if (((check_start) || (pstime->at_val.at_long < time_now)) ||
 				(petime->at_val.at_long < pstime->at_val.at_long) ||
 				(pduration->at_val.at_long <= 0) ||
 				(prsc->rs_value.at_val.at_long != pduration->at_val.at_long) ||

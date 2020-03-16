@@ -1012,7 +1012,7 @@ find_correct_buckets(status *policy, node_bucket **buckets, resource_resv *resre
 					total += buckets[j]->total * c;
 				} else {
 					if (failerr->status_code == SCHD_UNKWN)
-						copy_schd_error(failerr, err);
+						move_schd_error(failerr, err);
 				}
 				clear_schd_error(err);
 			}
@@ -1079,8 +1079,6 @@ check_node_buckets(status *policy, server_info *sinfo, queue_info *qinfo, resour
 
 		if (qinfo->has_nodes)
 			ninfo_arr = qinfo->nodes;
-		else if (qinfo->partition != NULL)
-			ninfo_arr = qinfo->nodes_in_partition;
 		else
 			ninfo_arr = sinfo->unassoc_nodes;
 

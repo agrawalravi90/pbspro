@@ -282,6 +282,7 @@ enum job_atr {
 	JOB_ATR_submit_host,
 	JOB_ATR_cred_id,
 	JOB_ATR_cred_validity,
+	JOB_ATR_create_resv_from_job,
 #include "site_job_attr_enum.h"
 
 	JOB_ATR_UNKN,		/* the special "unknown" type		  */
@@ -526,6 +527,7 @@ enum bg_hook_request {
 	BG_PBSE_SISCOMM,
 	BG_IM_DELETE_JOB_REPLY,
 	BG_IM_DELETE_JOB,
+	BG_IM_DELETE_JOB2,
 	BG_CHECKPOINT_ABORT
 };
 
@@ -660,7 +662,7 @@ struct job {
 	int             ji_etlimit_decr_queued;
 
 	struct preempt_ordering	*preempt_order;
-	int			preempt_order_index;
+	int preempt_order_index;
 
 #endif					/* END SERVER ONLY */
 

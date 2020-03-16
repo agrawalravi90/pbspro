@@ -118,7 +118,9 @@ enum resv_atr {
 	RESV_ATR_resv_timezone,
 	RESV_ATR_retry,
 	RESV_ATR_del_idle_time,
+	RESV_ATR_job,
 	RESV_ATR_node_set,
+	RESV_ATR_partition,
 	RESV_ATR_UNKN,
 	RESV_ATR_LAST
 };
@@ -232,6 +234,13 @@ struct resc_resv {
 	/* Reservation start and end tasks */
 	struct work_task	*resv_start_task;
 	struct work_task	*resv_end_task;
+	int resv_from_job;
+
+	/* A count to keep track of how many schedulers have been requested and
+	 * responsed to this reservation request
+	 */
+	int			req_sched_count;
+	int			rep_sched_count;
 
 	/*
 	 * fixed size internal data - maintained via "quick save"

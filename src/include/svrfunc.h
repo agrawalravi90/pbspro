@@ -83,7 +83,6 @@ extern int   schedule_high(pbs_sched *);
 extern void  shutdown_nodes(void);
 extern char *site_map_user(char *, char *);
 extern char *site_map_resvuser(char *, char *);
-extern int   socket_to_handle(int);
 extern void  svr_disconnect(int);
 extern void  svr_disconnect_with_wait_option(int, int);
 extern int   svr_connect(pbs_net_t, unsigned int, void (*)(int), enum conn_type, int rpp);
@@ -138,6 +137,12 @@ extern enum failover_state are_we_primary(void);
 extern void license_more_nodes(void);
 extern void reset_svr_sequence_window(void);
 extern void reply_preempt_jobs_request(int code, int aux, struct job *pjob);
+extern int copy_params_from_job(char *jobid, resc_resv *presv);
+extern int confirm_resv_locally(resc_resv *presv, struct batch_request *orig_preq, char *partition_name);
+extern int set_select_and_place(int objtype, void *pobj, attribute *patr);
+extern pbs_queue *find_resvqueuebyname(char *quename);
+extern resc_resv *find_resv_by_quename(char *quename);
+extern int make_schedselect(attribute *patrl, resource *pselect, pbs_queue *pque, attribute *psched);
 
 #ifdef	_PROVISION_H
 extern int find_prov_vnode_list(job *pjob, exec_vnode_listtype *prov_vnodes, char **aoe_name);
@@ -352,6 +357,7 @@ extern int   node_avail_complex(spec_and_context *pcon, int *navail, int *nalloc
 extern int   node_reserve(spec_and_context *pcon, pbs_resource_t tag);
 extern void  node_unreserve(pbs_resource_t handle);
 extern int   node_spec(struct spec_and_context *, int);
+extern void notify_scheds_about_resv(int cmd, resc_resv *resv);
 #endif	/* _RESERVATION_H */
 
 #ifdef	_LIST_LINK_H
