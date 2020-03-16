@@ -44,11 +44,70 @@
 
 #include "attribute.h"
 #include "job.h"
+#include "log.h"
 #include "mock_run.h"
 #include "mom_func.h"
 #include "pbs_error.h"
 #include "resource.h"
 
+
+extern time_t time_now;
+extern time_t time_resc_updated;
+extern int min_check_poll;
+extern int next_sample_time;
+
+void
+mock_run_finish_exec(job *pjob)
+{
+	resource_def *rd;
+	attribute *wallt;
+	resource *wall_req;
+	int walltime = 0;
+
+	rd = find_resc_def(svr_resc_def, "walltime", svr_resc_size);
+	wallt = &pjob->ji_wattr[(int)JOB_ATR_resource];
+	wall_req = find_resc_entry(wallt, rd);
+	if (wall_req != NULL) {
+		walltime = wall_req->rs_value.at_val.at_long;
+		start_walltime(pjob);
+	}
+
+	time_now = time(NULL);
+
+	/* Add a work task that runs when the job is supposed to end */
+	set_task(WORK_Timed, time_now + walltime, mock_run_end_job_task, pjob);
+
+	sprintf(log_buffer, "Started mock run of job");
+	log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
+		LOG_INFO, pjob->ji_qs.ji_jobid, log_buffer);
+
+	mock_run_record_finish_exec(pjob);
+
+	return;
+}
+
+void
+mock_run_record_finish_exec(job *pjob)
+{
+	pjob->ji_qs.ji_state = JOB_STATE_RUNNING;
+	pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
+	job_save(pjob, SAVEJOB_QUICK);
+
+	pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_long = JOB_STATE_RUNNING;
+	pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'R';
+	pjob->ji_wattr[(int)JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
+	pjob->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_VFLAG_MODIFY;
+	pjob->ji_wattr[(int)JOB_ATR_substate].at_flags |= ATR_VFLAG_MODIFY;
+
+	time_resc_updated = time_now;
+	mock_run_mom_set_use(pjob);
+
+	update_ajob_status(pjob);
+	next_sample_time = min_check_poll;
+
+	return;
+
+}
 
 /**
  * @brief	work task handler for end of a job in mock run mode
