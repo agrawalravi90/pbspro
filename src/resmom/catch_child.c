@@ -1097,7 +1097,7 @@ stat_add_additional_attrs(job *pjob, struct resc_used_update *rused, int use_rtn
 void
 update_ajob_status_using_cmd(job *pjob, int cmd, int use_rtn_list_ext)
 {
-  struct resc_used_update rused;
+	struct resc_used_update rused;
 		
 	/* pass user-client privilege to encode_resc() */
 
