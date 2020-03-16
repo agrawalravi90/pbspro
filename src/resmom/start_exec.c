@@ -2933,34 +2933,6 @@ finish_exec(job *pjob)
 	vnl_t			*vnl_fails = NULL;
 	vnl_t			*vnl_good = NULL;
 
-	if (mock_run) {
-		resource_def *rd;
-		attribute *wallt;
-		resource *wall_req;
-		int walltime = 0;
-
-		rd = find_resc_def(svr_resc_def, "walltime", svr_resc_size);
-		wallt = &pjob->ji_wattr[(int)JOB_ATR_resource];
-		wall_req = find_resc_entry(wallt, rd);
-		if (wall_req != NULL) {
-			walltime = wall_req->rs_value.at_val.at_long;
-			start_walltime(pjob);
-		}
-
-		time_now = time(NULL);
-
-		/* Add a work task that runs when the job is supposed to end */
-		set_task(WORK_Timed, time_now + walltime, mock_run_end_job_task, pjob);
-
-		sprintf(log_buffer, "Started mock run of job");
-		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
-			LOG_INFO, pjob->ji_qs.ji_jobid, log_buffer);
-
-		mock_run_mom_set_use(pjob);
-
-		return;
-	}
-
 	ptc = -1; /* No current master pty */
 
 	memset(&sjr, 0, sizeof(sjr));
@@ -6169,7 +6141,7 @@ start_exec(job *pjob)
 		   pjob->ji_stdout = -1;
 		   pjob->ji_stderr = -1;
 
-		   finish_exec(pjob);
+		   mock_run_finish_exec(pjob);
 		   return;
 	}
 
