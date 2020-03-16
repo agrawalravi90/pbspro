@@ -103,7 +103,6 @@ mock_run_mom_set_use(job *pjob)
 
 	assert(pjob != NULL);
 	at = &pjob->ji_wattr[(int)JOB_ATR_resc_used];
-	assert(at->at_type == ATR_TYPE_RESC);
 	at->at_flags |= (ATR_VFLAG_MODIFY|ATR_VFLAG_SET);
 
 	if (rd == NULL) {
@@ -135,7 +134,6 @@ mock_run_mom_set_use(job *pjob)
 			 * so the res used can be set to res requested
 			 */
 			at_req = &pjob->ji_wattr[(int)JOB_ATR_resource];
-			assert(at->at_type == ATR_TYPE_RESC);
 
 			pres_req = find_resc_entry(at_req, rdefp);
 			if (pres_req != NULL &&
