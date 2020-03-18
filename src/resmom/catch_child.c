@@ -1451,13 +1451,7 @@ scan_for_exiting(void)
 #ifdef WIN32
 	/* update the latest intelligence about the running jobs; */
 	time_now = time(NULL);
-	if (mom_get_sample() == PBSE_NONE) {
-		pjob = (job *)GET_NEXT(svr_alljobs);
-		while (pjob) {
-			mom_set_use(pjob);
-			pjob = (job *)GET_NEXT(pjob->ji_alljobs);
-		}
-	}
+	mom_set_use_all();
 #endif
 
 	/*
@@ -2676,6 +2670,29 @@ set_job_toexited(char *jobid)
 			/* leave unchanges on disk so recovery will resend */
 			/* obit to server                                  */
 			(void)job_save(pjob, SAVEJOB_QUICK);
+		}
+	}
+}
+
+/**
+ * @brief
+ * 		Convenience function to call mom_set_use() when all jobs need to be updated
+ *
+ * @param	void
+ * @return	void
+ */
+void
+mom_set_use_all(void)
+{
+	job *pjob = NULL;
+
+	if (!mock_run) {
+		if (mom_get_sample() == PBSE_NONE) {
+			pjob = (job *) GET_NEXT(svr_alljobs);
+			while (pjob) {
+				mom_set_use(pjob);
+				pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+			}
 		}
 	}
 }
