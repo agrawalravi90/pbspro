@@ -399,6 +399,7 @@ extern int setcurrentworkdir(char *);
 extern int becomeuser(job *);
 extern int becomeuser_args(char *, uid_t, gid_t, gid_t);
 extern void close_update_pipes(job *);
+extern void mom_set_use_all(void);
 
 /* From popen.c */
 extern FILE *pbs_popen(const char *, const char *);

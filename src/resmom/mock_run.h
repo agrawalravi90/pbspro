@@ -36,14 +36,16 @@
  *
  */
 
+#ifndef	_MOCK_RUN_H
+#define	_MOCK_RUN_H
+#ifdef	__cplusplus
+extern "C" {
+#endif
 
 #include <stdio.h>
 
 #include "work_task.h"
 #include "job.h"
-
-#ifndef	_MOCK_RUN_H
-#define	_MOCK_RUN_H
 
 void mock_run_finish_exec(job *pjob);
 
@@ -53,4 +55,7 @@ void mock_run_end_job_task(struct work_task *ptask);
 
 int mock_run_mom_set_use(job *pjob);
 
+#ifdef	__cplusplus
+}
+#endif
 #endif /* _MOCK_RUN_H */
