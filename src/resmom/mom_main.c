@@ -8380,6 +8380,14 @@ main(int argc, char *argv[])
 				stalone = 1;
 				break;
 			case 'm':
+#ifdef WIN32
+				fprintf(stderr, "-m option not supported for Windows\n");
+				g_dwCurrentState = SERVICE_STOPPED;
+				ss.dwCurrentState = g_dwCurrentState;
+				ss.dwWin32ExitCode = ERROR_INVALID_PARAMETER;
+				if (g_ssHandle != 0) SetServiceStatus(g_ssHandle, &ss);
+				return 1;
+#endif
 				mock_run = 1;
 				break;
 			case 'd':	/* directory */
