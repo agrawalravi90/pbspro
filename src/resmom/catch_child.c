@@ -1857,6 +1857,11 @@ end_loop:
 		write_wkmg_record(WM_TERM, WM_TERM_EXIT, pjob);
 #endif	/* MOM_CSA */
 
+		if (mock_run) {
+			send_obit(pjob, 0);
+			continue;
+		}
+
 		/*
 		 * Parent:
 		 *  +  fork child process to run epilogue,
