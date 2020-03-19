@@ -42,8 +42,10 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <time.h>
+#include <errno.h>
 
 #include "attribute.h"
+#include "batch_request.h"
 #include "job.h"
 #include "log.h"
 #include "mock_run.h"
@@ -234,4 +236,42 @@ mock_run_mom_set_use(job *pjob)
 	update_walltime(pjob);
 
 	return (PBSE_NONE);
+}
+
+/**
+ * @brief	job_purge for mock run mode
+ *
+ * @param[in,out]	pjob - the job being purged
+ *
+ * @return	void
+ */
+void
+mock_run_job_purge(job *pjob)
+{
+	char namebuf[MAXPATHLEN + 1] = {'\0'};
+
+	delete_link(&pjob->ji_jobque);
+	delete_link(&pjob->ji_alljobs);
+	delete_link(&pjob->ji_unlicjobs);
+
+#ifdef PBS_MOM
+	if (pjob->ji_preq != NULL) {
+		log_joberr(PBSE_INTERNAL, __func__, "request outstanding",
+			pjob->ji_qs.ji_jobid);
+		reply_text(pjob->ji_preq, PBSE_INTERNAL, "job deleted");
+		pjob->ji_preq = NULL;
+	}
+#endif
+
+	/* delete script file */
+	del_job_related_file(pjob, JOB_SCRIPT_SUFFIX);
+
+	del_job_dirs(pjob);
+
+	/* delete job file */
+	del_job_related_file(pjob, JOB_FILE_SUFFIX);
+
+	del_chkpt_files(pjob);
+
+	job_free(pjob);
 }

@@ -1857,6 +1857,11 @@ end_loop:
 		write_wkmg_record(WM_TERM, WM_TERM_EXIT, pjob);
 #endif	/* MOM_CSA */
 
+		if (mock_run) {
+			send_obit(pjob, 0);
+			continue;
+		}
+
 		/*
 		 * Parent:
 		 *  +  fork child process to run epilogue,
@@ -2578,7 +2583,7 @@ mom_deljob(job *pjob)
 
 	if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE)	/* MS */
 		(void)send_sisters(pjob, IM_DELETE_JOB, NULL);
-	job_purge(pjob);
+	job_purge_mom(pjob);
 
 	/*
 	 ** after job is gone, check to make sure no rogue user
@@ -2646,7 +2651,7 @@ mom_deljob_wait(job *pjob)
 			 * case (since we are purging job anyway)
 			 */
 			(void) kill_job(pjob, SIGKILL);
-			job_purge(pjob);
+			job_purge_mom(pjob);
 			dorestrict_user();
 		}
 		/*
@@ -2804,4 +2809,20 @@ mom_set_use_all(void)
 			}
 		}
 	}
+}
+
+/**
+ * @brief	Wrapper function to job purge
+ *
+ * @param[in]	pjob - the job being purged
+ *
+ * @return	void
+ */
+void
+job_purge_mom(job *pjob)
+{
+	if (mock_run)
+		mock_run_job_purge(pjob);
+	else
+		job_purge(pjob);
 }
