@@ -9879,7 +9879,7 @@ main(int argc, char *argv[])
 			 * no harm anyway.
 			 */
 			(void)kill_job(pjob, SIGKILL);
-			job_purge(pjob);
+			job_purge_mom(pjob);
 			++i;
 		}
 		if (i > 0)
@@ -10007,7 +10007,7 @@ main(int argc, char *argv[])
 					req_reject(PBSE_SISCOMM, 0, pjob->ji_preq);
 					pjob->ji_preq = NULL;
 				}
-				job_purge(pjob);
+				job_purge_mom(pjob);
 				dorestrict_user();
 				continue;
 			}
@@ -10237,7 +10237,7 @@ main(int argc, char *argv[])
 	/* Have we any jobs that can be purged before we go away? */
 
 	while ((pjob = (job *)GET_NEXT(mom_deadjobs)) != NULL) {
-		job_purge(pjob);
+		job_purge_mom(pjob);
 	}
 
 	{
