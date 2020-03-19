@@ -55,6 +55,8 @@ void mock_run_end_job_task(struct work_task *ptask);
 
 int mock_run_mom_set_use(job *pjob);
 
+void mock_run_job_purge(job *pjob);
+
 #ifdef	__cplusplus
 }
 #endif
