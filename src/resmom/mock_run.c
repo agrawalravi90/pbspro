@@ -53,6 +53,9 @@
 #include "pbs_error.h"
 #include "resource.h"
 
+#if defined(PBS_SECURITY) && (PBS_SECURITY == KRB5)
+#include "renew_creds.h"
+#endif
 
 extern time_t time_now;
 extern time_t time_resc_updated;
@@ -270,6 +273,10 @@ mock_run_job_purge(job *pjob)
 	del_job_related_file(pjob, JOB_FILE_SUFFIX);
 
 	del_chkpt_files(pjob);
+
+#if defined(PBS_SECURITY) && (PBS_SECURITY == KRB5)
+	delete_cred(pjob->ji_qs.ji_jobid);
+#endif
 
 	job_free(pjob);
 }
