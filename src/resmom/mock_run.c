@@ -248,8 +248,6 @@ mock_run_mom_set_use(job *pjob)
 void
 mock_run_job_purge(job *pjob)
 {
-	char namebuf[MAXPATHLEN + 1] = {'\0'};
-
 	delete_link(&pjob->ji_jobque);
 	delete_link(&pjob->ji_alljobs);
 	delete_link(&pjob->ji_unlicjobs);
