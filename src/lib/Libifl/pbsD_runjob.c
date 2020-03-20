@@ -43,25 +43,10 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "libpbs.h"
 #include "dis.h"
 #include "pbs_ecl.h"
-
-
-/**
- * @brief
- *	-send runjob batch request
- *
- * @param[in] c - communication handle
- * @param[in] jobid - job identifier
- * @param[in] location - location where job running
- * @param[in] extend - extend string to encode req
- *
- * @return      int
- * @retval      DIS_SUCCESS(0)  success
- * @retval      error code      error
- *
- */
 
 int
 __pbs_runjob(int c, char *jobid, char *location, char *extend)

@@ -2253,3 +2253,17 @@ print_packet_hdr(const char *fnc, void *data, int len)
 	fflush(stdout);
 }
 #endif
+
+ssize_t
+monitor_send(int sockfd, const void *buf, size_t len, int flags)
+{
+	tpp_log_func(LOG_WARNING, __func__, "packet sent\n");
+	return send(sockfd, buf, len, flags);
+}
+
+ssize_t
+monitor_recv(int sockfd, void *buf, size_t len, int flags)
+{
+	tpp_log_func(LOG_WARNING, __func__, "packet received\n");
+	return recv(sockfd, buf, len, flags);
+}

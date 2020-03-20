@@ -53,6 +53,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h>
 #include "libpbs.h"
 #include "dis.h"
 
@@ -113,8 +114,21 @@ PBSD_rdrpy(int c)
 {
 	int rc;
 	struct batch_reply *reply;
+	FILE *fp = NULL;
+	struct timeval tp;
+	long sec = 0;
+	long usec = 0;
+	long diffusec;
 
 	/* clear any prior error message */
+
+	fp = fopen("rdrply_log", "a");
+	if (fp == NULL)
+		exit(1);
+
+	gettimeofday(&tp, NULL);
+	sec = (long) tp.tv_sec;
+	usec = (long) tp.tv_usec;
 
 	if (set_conn_errtxt(c, NULL) != 0) {
 		pbs_errno = PBSE_SYSTEM;
@@ -146,6 +160,12 @@ PBSD_rdrpy(int c)
 			}
 		}
 	}
+	gettimeofday(&tp, NULL);
+	diffusec = (tp.tv_sec - sec) * 1000000 + tp.tv_usec - usec;
+	fprintf(fp, "%d\n", diffusec);
+
+	fclose(fp);
+
 	return reply;
 }
 

@@ -64,12 +64,16 @@ extern "C" {
 #define tpp_sock_listen(a, b)         listen(a, b)
 #define tpp_sock_accept(a, b, c)       accept(a, b, c)
 #define tpp_sock_connect(a, b, c)      connect(a, b, c)
-#define tpp_sock_recv(a, b, c, d)       recv(a, b, c, d)
-#define tpp_sock_send(a, b, c, d)       send(a, b, c, d)
 #define tpp_sock_select(a, b, c, d, e)   select(a, b, c, d, e)
 #define tpp_sock_close(a)            close(a)
 #define tpp_sock_getsockopt(a, b, c, d, e)   getsockopt(a, b, c, d, e)
 #define tpp_sock_setsockopt(a, b, c, d, e)   setsockopt(a, b, c, d, e)
+
+ssize_t monitor_send(int sockfd, const void *buf, size_t len, int flags);
+#define tpp_sock_send(a, b, c, d)      send(a, b, c, d)
+
+ssize_t monitor_recv(int sockfd, void *buf, size_t len, int flags);
+#define tpp_sock_recv(a, b, c, d)       recv(a, b, c, d)
 
 #else
 #ifndef EINPROGRESS

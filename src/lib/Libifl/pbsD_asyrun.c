@@ -47,7 +47,6 @@
 #include "dis.h"
 #include "pbs_ecl.h"
 
-
 /**
  * @brief
  *	-send async run job batch request.

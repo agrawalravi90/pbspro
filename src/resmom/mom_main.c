@@ -141,7 +141,6 @@
 #endif
 #include	"pbs_undolr.h"
 
-
 /*
  * Default "mutual exclusion" for job start/queue commit operations.  The
  * pointer is provided so multi-threaded mom implementations can replace it
