@@ -309,6 +309,11 @@ req_runjob(struct batch_request *preq)
 	char		  hook_msg[HOOK_MSG_SIZE];
 	pbs_sched	  *psched;
 
+	if (preq && (preq->rq_type == PBS_BATCH_AsyrunJob)) {
+		reply_ack(preq);
+		return;
+	}
+
 	if (license_expired) {
 		req_reject(PBSE_LICENSEINV, 0, preq);
 		return;
@@ -708,7 +713,6 @@ req_runjob2(struct batch_request *preq, job *pjob)
 	/* post_sendmom or post_stagein				  */
 	rq_type = preq->rq_type;
 	if (preq && (rq_type == PBS_BATCH_AsyrunJob)) {
-		reply_ack(preq);
 		preq = 0;	/* cleared so we don't try to reuse */
 	}
 
