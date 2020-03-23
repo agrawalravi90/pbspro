@@ -414,6 +414,7 @@ char *msg_sched_op_not_permitted = "Operation is not permitted on default schedu
 char *msg_sched_part_already_used = "Partition is already associated with other scheduler";
 char *msg_invalid_max_job_sequence_id = "Cannot set max_job_sequence_id < 9999999, or > 999999999999";
 char *msg_jsf_incompatible = "Server's job_sort_formula value is incompatible with sched's";
+char *msg_sched_tp_rw_clash = "Setting both throughput_mode and runjob_wait not allowed";
 
 char *msg_resv_not_empty = "Reservation not empty";
 char *msg_stdg_resv_occr_conflict = "Requested time(s) will interfere with a later occurrence";
@@ -609,6 +610,7 @@ struct pbs_err_to_txt pbs_err_to_txt[] = {
 	{PBSE_NODE_BUSY, &msg_node_busy},
 	{PBSE_DEFAULT_PARTITION, &msg_default_partition},
 	{PBSE_HISTDEPEND, &msg_histdepend},
+	{PBSE_SCHED_TP_RW_CLASH, &msg_sched_tp_rw_clash},
 	{ 0, NULL }		/* MUST be the last entry */
 };
 

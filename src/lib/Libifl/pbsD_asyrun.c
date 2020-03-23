@@ -66,7 +66,6 @@ int
 __pbs_asyrunjob(int c, char *jobid, char *location, char *extend)
 {
 	int	rc;
-	struct batch_reply   *reply;
 	unsigned long resch = 0;
 
 	if ((jobid == NULL) || (*jobid == '\0'))
@@ -108,11 +107,78 @@ __pbs_asyrunjob(int c, char *jobid, char *location, char *extend)
 		return pbs_errno;
 	}
 
-	/* get reply */
+	/* unlock the thread lock and update the thread context data */
+	if (pbs_client_thread_unlock_connection(c) != 0)
+		return pbs_errno;
 
+	return 0;
+}
+
+/**
+ * @brief
+ *	-send a run job batch request which waits for an ack from server
+ *	this differs from pbs_runjob in that server sends an ack before contacting the mom
+ *	so it's faster than regular pbs_runjob
+ *
+ * @param[in] c - connection handle
+ * @param[in] jobid- job identifier
+ * @param[in] location - string of vnodes/resources to be allocated to the job
+ * @param[in] extend - extend string for encoding req
+ *
+ * @return      int
+ * @retval      0       success
+ * @retval      !0      error
+ *
+ */
+int
+pbs_asyrunjob_ack(int c, char *jobid, char *location, char *extend)
+{
+	int	rc;
+	unsigned long resch = 0;
+	struct batch_reply *reply = NULL;
+
+	if ((jobid == NULL) || (*jobid == '\0'))
+		return (pbs_errno = PBSE_IVALREQ);
+	if (location == NULL)
+		location = "";
+
+	/* initialize the thread context data, if not already initialized */
+	if (pbs_client_thread_init_thread_context() != 0)
+		return pbs_errno;
+
+	/* lock pthread mutex here for this connection */
+	/* blocking call, waits for mutex release */
+	if (pbs_client_thread_lock_connection(c) != 0)
+		return pbs_errno;
+
+	/* setup DIS support routines for following DIS calls */
+
+	DIS_tcp_funcs();
+
+	/* send run request */
+
+	if ((rc = encode_DIS_ReqHdr(c, PBS_BATCH_AsyrunJob_ack,
+		pbs_current_user)) ||
+		(rc = encode_DIS_Run(c, jobid, location, resch)) ||
+		(rc = encode_DIS_ReqExtend(c, extend))) {
+		if (set_conn_errtxt(c, dis_emsg[rc]) != 0) {
+			pbs_errno = PBSE_SYSTEM;
+		} else {
+			pbs_errno = PBSE_PROTOCOL;
+		}
+		(void)pbs_client_thread_unlock_connection(c);
+		return pbs_errno;
+	}
+
+	if (dis_flush(c)) {
+		pbs_errno = PBSE_PROTOCOL;
+		(void)pbs_client_thread_unlock_connection(c);
+		return pbs_errno;
+	}
+
+	/* Get reply*/
 	reply = PBSD_rdrpy(c);
 	rc = get_conn_errno(c);
-
 	PBSD_FreeReply(reply);
 
 	/* unlock the thread lock and update the thread context data */

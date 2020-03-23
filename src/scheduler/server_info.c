@@ -147,6 +147,7 @@
 #include "fifo.h"
 #include "buckets.h"
 #include "parse.h"
+#include "hook.h"
 #ifdef NAS
 #include "site_code.h"
 #endif
@@ -243,7 +244,7 @@ query_server(status *pol, int pbs_sd)
 		free_server(sinfo);
 		return NULL;
 	}
-	query_sched_obj(policy, sched, sinfo);
+	query_sched_obj(pbs_sd, policy, sched, sinfo);
 	pbs_statfree(all_sched);
 
 	if (!dflt_sched && (sinfo->partition == NULL)) {
@@ -833,6 +834,43 @@ query_server_dyn_res(server_info *sinfo)
 }
 
 /**
+ * @brief	Check if there are any runjob hooks configured in the system
+ *
+ * @param	void
+ *
+ * @return	int
+ * @retval	1 if runjob hooks are configured
+ * @retval	0 if not
+ */
+static int
+check_runjob_hooks(int pbs_sd)
+{
+	struct attrl runj_attrl;
+	struct batch_status *hooks = NULL;
+	struct batch_status *iter_hooks = NULL;
+	int ret = 0;
+
+	runj_attrl.name = "event";
+	runj_attrl.value = "";
+	runj_attrl.next = NULL;
+	runj_attrl.resource = NULL;
+
+	pbs_errno = PBSE_NONE;
+	hooks = pbs_stathook(pbs_sd, NULL, &runj_attrl, NULL);
+	for (iter_hooks = hooks; iter_hooks != NULL; iter_hooks = iter_hooks->next) {
+		if (iter_hooks->attribs != NULL && iter_hooks->attribs->value != NULL) {
+			if (strstr(iter_hooks->attribs->value, HOOKSTR_RUNJOB) != NULL) {
+				ret = 1;
+				break;
+			}
+		}
+	}
+
+	pbs_statfree(hooks);
+	return ret;
+}
+
+/**
  * @brief
  * 		query_sched_obj - query the server's scheduler object and
  *		convert attributes to scheduler's internal data structures
@@ -847,7 +885,7 @@ query_server_dyn_res(server_info *sinfo)
  *
  */
 int
-query_sched_obj(status *policy, struct batch_status *sched, server_info *sinfo)
+query_sched_obj(int pbs_sd, status *policy, struct batch_status *sched, server_info *sinfo)
 {
 	struct attrl *attrp;          /* linked list of attributes from server */
 
@@ -865,9 +903,6 @@ query_sched_obj(status *policy, struct batch_status *sched, server_info *sinfo)
 		return 0;
 
 	attrp = sched->attribs;
-
-	/* set throughput mode to 1 by default */
-	sinfo->throughput_mode = 1;
 
 	while (attrp != NULL) {
 		if (!strcmp(attrp->name, ATTR_sched_cycle_len)) {
@@ -891,8 +926,24 @@ query_sched_obj(status *policy, struct batch_status *sched, server_info *sinfo)
 		} else if (!strcmp(attrp->name, ATTR_job_sort_formula_threshold)) {
 			policy->job_form_threshold_set = 1;
 			policy->job_form_threshold = res_to_num(attrp->value, NULL);
-		} else if (!strcmp(attrp->name, ATTR_throughput_mode)) {
-			sinfo->throughput_mode = res_to_num(attrp->value, NULL);
+		} else if (!strcmp(attrp->name, ATTR_throughput_mode)) {	/* Deprecated, exists for backward compat. */
+			if (res_to_num(attrp->value, NULL))
+				sinfo->runjob_mode = RJ_RUNJOB_HOOK;
+			else
+				sinfo->runjob_mode = RJ_EXECJOB_HOOK;
+		} else if (!strcmp(attrp->name, ATTR_runjob_wait)) {
+			if (!strcmp(attrp->value, RW_NONE))
+				sinfo->runjob_mode = RJ_NOWAIT;
+			else if (!strcmp(attrp->value, RW_RUNJOB_HOOK)) {
+				/* If no runjob hooks, then use RJ_NOWAIT */
+				if (!check_runjob_hooks(pbs_sd)) {
+					sinfo->runjob_mode = RJ_NOWAIT;
+					log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__,
+						"No runjob hooks found, will use runjob_wait=none for better performance");
+				} else
+					sinfo->runjob_mode = RJ_RUNJOB_HOOK;
+			} else
+				sinfo->runjob_mode = RJ_EXECJOB_HOOK;
 		} else if (!strcmp(attrp->name, ATTR_opt_backfill_fuzzy)) {
 			if (!strcasecmp(attrp->value, "off"))
 				sinfo->opt_backfill_fuzzy_time = BF_OFF;
@@ -1315,7 +1366,7 @@ new_server_info(int limallocflag)
 	sinfo->provision_enable = 0;
 	sinfo->power_provisioning = 0;
 	sinfo->dont_span_psets = 0;
-	sinfo->throughput_mode = 0;
+	sinfo->runjob_mode = RJ_RUNJOB_HOOK;
 	sinfo->has_nonCPU_licenses = 0;
 	sinfo->enforce_prmptd_job_resumption = 0;
 	sinfo->use_hard_duration = 0;

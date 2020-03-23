@@ -361,6 +361,7 @@ extern "C" {
 #define ATTR_sched_preempt_order  "preempt_order"
 #define ATTR_sched_preempt_sort  "preempt_sort"
 #define ATTR_sched_server_dyn_res_alarm "server_dyn_res_alarm"
+#define ATTR_runjob_wait "runjob_wait"
 
 /* additional node "attributes" names */
 

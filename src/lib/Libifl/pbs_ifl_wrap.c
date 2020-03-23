@@ -8508,6 +8508,7 @@ SWIG_init(void) {
   SWIG_Python_SetConstant(d, "ATTR_preempt_targets_enable",SWIG_FromCharPtr("preempt_targets_enable"));
   SWIG_Python_SetConstant(d, "ATTR_job_sort_formula_threshold",SWIG_FromCharPtr("job_sort_formula_threshold"));
   SWIG_Python_SetConstant(d, "ATTR_throughput_mode",SWIG_FromCharPtr("throughput_mode"));
+  SWIG_Python_SetConstant(d, "ATTR_runjob_wait",SWIG_FromCharPtr("runjob_wait"));
   SWIG_Python_SetConstant(d, "ATTR_opt_backfill_fuzzy",SWIG_FromCharPtr("opt_backfill_fuzzy"));
   SWIG_Python_SetConstant(d, "ATTR_sched_port",SWIG_FromCharPtr("sched_port"));
   SWIG_Python_SetConstant(d, "ATTR_partition",SWIG_FromCharPtr("partition"));

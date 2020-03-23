@@ -7191,28 +7191,6 @@ enum failover_state are_we_primary(void)
 	return FAILOVER_CONFIG_ERROR;	    /* cannot be neither */
 }
 
-/* action function for opt_backfill_fuzzy -- only allow the correct values */
-int
-action_opt_bf_fuzzy(attribute *pattr, void *pobj, int actmode)
-{
-	char *str = pattr->at_val.at_str;
-
-	if (str == NULL)
-		return PBSE_BADATVAL;
-
-	if (actmode == ATR_ACTION_ALTER || actmode == ATR_ACTION_RECOV) {
-		if (!strcasecmp(str, "off") ||
-		    !strcasecmp(str, "low")  ||
-		    !strcasecmp(str, "medium") || !strcasecmp(str, "med") ||
-		    !strcasecmp(str, "high"))
-			return PBSE_NONE;
-		else
-			return PBSE_BADATVAL;
-	}
-
-	return PBSE_NONE;
-}
-
 /**
  * @brief
  * 		sets the given value for an attribute of any object from server

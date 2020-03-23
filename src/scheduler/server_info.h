@@ -60,7 +60,7 @@ server_info *query_server(status *policy, int pbs_sd);
  *	query_sched_obj - query the server's scheduler object and convert
  *			  attributes to scheduler's internal data structures
  */
-int query_sched_obj(status *policy, struct batch_status *sched, server_info *sinfo);
+int query_sched_obj(int pbs_sd, status *policy, struct batch_status *sched, server_info *sinfo);
 
 /*
  *	query_server_info - collect information out of a statserver call

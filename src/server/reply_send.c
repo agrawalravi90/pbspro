@@ -279,10 +279,12 @@ reply_send(struct batch_request *request)
 	int		    rc = 0;
 	int		    sfds = request->rq_conn;		/* socket */
 
-	if (request && request->rq_type == PBS_BATCH_ModifyJob_Async) {
+	if (request && (request->rq_type == PBS_BATCH_ModifyJob_Async ||
+			request->rq_type == PBS_BATCH_AsyrunJob)) {
 		free_br(request);
 		return 0;
 	}
+
 
 	/* if this is a child request, just move the error to the parent */
 	if (request->rq_parentbr) {
@@ -366,7 +368,7 @@ reply_ack(struct batch_request *preq)
 	if (preq == NULL)
 		return;
 
-	if (preq->rq_type == PBS_BATCH_ModifyJob_Async) {
+	if (preq->rq_type == PBS_BATCH_ModifyJob_Async || preq->rq_type == PBS_BATCH_AsyrunJob) {
 		free_br(preq);
 		return;
 	}
@@ -453,7 +455,7 @@ req_reject(int code, int aux, struct batch_request *preq)
 	if (preq == NULL)
 		return;
 
-	if (preq->rq_type == PBS_BATCH_ModifyJob_Async) {
+	if (preq->rq_type == PBS_BATCH_ModifyJob_Async || preq->rq_type == PBS_BATCH_AsyrunJob) {
 		free_br(preq);
 		return;
 	}

@@ -340,11 +340,26 @@ req_runjob(struct batch_request *preq)
 
 #ifndef NAS /* localmod 133 */
 	if ((psched->scheduler_sock != -1) && was_job_alteredmoved(parent)) {
-		int index = find_attr(sched_attr_def, ATTR_throughput_mode, SCHED_ATR_LAST);
-		/* do not blacklist altered/moved jobs when throughput_mode is enabled */
-		if ((index == -1) ||
-			((psched->sch_attr[index].at_flags & ATR_VFLAG_SET) &&
-			 (psched->sch_attr[index].at_val.at_long == 0))) {
+		int index_tp = find_attr(sched_attr_def, ATTR_throughput_mode, SCHED_ATR_LAST);
+		int index_rw = find_attr(sched_attr_def, ATTR_runjob_wait, SCHED_ATR_LAST);
+		int blacklist = 0;
+
+		/*
+		 * Do not blacklist altered/moved jobs when throughput_mode is enabled or
+		 * runjob_wait is not set to "execjob_hook"
+		 */
+		if (index_tp == -1 && index_rw == -1)
+			blacklist = 1;
+		else if ((index_tp != -1) &&
+				(psched->sch_attr[index_tp].at_flags & ATR_VFLAG_SET) &&
+				(psched->sch_attr[index_tp].at_val.at_long == 0))
+			blacklist = 1;
+		else if ((index_rw != -1) &&
+				(psched->sch_attr[index_rw].at_flags & ATR_VFLAG_SET) &&
+				(!strcmp(psched->sch_attr[index_rw].at_val.at_str, RW_EXECJOB_HOOK)))
+			blacklist = 1;
+
+		if (blacklist) {
 			req_reject(PBSE_NORUNALTEREDJOB, 0, preq);
 			set_scheduler_flag(SCH_SCHEDULE_NEW, psched);
 			return;
@@ -707,13 +722,13 @@ req_runjob2(struct batch_request *preq, job *pjob)
 	/* If async run, reply now; otherwise reply is handled in */
 	/* post_sendmom or post_stagein				  */
 	rq_type = preq->rq_type;
-	if (preq && (rq_type == PBS_BATCH_AsyrunJob)) {
+	if (preq && (rq_type == PBS_BATCH_AsyrunJob_ack)) {
 		reply_ack(preq);
 		preq = 0;	/* cleared so we don't try to reuse */
 	}
 
 	if (((rc = svr_startjob(pjob, preq)) != 0) &&
-		((rq_type == PBS_BATCH_AsyrunJob) || preq)) {
+		((rq_type == PBS_BATCH_AsyrunJob_ack) || preq)) {
 		free_nodes(pjob);
 		if (preq)
 			req_reject(rc, 0, preq);
@@ -1110,13 +1125,13 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
 		/* Clear the suspend server flag. */
 		pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Suspend;
 
-		/* in case of async runjob, we need to assign resources
+		/* in case of async ack runjob, we need to assign resources
 		 * since another scheduling cycle can happen before the
 		 * mom responds to the req_commit message. This is the
 		 * same logic that is done for jobs with files to stage
 		 * in
 		 */
-		if (preq == NULL || (preq->rq_type == PBS_BATCH_AsyrunJob)) {
+		if (preq == NULL || (preq->rq_type == PBS_BATCH_AsyrunJob_ack) || (preq->rq_type == PBS_BATCH_AsyrunJob)) {
 			job *base_job = NULL;
 			if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN){
 				set_resc_assigned((void *)pjob, 0, INCR);
