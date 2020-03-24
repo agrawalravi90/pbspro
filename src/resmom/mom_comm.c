@@ -3205,7 +3205,7 @@ im_request(int stream, int version)
 			}
 			free_attrlist(&lhead);
 			if (errcode != 0) {
-				(void)job_purge(pjob);
+				(void)job_purge_mom(pjob);
 				SEND_ERR(errcode)
 				goto done;
 			}
