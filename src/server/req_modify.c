@@ -143,6 +143,7 @@ post_modify_req(struct work_task *pwt)
  *		the Server does anything with the request.
  *
  * @param[in] preq - pointer to batch request from client
+ * @param[in] async - request is async or not?
  */
 
 void

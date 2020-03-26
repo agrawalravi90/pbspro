@@ -100,12 +100,10 @@ PBSD_manager(int c, int function, int command, int objtype, char *objname, struc
 		return i;
 	}
 
-	if (extend == NULL || strcmp(extend, "async") != 0) {
-		/* read reply from stream into presentation element */
-		reply = PBSD_rdrpy(c);
-		PBSD_FreeReply(reply);
-		rc = get_conn_errno(c);
-	}
+	/* read reply from stream into presentation element */
+	reply = PBSD_rdrpy(c);
+	PBSD_FreeReply(reply);
+	rc = get_conn_errno(c);
 
 	/* unlock the thread lock and update the thread context data */
 	if (pbs_client_thread_unlock_connection(c) != 0)
