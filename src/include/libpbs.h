@@ -306,6 +306,7 @@ struct batch_reply {
 #define PBS_BATCH_ModifyResv	91
 #define PBS_BATCH_ResvOccurEnd	92
 #define PBS_BATCH_SchedCycleEnd 93
+#define PBS_BATCH_ModifyJob_Async	96
 
 #define PBS_BATCH_FileOpt_Default	0
 #define PBS_BATCH_FileOpt_OFlg		1

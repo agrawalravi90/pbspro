@@ -237,8 +237,12 @@ reply_send(struct batch_request *request)
 	int		    rc = 0;
 	int		    sfds = request->rq_conn;		/* socket */
 
-	/* if this is a child request, just move the error to the parent */
+	if (request && request->rq_type == PBS_BATCH_ModifyJob_Async) {
+		free_br(request);
+		return 0;
+	}
 
+	/* if this is a child request, just move the error to the parent */
 	if (request->rq_parentbr) {
 		if ((request->rq_parentbr->rq_reply.brp_choice == BATCH_REPLY_CHOICE_NULL) && (request->rq_parentbr->rq_reply.brp_code == 0)) {
 			request->rq_parentbr->rq_reply.brp_code = request->rq_reply.brp_code;
@@ -319,6 +323,11 @@ reply_ack(struct batch_request *preq)
 {
 	if (preq == NULL)
 		return;
+
+	if (preq->rq_type == PBS_BATCH_ModifyJob_Async) {
+		free_br(preq);
+		return;
+	}
 
 	if (preq->isrpp && (preq->rpp_ack == 0)) {
 		free_br(preq);
@@ -402,6 +411,11 @@ req_reject(int code, int aux, struct batch_request *preq)
 	if (preq == NULL)
 		return;
 
+	if (preq->rq_type == PBS_BATCH_ModifyJob_Async) {
+		free_br(preq);
+		return;
+	}
+
 	if (code != PBSE_NONE) {
 		evt_type = PBSEVENT_DEBUG;
 		if (code == PBSE_BADHOST)
@@ -453,6 +467,11 @@ reply_badattr(int code, int aux, svrattrl *pal,
 
 	if (preq == NULL)
 		return;
+
+	if (preq->rq_type == PBS_BATCH_ModifyJob_Async) {
+		free_br(preq);
+		return;
+	}
 
 #ifdef NAS /* localmod 005 */
 	set_err_msg(code, msgbuf, sizeof(msgbuf));
@@ -506,6 +525,11 @@ reply_text(struct batch_request *preq, int code, char *text)
 {
 	if (preq == NULL)
 		return 0;
+
+	if (preq->rq_type == PBS_BATCH_ModifyJob_Async) {
+		free_br(preq);
+		return 0;
+	}
 
 	if (preq->rq_reply.brp_choice != BATCH_REPLY_CHOICE_NULL)
 		/* in case another reply was being built up, clean it out */
