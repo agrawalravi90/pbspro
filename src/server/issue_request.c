@@ -535,7 +535,7 @@ issue_Drequest(int conn,
 				request->rq_ind.rq_modify.rq_objname,
 				patrl,
 				NULL,
-				prot,
+				0,
 				&msgid);
 			break;
 

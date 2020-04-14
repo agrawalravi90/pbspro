@@ -181,7 +181,7 @@ pbs_asyalterjob(int c, char *jobid, struct attrl *attrib, char *extend)
 
 	/* send the manage request with modifyjob async */
 	attrib_opl = attrl_to_attropl(attrib);
-	i = PBSD_mgr_put(c, PBS_BATCH_ModifyJob_Async, MGR_CMD_SET, MGR_OBJ_JOB, jobid, attrib_opl, extend, PROT_TCP, NULL);
+	i = PBSD_mgr_put(c, PBS_BATCH_ModifyJob_Async, MGR_CMD_SET, MGR_OBJ_JOB, jobid, attrib_opl, extend, 0, NULL);
 	__free_attropl(attrib_opl);
 
 	if (i) {

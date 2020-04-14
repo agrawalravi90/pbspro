@@ -95,7 +95,7 @@ extern void delete_task(struct work_task *);
 extern void delete_task_by_parm1(void *parm1, enum wtask_delete_option option);
 extern int  has_task_by_parm1(void *parm1);
 extern time_t default_next_task(void);
-
+extern void delete_task_by_parm1_func(void *parm1, void (*func)(struct work_task *), enum wtask_delete_option option);
 #ifdef	__cplusplus
 }
 #endif
