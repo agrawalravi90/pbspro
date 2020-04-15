@@ -40,12 +40,12 @@ from tests.performance import *
 
 class TestRunjobWaitPerf(TestPerformance):
     """
-    Performance tests related to performance testing of sched runjob_wait attr
+    Performance tests related to performance testing of sched job_run_wait attr
     """
 
     def common_test(self, rw_val):
         """
-        Common testing method for runjob_wait tests
+        Common testing method for job_run_wait tests
         """
         # Create 100 vnodes with 100 ncpus each, capable of running 10k jobs
         a = {"resources_available.ncpus": 100}
@@ -62,7 +62,7 @@ class TestRunjobWaitPerf(TestPerformance):
         self.assertTrue(self.mom.isUp())
         self.server.expect(NODE, {'resources_available.ncpus=100': (GE, 100)})
 
-        self.server.manager(MGR_CMD_SET, SCHED, {'runjob_wait': rw_val},
+        self.server.manager(MGR_CMD_SET, SCHED, {'job_run_wait': rw_val},
                             id="default")
 
         self.server.manager(MGR_CMD_SET, SERVER, {"scheduling": "False"})
@@ -76,7 +76,7 @@ class TestRunjobWaitPerf(TestPerformance):
         c = self.scheduler.cycles(lastN=1)[0]
         t = c.end - c.start
         self.logger.info('#' * 80)
-        m = "Time taken for runjob_wait=%s: %s" % (rw_val, str(t))
+        m = "Time taken for job_run_wait=%s: %s" % (rw_val, str(t))
         self.logger.info(m)
         self.logger.info('#' * 80)
 
@@ -85,14 +85,14 @@ class TestRunjobWaitPerf(TestPerformance):
     @timeout(7200)
     def test_rw_none(self):
         """
-        Test performance of runjob_wait=none
+        Test performance of job_run_wait=none
         """
         self.common_test("none")
 
     @timeout(7200)
     def test_rw_runjobhook(self):
         """
-        Test performance of runjob_wait=runjob_hook
+        Test performance of job_run_wait=runjob_hook
         """
         # Create runjob hook so that sched doesn't upgrade runjob_hook to none
         hook_txt = """
@@ -107,19 +107,19 @@ pbs.event().accept()
     @timeout(7200)
     def test_rw_execjobhook(self):
         """
-        Test performance of runjob_wait=execjob_hook
+        Test performance of job_run_wait=execjob_hook
         """
         self.common_test("execjob_hook")
 
     @timeout(14400)
     def test_rw_runjobhook_nohook(self):
         """
-        Test performance of runjob_wait=runjob_hook without a runjob hook
+        Test performance of job_run_wait=runjob_hook without a runjob hook
         """
         t_rj = self.common_test("runjob_hook")
         t_none = self.common_test("none")
 
         # Verify that time taken by runjob_hook mode was less than 1.5 times
         # the time taken by none mode, as without a runjob hook, the
-        # scheduler should assume none mode even if runjob_wait=runjob_hook
+        # scheduler should assume none mode even if job_run_wait=runjob_hook
         self.assertLess(t_rj / t_none, 1.5)

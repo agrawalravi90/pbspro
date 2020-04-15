@@ -40,7 +40,7 @@ from tests.functional import *
 
 class TestSchedRunjobWait(TestFunctional):
     """
-    Tests related to scheduler attribute runjob_wait
+    Tests related to scheduler attribute job_run_wait
     """
 
     def setup_scn(self, n):
@@ -90,20 +90,20 @@ class TestSchedRunjobWait(TestFunctional):
         self.server.manager(MGR_CMD_SET, SCHED,
                             {'throughput_mode': "True"}, id="default")
         msg = "'throughput_mode' is being deprecated, " +\
-            "it is recommended to use 'runjob_wait' in future"
+            "it is recommended to use 'job_run_wait' in future"
         self.server.log_match(msg, starttime=t1)
 
     def test_runjobwait_throughput_clash(self):
         """
-        Test that runjob_wait and throughput_mode cannot both be set
+        Test that job_run_wait and throughput_mode cannot both be set
         """
-        errmsg = "Setting both throughput_mode and runjob_wait not allowed"
+        errmsg = "Setting both throughput_mode and job_run_wait not allowed"
         self.server.manager(MGR_CMD_SET, SCHED,
                             {'throughput_mode': "True"}, id="default")
         try:
             self.server.manager(MGR_CMD_SET, SCHED,
-                                {'runjob_wait': "none"}, id="default")
-            self.fail("Throughput_mode and runjob_wait were both set!")
+                                {'job_run_wait': "none"}, id="default")
+            self.fail("Throughput_mode and job_run_wait were both set!")
         except PbsManagerError as e:
             self.assertIn(errmsg, str(e))
 
@@ -111,11 +111,11 @@ class TestSchedRunjobWait(TestFunctional):
                             'throughput_mode', id="default")
 
         self.server.manager(MGR_CMD_SET, SCHED,
-                            {'runjob_wait': "none"}, id="default")
+                            {'job_run_wait': "none"}, id="default")
         try:
             self.server.manager(MGR_CMD_SET, SCHED,
                                 {'throughput_mode': "True"}, id="default")
-            self.fail("Throughput_mode and runjob_wait were both set!")
+            self.fail("Throughput_mode and job_run_wait were both set!")
         except PbsManagerError as e:
             self.assertIn(errmsg, str(e))
 
@@ -125,48 +125,49 @@ class TestSchedRunjobWait(TestFunctional):
         """
         try:
             self.server.manager(MGR_CMD_UNSET, SCHED,
-                                'runjob_wait', id="default")
+                                'job_run_wait', id="default")
         except PbsManagerError:
             pass
 
         # Check that it's set to the default
-        self.server.expect(SCHED, {'runjob_wait': 'runjob_hook'}, id='default')
+        self.server.expect(SCHED, {'job_run_wait': 'runjob_hook'},
+                           id='default')
 
     def test_valid_vals(self):
         """
-        Test that runjob_wait can only be set to its default values
+        Test that job_run_wait can only be set to its default values
         """
-        self.server.manager(MGR_CMD_SET, SCHED, {'runjob_wait': 'none'},
+        self.server.manager(MGR_CMD_SET, SCHED, {'job_run_wait': 'none'},
                             id='default')
         self.server.manager(MGR_CMD_SET, SCHED,
-                            {'runjob_wait': 'runjob_hook'}, id='default')
+                            {'job_run_wait': 'runjob_hook'}, id='default')
         self.server.manager(MGR_CMD_SET, SCHED,
-                            {'runjob_wait': 'execjob_hook'}, id='default')
+                            {'job_run_wait': 'execjob_hook'}, id='default')
         try:
             self.server.manager(MGR_CMD_SET, SCHED,
-                                {'runjob_wait': 'badstr'}, id='default')
-            self.fail("invalid str value for runjob_wait was accepted")
+                                {'job_run_wait': 'badstr'}, id='default')
+            self.fail("invalid str value for job_run_wait was accepted")
         except PbsManagerError:
             pass
 
         try:
             self.server.manager(MGR_CMD_SET, SCHED,
-                                {'runjob_wait': 0}, id='default')
-            self.fail("invalid int value for runjob_wait was accepted")
+                                {'job_run_wait': 0}, id='default')
+            self.fail("invalid int value for job_run_wait was accepted")
         except PbsManagerError:
             pass
 
     def test_multisched_multival(self):
         """
         Test that multiple scheds can be configured with different vals of
-        runjob_wait, and behave correctly
+        job_run_wait, and behave correctly
         """
         sc_queue = self.setup_scn(3)
-        a = {"scheduling": "False", "runjob_wait": "none"}
+        a = {"scheduling": "False", "job_run_wait": "none"}
         self.server.manager(MGR_CMD_SET, SCHED, a, id=sc_queue[0][0])
-        a["runjob_wait"] = "runjob_hook"
+        a["job_run_wait"] = "runjob_hook"
         self.server.manager(MGR_CMD_SET, SCHED, a, id=sc_queue[1][0])
-        a["runjob_wait"] = "execjob_hook"
+        a["job_run_wait"] = "execjob_hook"
         self.server.manager(MGR_CMD_SET, SCHED, a, id=sc_queue[2][0])
 
         hook_txt = """
@@ -186,7 +187,7 @@ pbs.event().accept()
         jid2 = self.server.submit(Job(attrs=a))
         self.server.create_import_hook('rj', hk_attrs, hook_txt % (jid1))
 
-        # sched 1 with runjob_wait=none runs first job without waiting
+        # sched 1 with job_run_wait=none runs first job without waiting
         # for runjob reject, so it doesn't run second job.
         # Ultimately, neither jobs should run
         self.scheds[sc_queue[0][0]].run_scheduling_cycle()
@@ -199,7 +200,7 @@ pbs.event().accept()
         jid4 = self.server.submit(Job(attrs=a))
         self.server.create_import_hook('rj', hk_attrs, hook_txt % str(jid3))
 
-        # sched 2 with runjob_wait=runjob_hook should wait for runjob
+        # sched 2 with job_run_wait=runjob_hook should wait for runjob
         # reject and then run the second job
         self.scheds[sc_queue[1][0]].run_scheduling_cycle()
         self.server.expect(JOB, {'job_state': 'Q'}, id=jid3)
@@ -212,7 +213,7 @@ pbs.event().accept()
         hk_attrs["event"] = 'execjob_begin'
         self.server.create_import_hook('ej', hk_attrs, hook_txt % str(jid5))
 
-        # sched 2 with runjob_wait=runjob_hook won't wait for execjob_begin
+        # sched 2 with job_run_wait=runjob_hook won't wait for execjob_begin
         # reject, so it will run first job and not run second.
         # Ultimately no jobs will run
         self.scheds[sc_queue[1][0]].run_scheduling_cycle()
@@ -226,7 +227,7 @@ pbs.event().accept()
         hk_attrs["event"] = 'execjob_begin'
         self.server.create_import_hook('ej', hk_attrs, hook_txt % str(jid7))
 
-        # sched 3 with runjob_wait=execjob_hook should wait for runjob
+        # sched 3 with job_run_wait=execjob_hook should wait for runjob
         # reject and then run the second job
         self.scheds[sc_queue[2][0]].run_scheduling_cycle()
         self.server.expect(JOB, {'job_state': 'Q'}, id=jid7)
@@ -235,10 +236,10 @@ pbs.event().accept()
     def test_no_runjob_hook(self):
         """
         Test that when there is no runjob hook configured, sched behaves as if
-        runjob_wait == none, even if it's set to "runjob_hook"
+        job_run_wait == none, even if it's set to "runjob_hook"
         """
 
-        a = {"scheduling": "False", "runjob_wait": "runjob_hook"}
+        a = {"scheduling": "False", "job_run_wait": "runjob_hook"}
         self.server.manager(MGR_CMD_SET, SCHED, a, id="default")
 
         self.server.submit(Job())
@@ -257,10 +258,10 @@ pbs.event().accept()
     def test_with_runjob_hook(self):
         """
         Test that when there is a runjob hook configured, sched doesn't
-        upgrade runjob_wait from "runjob_hook" to "none"
+        upgrade job_run_wait from "runjob_hook" to "none"
         """
 
-        a = {"scheduling": "False", "runjob_wait": "runjob_hook"}
+        a = {"scheduling": "False", "job_run_wait": "runjob_hook"}
         self.server.manager(MGR_CMD_SET, SCHED, a, id="default")
 
         hook_txt = """
@@ -288,7 +289,7 @@ pbs.event().accept()
         Test that throughput_mode still works correctly
         """
         self.server.manager(MGR_CMD_UNSET, SCHED,
-                            'runjob_wait', id="default")
+                            'job_run_wait', id="default")
 
         a = {'throughput_mode': "True", "scheduling": "False"}
         self.server.manager(MGR_CMD_SET, SCHED, a, id="default")

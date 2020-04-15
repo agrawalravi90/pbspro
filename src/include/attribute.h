@@ -582,7 +582,7 @@ extern int action_sched_partition(attribute *pattr, void *pobj, int actmode);
 extern int action_sched_preempt_order(attribute *pattr, void *pobj, int actmode);
 extern int action_sched_preempt_common(attribute *pattr, void *pobj, int actmode);
 extern int action_sched_server_dyn_res_alarm(attribute *pattr, void *pobj, int actmode);
-extern int action_runjob_wait(attribute *pattr, void *pobj, int actmode);
+extern int action_job_run_wait(attribute *pattr, void *pobj, int actmode);
 extern int action_throughput_mode(attribute *pattr, void *pobj, int actmode);
 
 /* Extern functions from queue_attr_def */

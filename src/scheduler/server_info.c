@@ -931,7 +931,7 @@ query_sched_obj(int pbs_sd, status *policy, struct batch_status *sched, server_i
 				sinfo->runjob_mode = RJ_RUNJOB_HOOK;
 			else
 				sinfo->runjob_mode = RJ_EXECJOB_HOOK;
-		} else if (!strcmp(attrp->name, ATTR_runjob_wait)) {
+		} else if (!strcmp(attrp->name, ATTR_job_run_wait)) {
 			if (!strcmp(attrp->value, RW_NONE))
 				sinfo->runjob_mode = RJ_NOWAIT;
 			else if (!strcmp(attrp->value, RW_RUNJOB_HOOK)) {
@@ -939,7 +939,7 @@ query_sched_obj(int pbs_sd, status *policy, struct batch_status *sched, server_i
 				if (!check_runjob_hooks(pbs_sd)) {
 					sinfo->runjob_mode = RJ_NOWAIT;
 					log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__,
-						"No runjob hooks found, will use runjob_wait=none for better performance");
+						"No runjob hooks found, will use job_run_wait=none for better performance");
 				} else
 					sinfo->runjob_mode = RJ_RUNJOB_HOOK;
 			} else

@@ -987,8 +987,8 @@ set_sched_default(pbs_sched *psched, int from_scheduler)
 		psched->sch_attr[SCHED_ATR_server_dyn_res_alarm].at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODCACHE | ATR_VFLAG_DEFLT;
 	}
 
-	/* Note: Intentionally not setting runjob_wait because throughput_mode still exists.
-	 * Once we remove throughput_mode, we can set a default for runjob_wait */
+	/* Note: Intentionally not setting job_run_wait because throughput_mode still exists.
+	 * Once we remove throughput_mode, we can set a default for job_run_wait */
 
 	set_scheduler_flag(SCH_ATTRS_CONFIGURE, psched);
 }
@@ -1086,7 +1086,7 @@ action_opt_bf_fuzzy(attribute *pattr, void *pobj, int actmode)
 }
 
 /**
- * @brief action function for 'runjob_wait' sched attribute
+ * @brief action function for 'job_run_wait' sched attribute
  *
  * @param[in]	pattr		attribute being set
  * @param[in]	pobj		Object on which the attribute is being set
@@ -1095,7 +1095,7 @@ action_opt_bf_fuzzy(attribute *pattr, void *pobj, int actmode)
  * @return error code
  */
 int
-action_runjob_wait(attribute *pattr, void *pobj, int actmode)
+action_job_run_wait(attribute *pattr, void *pobj, int actmode)
 {
 	char *str = pattr->at_val.at_str;
 	pbs_sched *psched = NULL;
@@ -1138,13 +1138,13 @@ action_throughput_mode(attribute *pattr, void *pobj, int actmode)
 
 	psched = (pbs_sched *) pobj;
 
-	/* Check that runjob_wait is not set */
-	if (psched->sch_attr[SCHED_ATR_runjob_wait].at_flags & ATR_VFLAG_SET)
+	/* Check that job_run_wait is not set */
+	if (psched->sch_attr[SCHED_ATR_job_run_wait].at_flags & ATR_VFLAG_SET)
 		return PBSE_SCHED_TP_RW_CLASH;
 
 	/* Log a message letting user know that this attribute is deprecated */
 	log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_REQUEST, LOG_WARNING, psched->sc_name,
-			"'throughput_mode' is being deprecated, it is recommended to use 'runjob_wait' in future");
+			"'throughput_mode' is being deprecated, it is recommended to use 'job_run_wait' in future");
 
 	return PBSE_NONE;
 }
