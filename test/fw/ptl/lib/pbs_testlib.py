@@ -5760,6 +5760,7 @@ class Server(PBSService):
                 try:
                     rc = self.manager(MGR_CMD_LIST, obj_type, attrib, id,
                                       runas=runas, level=level, logerr=logerr)
+                    print(rc)
                 except PbsManagerError as e:
                     rc = e.rc
                     # PBS bug, no hooks yields a return code of 1, we ignore
@@ -8651,7 +8652,7 @@ class Server(PBSService):
                 else:
                     user = None
                 if id in self.jobs:
-                    self.jobs[id].attributes.update(binfo)
+                    self.jobs[id].attributes = binfo
                     if self.jobs[id].username != user:
                         self.jobs[id].username = user
                 else:
@@ -8659,41 +8660,41 @@ class Server(PBSService):
                 obj = self.jobs[id]
             elif obj_type in (VNODE, NODE):
                 if id in self.nodes:
-                    self.nodes[id].attributes.update(binfo)
+                    self.nodes[id].attributes = binfo
                 else:
                     self.nodes[id] = MoM(id, binfo, snapmap={NODE: None},
                                          server=self)
                 obj = self.nodes[id]
             elif obj_type == SERVER:
-                self.attributes.update(binfo)
+                self.attributes = binfo
                 obj = self
             elif obj_type == QUEUE:
                 if id in self.queues:
-                    self.queues[id].attributes.update(binfo)
+                    self.queues[id].attributes = binfo
                 else:
                     self.queues[id] = Queue(id, binfo, server=self)
                 obj = self.queues[id]
             elif obj_type == RESV:
                 if id in self.reservations:
-                    self.reservations[id].attributes.update(binfo)
+                    self.reservations[id].attributes = binfo
                 else:
                     self.reservations[id] = Reservation(id, binfo)
                 obj = self.reservations[id]
             elif obj_type == HOOK:
                 if id in self.hooks:
-                    self.hooks[id].attributes.update(binfo)
+                    self.hooks[id].attributes = binfo
                 else:
                     self.hooks[id] = Hook(id, binfo, server=self)
                 obj = self.hooks[id]
             elif obj_type == PBS_HOOK:
                 if id in self.pbshooks:
-                    self.pbshooks[id].attributes.update(binfo)
+                    self.pbshooks[id].attributes = binfo
                 else:
                     self.pbshooks[id] = Hook(id, binfo, server=self)
                 obj = self.pbshooks[id]
             elif obj_type == SCHED:
                 if id in self.schedulers:
-                    self.schedulers[id].attributes.update(binfo)
+                    self.schedulers[id].attributes = binfo
                     if 'sched_priv' in binfo:
                         self.schedulers[id].setup_sched_priv(
                             binfo['sched_priv'])
@@ -8717,12 +8718,12 @@ class Server(PBSService):
                                                     snapmap=snapmap,
                                                     id=id,
                                                     sched_priv=spriv)
-                    self.schedulers[id].attributes.update(binfo)
+                    self.schedulers[id].attributes = binfo
                 obj = self.schedulers[id]
 
             elif obj_type == RSC:
                 if id in self.resources:
-                    self.resources[id].attributes.update(binfo)
+                    self.resources[id].attributes = binfo
                 else:
                     rtype = None
                     rflag = None

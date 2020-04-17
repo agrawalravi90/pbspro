@@ -69,10 +69,9 @@ class TestSchedRunjobWait(TestFunctional):
 
             a = {'queue_type': 'execution',
                  'started': 'True',
-                 'enabled': 'True'}
+                 'enabled': 'True',
+                 'partition': pname}
             self.server.manager(MGR_CMD_CREATE, QUEUE, a, id=qname)
-            p = {'partition': pname}
-            self.server.manager(MGR_CMD_SET, QUEUE, p, id=qname)
             a = {'resources_available.ncpus': 1}
             prefix = 'vnode' + str(i)
             nname = prefix + "[0]"
@@ -95,43 +94,53 @@ class TestSchedRunjobWait(TestFunctional):
 
     def test_runjobwait_throughput_clash(self):
         """
-        Test that job_run_wait and throughput_mode cannot both be set
+        Test that job_run_wait and throughput_mode don't clash
         """
-        errmsg = "Setting both throughput_mode and job_run_wait not allowed"
+        # Setting TP to True/False should set JRW correctly
         self.server.manager(MGR_CMD_SET, SCHED,
                             {'throughput_mode': "True"}, id="default")
-        try:
-            self.server.manager(MGR_CMD_SET, SCHED,
-                                {'job_run_wait': "none"}, id="default")
-            self.fail("Throughput_mode and job_run_wait were both set!")
-        except PbsManagerError as e:
-            self.assertIn(errmsg, str(e))
-
-        self.server.manager(MGR_CMD_UNSET, SCHED,
-                            'throughput_mode', id="default")
+        self.server.expect(SCHED, {'job_run_wait': "runjob_hook"},
+                           id="default")
 
         self.server.manager(MGR_CMD_SET, SCHED,
+                            {'throughput_mode': "False"}, id="default")
+        self.server.expect(SCHED, {'job_run_wait': "execjob_hook"},
+                           id="default")
+
+        # Setting job_run_wait to 'none' should just delete TP
+        self.server.manager(MGR_CMD_SET, SCHED,
                             {'job_run_wait': "none"}, id="default")
-        try:
-            self.server.manager(MGR_CMD_SET, SCHED,
-                                {'throughput_mode': "True"}, id="default")
-            self.fail("Throughput_mode and job_run_wait were both set!")
-        except PbsManagerError as e:
-            self.assertIn(errmsg, str(e))
+        self.server.expect(SCHED, 'throughput_mode', op=UNSET, id="default")
+
+        # Setting JRW to runjob/execjob should set TP correctly
+        self.server.manager(MGR_CMD_SET, SCHED,
+                            {'job_run_wait': "runjob_hook"}, id="default")
+        self.server.expect(SCHED, {'throughput_mode': "True"},
+                           id="default")
+        self.server.manager(MGR_CMD_SET, SCHED,
+                            {'job_run_wait': "execjob_hook"}, id="default")
+        self.server.expect(SCHED, {'throughput_mode': "False"},
+                           id="default")
 
     def test_runjobwait_default(self):
         """
         Test that runjob wait gets set to its default when unset
         """
-        try:
-            self.server.manager(MGR_CMD_UNSET, SCHED,
-                                'job_run_wait', id="default")
-        except PbsManagerError:
-            pass
-
-        # Check that it's set to the default
+        # Unsetting job_run_wait should set both to default
+        self.server.manager(MGR_CMD_UNSET, SCHED,
+                            'job_run_wait', id="default")
         self.server.expect(SCHED, {'job_run_wait': 'runjob_hook'},
                            id='default')
+        self.server.expect(SCHED, {'throughput_mode': "True"},
+                           id="default")
+
+        # Unsetting TP should do the same
+        self.server.manager(MGR_CMD_UNSET, SCHED,
+                            'throughput_mode', id="default")
+        self.server.expect(SCHED, {'job_run_wait': "runjob_hook"},
+                           id="default")
+        self.server.expect(SCHED, {'throughput_mode': "True"},
+                           id="default")
 
     def test_valid_vals(self):
         """
@@ -143,19 +152,15 @@ class TestSchedRunjobWait(TestFunctional):
                             {'job_run_wait': 'runjob_hook'}, id='default')
         self.server.manager(MGR_CMD_SET, SCHED,
                             {'job_run_wait': 'execjob_hook'}, id='default')
-        try:
+        with self.assertRaises(PbsManagerError,
+                               msg="invalid str value was accepted"):
             self.server.manager(MGR_CMD_SET, SCHED,
                                 {'job_run_wait': 'badstr'}, id='default')
-            self.fail("invalid str value for job_run_wait was accepted")
-        except PbsManagerError:
-            pass
 
-        try:
+        with self.assertRaises(PbsManagerError,
+                               msg="invalid int value was accepted"):
             self.server.manager(MGR_CMD_SET, SCHED,
                                 {'job_run_wait': 0}, id='default')
-            self.fail("invalid int value for job_run_wait was accepted")
-        except PbsManagerError:
-            pass
 
     def test_multisched_multival(self):
         """
@@ -247,10 +252,6 @@ pbs.event().accept()
         t = time.time()
         self.scheduler.run_scheduling_cycle()
 
-        # Check that sched was able to access hooks data
-        logmsg = "is unauthorized to access hooks data from server"
-        self.server.log_match(logmsg, starttime=t, existence=False)
-
         # Check that server received PBS_BATCH_AsyrunJob, truly async request
         logmsg = "Type 23 request received"
         self.server.log_match(logmsg, starttime=t)
@@ -277,10 +278,6 @@ pbs.event().accept()
         t = time.time()
         self.scheduler.run_scheduling_cycle()
 
-        # Check that sched was able to access hooks data
-        logmsg = "is unauthorized to access hooks data from server"
-        self.server.log_match(logmsg, starttime=t, existence=False)
-
         # Check that server received PBS_BATCH_AsyrunJob_ack request
         self.server.log_match("Type 97 request received", starttime=t)
 
@@ -300,12 +297,13 @@ pbs.event().accept()
         self.scheduler.run_scheduling_cycle()
         self.server.expect(JOB, {"job_state": "R"}, id=jid)
 
-        # Check that server received PBS_BATCH_AsyrunJob_ack request
-        self.server.log_match("Type 97 request received", starttime=t)
+        # Check that server received PBS_BATCH_AsyrunJob request
+        self.server.log_match("Type 23 request received", starttime=t)
+
+        self.server.cleanup_jobs()
 
         self.server.manager(MGR_CMD_SET, SCHED, {'throughput_mode': "False"},
                             id="default")
-
         jid = self.server.submit(Job())
         t = time.time()
         self.scheduler.run_scheduling_cycle()
@@ -313,3 +311,23 @@ pbs.event().accept()
 
         # Check that server received PBS_BATCH_RunJob request
         self.server.log_match("Type 15 request received", starttime=t)
+
+        hook_txt = """
+import pbs
+
+pbs.event().accept()
+"""
+        hk_attrs = {'event': 'runjob', 'enabled': 'True'}
+        self.server.create_import_hook('rj', hk_attrs, hook_txt)
+
+        self.server.cleanup_jobs()
+
+        self.server.manager(MGR_CMD_SET, SCHED, {'throughput_mode': "True"},
+                            id="default")
+        jid = self.server.submit(Job())
+        t = time.time()
+        self.scheduler.run_scheduling_cycle()
+        self.server.expect(JOB, {"job_state": "R"}, id=jid)
+
+        # Check that server received PBS_BATCH_AsynJob_ack request
+        self.server.log_match("Type 97 request received", starttime=t)

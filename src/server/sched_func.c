@@ -986,9 +986,18 @@ set_sched_default(pbs_sched *psched, int from_scheduler)
 		psched->sch_attr[SCHED_ATR_server_dyn_res_alarm].at_val.at_long = PBS_SERVER_DYN_RES_ALARM_DEFAULT;
 		psched->sch_attr[SCHED_ATR_server_dyn_res_alarm].at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODCACHE | ATR_VFLAG_DEFLT;
 	}
+	if (!(psched->sch_attr[SCHED_ATR_job_run_wait].at_flags & ATR_VFLAG_SET)) {
+		set_attr_svr(&(psched->sch_attr[SCHED_ATR_job_run_wait]), &sched_attr_def[SCHED_ATR_job_run_wait],
+				RW_RUNJOB_HOOK);
 
-	/* Note: Intentionally not setting job_run_wait because throughput_mode still exists.
-	 * Once we remove throughput_mode, we can set a default for job_run_wait */
+		psched->sch_attr[SCHED_ATR_job_run_wait].at_flags |= ATR_VFLAG_DEFLT;
+	}
+	if (!(psched->sch_attr[SCHED_ATR_throughput_mode].at_flags & ATR_VFLAG_SET) &&
+			strcmp(psched->sch_attr[SCHED_ATR_job_run_wait].at_val.at_str, RW_NONE)) {
+		set_attr_svr(&(psched->sch_attr[SCHED_ATR_throughput_mode]), &sched_attr_def[SCHED_ATR_throughput_mode],
+				ATR_TRUE);
+		psched->sch_attr[SCHED_ATR_throughput_mode].at_flags |= ATR_VFLAG_DEFLT;
+	}
 
 	set_scheduler_flag(SCH_ATTRS_CONFIGURE, psched);
 }
@@ -1030,7 +1039,7 @@ action_sched_partition(attribute *pattr, void *pobj, int actmode)
 		if (psched == pobj)
 			continue;
 		part_attr = &(psched->sch_attr[SCHED_ATR_partition]);
-		if (part_attr->at_flags & ATR_VFLAG_SET && (!strcmp(pattr->at_val.at_str, part_attr->at_val.at_str)))
+		if ((part_attr->at_flags & ATR_VFLAG_SET) && (!strcmp(pattr->at_val.at_str, part_attr->at_val.at_str)))
 			return PBSE_SCHED_PARTITION_ALREADY_EXISTS;
 	}
 	if (actmode != ATR_ACTION_RECOV)
@@ -1098,24 +1107,30 @@ int
 action_job_run_wait(attribute *pattr, void *pobj, int actmode)
 {
 	char *str = pattr->at_val.at_str;
-	pbs_sched *psched = NULL;
 
 	if (str == NULL)
 		return PBSE_BADATVAL;
 
-	psched = (pbs_sched *) pobj;
-
-	/* Check that throughput_mode is not set */
-	if (psched->sch_attr[SCHED_ATR_throughput_mode].at_flags & ATR_VFLAG_SET)
-		return PBSE_SCHED_TP_RW_CLASH;
-
 	if (actmode == ATR_ACTION_ALTER || actmode == ATR_ACTION_RECOV) {
-		if (!strcasecmp(str, RW_EXECJOB_HOOK) ||
-		    !strcasecmp(str, RW_RUNJOB_HOOK)  ||
-		    !strcasecmp(str, RW_NONE))
-			return PBSE_NONE;
+		pbs_sched *psched = NULL;
+		char *tp_val = NULL;
+
+		if (!strcasecmp(str, RW_EXECJOB_HOOK))
+			tp_val = ATR_FALSE;
+		else if (!strcasecmp(str, RW_RUNJOB_HOOK))
+			tp_val = ATR_TRUE;
+		else if (!strcasecmp(str, RW_NONE))
+			tp_val = NULL;
 		else
 			return PBSE_BADATVAL;
+
+		psched = (pbs_sched *) pobj;
+		if (tp_val == NULL)
+			/* No equivalent value of 'none' for throughput_mode, so unset it */
+			clear_attr(&(psched->sch_attr[SCHED_ATR_throughput_mode]), &sched_attr_def[SCHED_ATR_throughput_mode]);
+		else
+			set_attr_svr(&(psched->sch_attr[SCHED_ATR_throughput_mode]), &sched_attr_def[SCHED_ATR_throughput_mode],
+				tp_val);
 	}
 
 	return PBSE_NONE;
@@ -1134,17 +1149,24 @@ action_job_run_wait(attribute *pattr, void *pobj, int actmode)
 int
 action_throughput_mode(attribute *pattr, void *pobj, int actmode)
 {
+	long val = pattr->at_val.at_long;
 	pbs_sched *psched = NULL;
 
 	psched = (pbs_sched *) pobj;
+	if (actmode == ATR_ACTION_ALTER || actmode == ATR_ACTION_RECOV) {
+		char *jrw_val = NULL;
 
-	/* Check that job_run_wait is not set */
-	if (psched->sch_attr[SCHED_ATR_job_run_wait].at_flags & ATR_VFLAG_SET)
-		return PBSE_SCHED_TP_RW_CLASH;
+		if (val)
+			jrw_val = RW_RUNJOB_HOOK;
+		else
+			jrw_val = RW_EXECJOB_HOOK;
+
+		set_attr_svr(&(psched->sch_attr[SCHED_ATR_job_run_wait]), &sched_attr_def[SCHED_ATR_job_run_wait], jrw_val);
+	}
 
 	/* Log a message letting user know that this attribute is deprecated */
 	log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_REQUEST, LOG_WARNING, psched->sc_name,
-			"'throughput_mode' is being deprecated, it is recommended to use 'job_run_wait' in future");
+			"'throughput_mode' is being deprecated, it is recommended to use 'job_run_wait'");
 
 	return PBSE_NONE;
 }

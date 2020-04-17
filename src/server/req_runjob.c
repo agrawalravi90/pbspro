@@ -340,23 +340,17 @@ req_runjob(struct batch_request *preq)
 
 #ifndef NAS /* localmod 133 */
 	if ((psched->scheduler_sock != -1) && was_job_alteredmoved(parent)) {
-		int index_tp = find_attr(sched_attr_def, ATTR_throughput_mode, SCHED_ATR_LAST);
-		int index_rw = find_attr(sched_attr_def, ATTR_job_run_wait, SCHED_ATR_LAST);
 		int blacklist = 0;
 
 		/*
 		 * Do not blacklist altered/moved jobs when throughput_mode is enabled or
 		 * job_run_wait is not set to "execjob_hook"
 		 */
-		if (index_tp == -1 && index_rw == -1)
+		if ((psched->sch_attr[SCHED_ATR_throughput_mode].at_flags & ATR_VFLAG_SET) &&
+				(psched->sch_attr[SCHED_ATR_throughput_mode].at_val.at_long == 0))
 			blacklist = 1;
-		else if ((index_tp != -1) &&
-				(psched->sch_attr[index_tp].at_flags & ATR_VFLAG_SET) &&
-				(psched->sch_attr[index_tp].at_val.at_long == 0))
-			blacklist = 1;
-		else if ((index_rw != -1) &&
-				(psched->sch_attr[index_rw].at_flags & ATR_VFLAG_SET) &&
-				(!strcmp(psched->sch_attr[index_rw].at_val.at_str, RW_EXECJOB_HOOK)))
+		else if ((psched->sch_attr[SCHED_ATR_job_run_wait].at_flags & ATR_VFLAG_SET) &&
+				(!strcmp(psched->sch_attr[SCHED_ATR_job_run_wait].at_val.at_str, RW_EXECJOB_HOOK)))
 			blacklist = 1;
 
 		if (blacklist) {

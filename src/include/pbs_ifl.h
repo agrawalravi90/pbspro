@@ -323,6 +323,7 @@ extern "C" {
 #define ATTR_power_provisioning "power_provisioning"
 #define ATTR_sync_mom_hookfiles_timeout "sync_mom_hookfiles_timeout"
 #define ATTR_max_job_sequence_id "max_job_sequence_id"
+#define ATTR_is_runjob_hook "is_runjob_hook"
 #define ATTR_acl_krb_realm_enable "acl_krb_realm_enable"
 #define ATTR_acl_krb_realms	"acl_krb_realms"
 #define ATTR_acl_krb_submit_realms "acl_krb_submit_realms"
