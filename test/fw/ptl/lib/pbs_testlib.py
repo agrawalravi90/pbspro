@@ -6792,10 +6792,8 @@ class Server(PBSService):
                 if cmd == MGR_CMD_LIST:
                     bsl = self.utils.convert_to_dictlist(ret['out'],
                                                          mergelines=True)
-                    
                     # Since we stat everything, overwrite the cache
                     self.update_attributes(obj_type, bsl, overwrite=True)
-                    
                     # Filter out the attributes requested
                     if attrib:
                         bsl_attr = []
@@ -6805,7 +6803,6 @@ class Server(PBSService):
                                 if k in attrib:
                                     newd[k] = obj[k]
                             bsl_attr.append(newd)
-                    
                         bsl = bsl_attr
             else:
                 # Need to rework setting error, this is not thread safe
