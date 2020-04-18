@@ -63,8 +63,6 @@ class TestSchedRunjobWait(TestFunctional):
             self.scheds[scname].create_scheduler()
             self.scheds[scname].start()
             self.server.manager(MGR_CMD_SET, SCHED,
-                                {'scheduling': 'True'}, id=scname)
-            self.server.manager(MGR_CMD_SET, SCHED,
                                 {'log_events': 2047}, id=scname)
 
             a = {'queue_type': 'execution',
@@ -72,13 +70,11 @@ class TestSchedRunjobWait(TestFunctional):
                  'enabled': 'True',
                  'partition': pname}
             self.server.manager(MGR_CMD_CREATE, QUEUE, a, id=qname)
-            a = {'resources_available.ncpus': 1}
+            a = {'resources_available.ncpus': 1, 'partition': pname}
             prefix = 'vnode' + str(i)
             nname = prefix + "[0]"
             self.server.create_vnodes(prefix, a, 1, self.mom,
                                       delall=False, additive=True)
-            self.server.manager(MGR_CMD_SET, NODE, p, id=nname)
-
         return sc_quenames
 
     def test_throughput_mode_deprecated(self):
@@ -89,7 +85,7 @@ class TestSchedRunjobWait(TestFunctional):
         self.server.manager(MGR_CMD_SET, SCHED,
                             {'throughput_mode': "True"}, id="default")
         msg = "'throughput_mode' is being deprecated, " +\
-            "it is recommended to use 'job_run_wait' in future"
+            "it is recommended to use 'job_run_wait'"
         self.server.log_match(msg, starttime=t1)
 
     def test_runjobwait_throughput_clash(self):
@@ -98,13 +94,13 @@ class TestSchedRunjobWait(TestFunctional):
         """
         # Setting TP to True/False should set JRW correctly
         self.server.manager(MGR_CMD_SET, SCHED,
-                            {'throughput_mode': "True"}, id="default")
-        self.server.expect(SCHED, {'job_run_wait': "runjob_hook"},
+                            {'throughput_mode': "False"}, id="default")
+        self.server.expect(SCHED, {'job_run_wait': "execjob_hook"},
                            id="default")
 
         self.server.manager(MGR_CMD_SET, SCHED,
-                            {'throughput_mode': "False"}, id="default")
-        self.server.expect(SCHED, {'job_run_wait': "execjob_hook"},
+                            {'throughput_mode': "True"}, id="default")
+        self.server.expect(SCHED, {'job_run_wait': "runjob_hook"},
                            id="default")
 
         # Setting job_run_wait to 'none' should just delete TP
@@ -114,12 +110,12 @@ class TestSchedRunjobWait(TestFunctional):
 
         # Setting JRW to runjob/execjob should set TP correctly
         self.server.manager(MGR_CMD_SET, SCHED,
-                            {'job_run_wait': "runjob_hook"}, id="default")
-        self.server.expect(SCHED, {'throughput_mode': "True"},
-                           id="default")
-        self.server.manager(MGR_CMD_SET, SCHED,
                             {'job_run_wait': "execjob_hook"}, id="default")
         self.server.expect(SCHED, {'throughput_mode': "False"},
+                           id="default")
+        self.server.manager(MGR_CMD_SET, SCHED,
+                            {'job_run_wait': "runjob_hook"}, id="default")
+        self.server.expect(SCHED, {'throughput_mode': "True"},
                            id="default")
 
     def test_runjobwait_default(self):
@@ -195,6 +191,7 @@ pbs.event().accept()
         # sched 1 with job_run_wait=none runs first job without waiting
         # for runjob reject, so it doesn't run second job.
         # Ultimately, neither jobs should run
+        print(self.scheds[sc_queue[0][0]].attributes)
         self.scheds[sc_queue[0][0]].run_scheduling_cycle()
         self.server.expect(JOB, {'job_state': 'Q'}, id=jid1)
         self.server.expect(JOB, {'job_state': 'Q'}, id=jid2)

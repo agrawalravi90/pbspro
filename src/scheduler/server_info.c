@@ -654,7 +654,7 @@ query_server_info(status *pol, struct batch_status *server)
 				policy->rel_on_susp = resstr_to_resdef(resl);
 				free_string_array(resl);
 			}
-		} else if(!strcmp(attrp->name, ATTR_is_runjob_hook)) {
+		} else if(!strcmp(attrp->name, ATTR_has_runjob_hook)) {
 			if (!strcmp(attrp->value, ATR_TRUE))
 				sinfo->has_runjob_hook = 1;
 			else

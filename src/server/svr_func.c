@@ -7256,7 +7256,7 @@ void memory_debug_log(struct work_task *ptask) {
 
 /**
  * @brief
- * 	encode_isrunhook - encode ATTR_is_runjob_hook attribute
+ * 	encode_isrunhook - encode ATTR_has_runjob_hook attribute
  *
  * @param[in] patr - ptr to attribute to decode
  * @param[in] name - attribute name

@@ -145,7 +145,7 @@ __pbs_asyrunjob(int c, char *jobid, char *location, char *extend)
  * @brief
  *	-send a run job batch request which waits for an ack from server
  *	pbs_runjob() and pbs_asyrunjob_ack() are similar in the fact that they both wait for an ack back from the server,
- *	but this call is faster than pbs_rubjob() because the server returns before contacting MoM
+ *	but this call is faster than pbs_runjob() because the server returns before contacting MoM
  *
  * @param[in] c - connection handle
  * @param[in] jobid- job identifier
