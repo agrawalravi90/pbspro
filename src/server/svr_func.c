@@ -7286,11 +7286,9 @@ encode_isrunhook(attribute *attr, pbs_list_head *phead, char *atname, char *rsna
 
 	/*
 	 * Since this attribute doesn't actually every get set via any other operation,
-	 * we need to set these flags here so that the encode function is called from
-	 * svrcached() every time
+	 * we need to add the set flag here
 	 */
 	attr->at_flags |= ATR_VFLAG_SET;
-	attr->at_flags |= ATR_VFLAG_MODCACHE;
 
 	/* Check if there are any valid runjob hooks */
 	for (phook = (hook *) GET_NEXT(svr_runjob_hooks);

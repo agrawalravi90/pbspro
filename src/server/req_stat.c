@@ -738,6 +738,10 @@ req_stat_svr(struct batch_request *preq)
 	CLEAR_HEAD(pstat->brp_attr);
 	append_link(&preply->brp_un.brp_status, &pstat->brp_stlink, pstat);
 
+	/* has_runjob_hook should get set every time via encode_isrunhook */
+	server.sv_attr[(int)SRV_ATR_has_runjob_hook].at_priv_encoded = NULL;
+	server.sv_attr[(int)SRV_ATR_has_runjob_hook].at_user_encoded = NULL;
+
 	/* add attributes to the status reply */
 
 	bad = 0;
