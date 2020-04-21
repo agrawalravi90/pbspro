@@ -6798,11 +6798,11 @@ class Server(PBSService):
                     if attrib:
                         bsl_attr = []
                         for obj in bsl:
-                            newd = {}
+                            dnew = {}
                             for k in obj.keys():
                                 if k in attrib:
-                                    newd[k] = obj[k]
-                            bsl_attr.append(newd)
+                                    dnew[k] = obj[k]
+                            bsl_attr.append(dnew)
                         bsl = bsl_attr
             else:
                 # Need to rework setting error, this is not thread safe

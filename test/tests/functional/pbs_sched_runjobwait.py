@@ -191,7 +191,6 @@ pbs.event().accept()
         # sched 1 with job_run_wait=none runs first job without waiting
         # for runjob reject, so it doesn't run second job.
         # Ultimately, neither jobs should run
-        print(self.scheds[sc_queue[0][0]].attributes)
         self.scheds[sc_queue[0][0]].run_scheduling_cycle()
         self.server.expect(JOB, {'job_state': 'Q'}, id=jid1)
         self.server.expect(JOB, {'job_state': 'Q'}, id=jid2)
