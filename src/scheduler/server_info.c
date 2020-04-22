@@ -244,7 +244,7 @@ query_server(status *pol, int pbs_sd)
 		free_server(sinfo);
 		return NULL;
 	}
-	query_sched_obj(pbs_sd, policy, sched, sinfo);
+	query_sched_obj(policy, sched, sinfo);
 	pbs_statfree(all_sched);
 
 	if (!dflt_sched && (sinfo->partition == NULL)) {
@@ -853,7 +853,7 @@ query_server_dyn_res(server_info *sinfo)
  *
  */
 int
-query_sched_obj(int pbs_sd, status *policy, struct batch_status *sched, server_info *sinfo)
+query_sched_obj(status *policy, struct batch_status *sched, server_info *sinfo)
 {
 	struct attrl *attrp;          /* linked list of attributes from server */
 
