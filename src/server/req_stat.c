@@ -112,7 +112,7 @@ extern int status_attrib(svrattrl *, attribute_def *, attribute *,
 extern int status_nodeattrib(svrattrl *, attribute_def *, struct pbsnode *,
 	int, int, pbs_list_head *, int *);
 
-extern int svr_chk_histjob(job *);
+extern int svr_chk_histjob(svrjob_t *);
 
 
 /* Private Data Definitions */
@@ -143,7 +143,7 @@ static int status_resv(resc_resv *, struct batch_request *, pbs_list_head *);
  * @retval	non-zero	: PBS error code to return to client
  */
 static int
-do_stat_of_a_job(struct batch_request *preq, job *pjob, int dohistjobs, int dosubjobs)
+do_stat_of_a_job(struct batch_request *preq, svrjob_t *pjob, int dohistjobs, int dosubjobs)
 {
 	int       indx;
 	svrattrl *pal;
@@ -204,7 +204,7 @@ stat_a_jobidname(struct batch_request *preq, char *name, int dohistjobs, int dos
 	char *pc;
 	char *range;
 	int   rc;
-	job  *pjob;
+	svrjob_t  *pjob;
 	struct batch_reply *preply = &preq->rq_reply;
 	svrattrl	   *pal;
 
@@ -225,7 +225,7 @@ stat_a_jobidname(struct batch_request *preq, char *name, int dohistjobs, int dos
 		return (rc);	/* no job still needs to be stat-ed */
 
 	} else if ((i == IS_ARRAY_NO) || (i == IS_ARRAY_ArrayJob)) {
-		pjob = find_job(name);
+		pjob = find_svrjob(name);
 		if (pjob == NULL) {
 			return (PBSE_UNKJOBID);
 		} else if ((!dohistjobs) && (rc = svr_chk_histjob(pjob))) {
@@ -289,16 +289,16 @@ stat_a_jobidname(struct batch_request *preq, char *name, int dohistjobs, int dos
 
 void req_stat_job(struct batch_request *preq)
 {
-	int		    at_least_one_success = 0;
-	int		    dosubjobs = 0;
-	int		    dohistjobs = 0;
-	char		   *name;
-	job		   *pjob = NULL;
-	pbs_queue	   *pque = NULL;
+	int at_least_one_success = 0;
+	int dosubjobs = 0;
+	int dohistjobs = 0;
+	char *name;
+	svrjob_t *pjob = NULL;
+	pbs_queue *pque = NULL;
 	struct batch_reply *preply;
-	int		    rc   = 0;
-	int		    type = 0;
-	char		   *pnxtjid = NULL;
+	int rc   = 0;
+	int type = 0;
+	char *pnxtjid = NULL;
 
 	/* check for any extended flag in the batch request. 't' for
 	 * the sub jobs. If 'x' is there, then check if the server is
@@ -379,16 +379,16 @@ void req_stat_job(struct batch_request *preq)
 		return;
 
 	} else if (type == 2) {
-		pjob = (job *)GET_NEXT(pque->qu_jobs);
+		pjob = (svrjob_t *)GET_NEXT(pque->qu_jobs);
 		while (pjob && (rc == PBSE_NONE)) {
 			rc = do_stat_of_a_job(preq, pjob, dohistjobs, dosubjobs);
-			pjob = (job *)GET_NEXT(pjob->ji_jobque);
+			pjob = (svrjob_t *)GET_NEXT(pjob->ji_jobque);
 		}
 	} else {
-		pjob = (job *)GET_NEXT(svr_alljobs);
+		pjob = (svrjob_t *)GET_NEXT(svr_alljobs);
 		while (pjob && (rc == PBSE_NONE)) {
 			rc = do_stat_of_a_job(preq, pjob, dohistjobs, dosubjobs);
-			pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+			pjob = (svrjob_t *)GET_NEXT(pjob->ji_alljobs);
 		}
 
 	}

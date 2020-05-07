@@ -245,7 +245,7 @@ status_attrib(svrattrl *pal, attribute_def *padef, attribute *pattr, int limit, 
  */
 
 int
-status_job(job *pjob, struct batch_request *preq, svrattrl *pal, pbs_list_head *pstathd, int *bad)
+status_job(svrjob_t *pjob, struct batch_request *preq, svrattrl *pal, pbs_list_head *pstathd, int *bad)
 {
 	struct brp_status *pstat;
 	time_t tm;
@@ -347,17 +347,17 @@ status_job(job *pjob, struct batch_request *preq, svrattrl *pal, pbs_list_head *
  * @retval	PBSE_IVALREQ	: something wrong with the flags
  */
 int
-status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pbs_list_head *pstathd, int *bad)
+status_subjob(svrjob_t *pjob, struct batch_request *preq, svrattrl *pal, int subj, pbs_list_head *pstathd, int *bad)
 {
-	int		   limit = (int)JOB_ATR_LAST;
+	int limit = (int)JOB_ATR_LAST;
 	struct brp_status *pstat;
-	job		  *psubjob;	/* ptr to job to status */
-	char		   realstate;
-	int		   rc = 0;
-	int		   oldeligflags = 0;
-	int		   oldatypflags = 0;
-	int 		   subjob_state = -1;
-	char 		   *old_subjob_comment = NULL;
+	svrjob_t *psubjob; /* ptr to job to status */
+	char realstate;
+	int rc = 0;
+	int oldeligflags = 0;
+	int oldatypflags = 0;
+	int subjob_state = -1;
+	char *old_subjob_comment = NULL;
 
 	/* see if the client is authorized to status this job */
 

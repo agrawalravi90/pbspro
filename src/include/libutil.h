@@ -194,7 +194,7 @@ enum vnode_sharing str_to_vnode_sharing(char *vn_str);
  * concatenate two strings by expanding target string as needed.
  * 	  Operation: strbuf += str
  */
-char *pbs_strcat(char **strbuf, int *ssize, char *str);
+char *pbs_strcat(char **strbuf, int *ssize, const char *str);
 
 char *pbs_fgets(char **pbuf, int *pbuf_size, FILE *fp);
 char *pbs_fgets_extend(char **pbuf, int *pbuf_size, FILE *fp);

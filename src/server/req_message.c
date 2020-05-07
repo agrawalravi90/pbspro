@@ -70,6 +70,7 @@
 #include "pbs_nodes.h"
 #include "svrfunc.h"
 #include "acct.h"
+#include "svrjob.h"
 
 /* Private Function local to this file */
 
@@ -79,7 +80,7 @@ static void post_message_req(struct work_task *);
 
 extern char *msg_messagejob;
 
-extern job  *chk_job_request(char *, struct batch_request *, int *, int *);
+extern svrjob_t  *chk_job_request(char *, struct batch_request *, int *, int *);
 extern int  validate_perm_res_in_select(char *val, int val_exist);
 
 
@@ -96,7 +97,7 @@ void
 req_messagejob(struct batch_request *preq)
 {
 	int               jt;            /* job type */
-	job		 *pjob;
+	svrjob_t		 *pjob;
 	int		  rc;
 
 	if ((pjob = chk_job_request(preq->rq_ind.rq_message.rq_jid, preq, &jt, NULL)) == 0)
@@ -187,7 +188,7 @@ void
 req_py_spawn(struct batch_request *preq)
 {
 	int             jt;		/* job type */
-	job		*pjob;
+	svrjob_t		*pjob;
 	int		rc;
 	char		*jid = preq->rq_ind.rq_py_spawn.rq_jid;
 	int		i, offset;
@@ -272,7 +273,7 @@ void
 req_relnodesjob(struct batch_request *preq)
 {
 	int             jt;		/* job type */
-	job		*pjob;
+	svrjob_t		*pjob;
 	int		rc = PBSE_NONE;
 	char		*jid;
 	int		i, offset;
@@ -361,7 +362,11 @@ req_relnodesjob(struct batch_request *preq)
 
 	rc = free_sister_vnodes(pjob, nodeslist, keep_select, msg, LOG_BUF_SIZE, preq);
 
-	if (rc != 0) {
+	if (rc != 0)
 		reply_text(preq, PBSE_SYSTEM, msg);
+	else {
+		account_job_update(pjob, PBS_ACCT_UPDATE);
+		set_attr_rsc_used_acct(pjob);
+		account_jobstr(pjob, PBS_ACCT_NEXT);
 	}
 }

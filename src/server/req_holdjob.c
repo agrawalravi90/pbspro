@@ -86,7 +86,7 @@ extern char	*msg_jobholdrel;
 extern char	*msg_mombadhold;
 extern char	*msg_postmomnojob;
 extern time_t	 time_now;
-extern job  *chk_job_request(char *, struct batch_request *, int *, int *);
+extern svrjob_t  *chk_job_request(char *, struct batch_request *, int *, int *);
 
 
 int chk_hold_priv(long val, int perm);
@@ -136,7 +136,7 @@ req_holdjob(struct batch_request *preq)
 	int newstate;
 	int newsub;
 	long old_hold;
-	job *pjob;
+	svrjob_t *pjob;
 	char *pset;
 	char jid[PBS_MAXSVRJOBID + 1];
 	int rc;
@@ -148,7 +148,7 @@ req_holdjob(struct batch_request *preq)
 
 	pjob = chk_job_request(jid, preq, &jt, &err);
 	if (pjob == NULL) {
-		pjob = find_job(jid);
+		pjob = find_svrjob(jid);
 		if (pjob != NULL && pjob->ji_pmt_preq != NULL)
 			reply_preempt_jobs_request(err, PREEMPT_METHOD_CHECKPOINT, pjob);
 		return;
@@ -158,7 +158,7 @@ req_holdjob(struct batch_request *preq)
 		 * We need to find the job again because chk_job_request() will return
 		 * the parent array if the job is a subjob.
 		 */
-		pjob = find_job(jid);
+		pjob = find_svrjob(jid);
 		if (pjob != NULL && pjob->ji_pmt_preq != NULL)
 			reply_preempt_jobs_request(PBSE_IVALREQ, PREEMPT_METHOD_CHECKPOINT, pjob);
 		req_reject(PBSE_IVALREQ, 0, preq);
@@ -273,7 +273,7 @@ req_releasejob(struct batch_request *preq)
 	int		 newstate;
 	int		 newsub;
 	long		 old_hold;
-	job		*pjob;
+	svrjob_t		*pjob;
 	char		*pset;
 	int		 rc;
 
@@ -332,7 +332,7 @@ req_releasejob(struct batch_request *preq)
 	if ((jt == IS_ARRAY_ArrayJob) && (pjob->ji_ajtrk)) {
 		int i;
 		for(i = 0 ; i < pjob->ji_ajtrk->tkm_ct ; i++) {
-			job *psubjob = pjob->ji_ajtrk->tkm_tbl[i].trk_psubjob;
+			svrjob_t *psubjob = pjob->ji_ajtrk->tkm_tbl[i].trk_psubjob;
 			if (psubjob && (psubjob->ji_qs.ji_state == JOB_STATE_HELD)) {
 #ifndef NAS
 				old_hold = psubjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long;
@@ -452,7 +452,7 @@ void
 post_hold(struct work_task *pwt)
 {
 	int			code;
-	job			*pjob;
+	svrjob_t			*pjob;
 	struct batch_request	*preq;
 	conn_t			*conn;
 
@@ -462,7 +462,7 @@ post_hold(struct work_task *pwt)
 	code = preq->rq_reply.brp_code;
 	preq->rq_conn = preq->rq_orgconn;	/* restore client socket */
 
-	pjob = find_job(preq->rq_ind.rq_hold.rq_orig.rq_objname);
+	pjob = find_svrjob(preq->rq_ind.rq_hold.rq_orig.rq_objname);
 
 	if (pjob == NULL) {
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,

@@ -96,7 +96,7 @@ struct prov_tracking {
 
 typedef char (*exec_vnode_listtype)[PBS_MAXHOSTNAME+1]; /* typedef to pointer to an array*/
 
-extern int check_and_enqueue_provisioning(job *, int *);
+extern int check_and_enqueue_provisioning(svrjob_t*, int *);
 
 extern void do_provisioning(struct work_task * wtask);
 

@@ -90,7 +90,7 @@
 #include "svrfunc.h"
 #include "acct.h"
 #include <sys/time.h>
-
+#include "svrjob.h"
 
 /* External data */
 extern char *msg_job_end_stat;
@@ -205,7 +205,7 @@ is_job_array(char *id)
  *	@retval -1	- on error.
  */
 int
-numindex_to_offset(job *parent, int iindx)
+numindex_to_offset(svrjob_t*parent, int iindx)
 {
 	struct ajtrkhd *ptbl;
 	int i;
@@ -230,7 +230,7 @@ numindex_to_offset(job *parent, int iindx)
  *	@retval -1	- on error.
  */
 int
-subjob_index_to_offset(job *parent, char *index)
+subjob_index_to_offset(svrjob_t*parent, char *index)
 {
 	struct ajtrkhd *ptbl;
 	int i;
@@ -312,7 +312,7 @@ get_index_from_jid(char *newjid)
  * @retval	positive	: count of subjobs in JOB_ATR_array_indices_remaining if job array else 1
  */
 int
-get_queued_subjobs_ct(job *pjob)
+get_queued_subjobs_ct(svrjob_t*pjob)
 {
 	if (NULL == pjob)
 		return -1;
@@ -335,7 +335,7 @@ get_queued_subjobs_ct(job *pjob)
  *
  *	@return	parent job
  */
-job *
+svrjob_t*
 find_arrayparent(char *subjobid)
 {
 	int   i;
@@ -352,7 +352,7 @@ find_arrayparent(char *subjobid)
 	pc = strchr(subjobid, (int)'.');
 	if (pc)
 		strcat(idbuf, pc);
-	return (find_job(idbuf));
+	return (find_svrjob(idbuf));
 }
 /**
  * @brief
@@ -366,7 +366,7 @@ find_arrayparent(char *subjobid)
  *	@return	void
  */
 void
-set_subjob_tblstate(job *parent, int offset, int newstate)
+set_subjob_tblstate(svrjob_t *parent, int offset, int newstate)
 {
 	int  		 oldstate;
 	struct ajtrkhd	*ptbl;
@@ -403,7 +403,7 @@ set_subjob_tblstate(job *parent, int offset, int newstate)
  * @return	void
  */
 void
-update_array_indices_remaining_attr(job *parent)
+update_array_indices_remaining_attr(svrjob_t*parent)
 {
 	struct ajtrkhd	*ptbl = parent->ji_ajtrk;
 
@@ -429,7 +429,7 @@ update_array_indices_remaining_attr(job *parent)
  *	@return	void
  */
 void
-chk_array_doneness(job *parent)
+chk_array_doneness(svrjob_t*parent)
 {
 	char acctbuf[40];
 	int e;
@@ -465,12 +465,16 @@ chk_array_doneness(job *parent)
 			/* if BEGUN, issue 'E' account record */
 			sprintf(acctbuf, msg_job_end_stat, e);
 			account_job_update(parent, PBS_ACCT_LAST);
-			account_jobend(parent, acctbuf, PBS_ACCT_END);
+			set_attr_rsc_used_acct(parent);
+
+			if ((parent->ji_acctrec == NULL) || strstr(parent->ji_acctrec, "resources_used"))
+				set_acct_resc_used(parent);
+			account_jobend(parent, parent->ji_acctrec, PBS_ACCT_END);
 
 			svr_mailowner(parent, MAIL_END, MAIL_NORMAL, acctbuf);
 		}
 		if (parent->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)
-			(void)depend_on_term(parent);
+			depend_on_term(parent);
 
 		/*
 		 * Check if the history of the finished job can be saved or it needs to be purged .
@@ -496,10 +500,10 @@ chk_array_doneness(job *parent)
  *	@return	void
  */
 void
-update_subjob_state(job *pjob, int newstate)
+update_subjob_state(svrjob_t *pjob, int newstate)
 {
 	int		 len;
-	job		*parent;
+	svrjob_t		*parent;
 	char		*pc;
 	struct ajtrkhd	*ptbl;
 
@@ -549,7 +553,7 @@ update_subjob_state(job *pjob, int newstate)
  * @retval	-1	-  error
  */
 int
-get_subjob_discarding(job *parent, int iindx)
+get_subjob_discarding(svrjob_t*parent, int iindx)
 {
 	if (iindx == -1)
 		return -1;
@@ -567,7 +571,7 @@ get_subjob_discarding(job *parent, int iindx)
  * @retval	-1	-  error
  */
 int
-get_subjob_state(job *parent, int iindx)
+get_subjob_state(svrjob_t*parent, int iindx)
 {
 	if (iindx == -1)
 		return -1;
@@ -583,7 +587,7 @@ get_subjob_state(job *parent, int iindx)
  * @return	void
  */
 void
-update_subjob_state_ct(job *pjob)
+update_subjob_state_ct(svrjob_t*pjob)
 {
 	char *buf;
 	static char *statename[] = {
@@ -623,7 +627,7 @@ update_subjob_state_ct(job *pjob)
  * @return	path
  */
 char *
-subst_array_index(job *pjob, char *path)
+subst_array_index(svrjob_t*pjob, char *path)
 {
 	char *pindorg;
 	char cvt[10];
@@ -725,7 +729,7 @@ static struct ajtrkhd *mk_subjob_index_tbl(char *range, int initalstate, int *pb
 int
 setup_arrayjob_attrs(attribute *pattr, void *pobj, int mode)
 {
-	job *pjob = pobj;
+	svrjob_t *pjob = pobj;
 
 	/* set attribute "array" True  and clear "array_state_count" */
 
@@ -796,7 +800,7 @@ fixup_arrayindicies(attribute *pattr, void *pobj, int mode)
 	int   i;
 	int   x, y, z, ct;
 	char *ep;
-	job  *pjob = pobj;
+	svrjob_t  *pjob = pobj;
 	char *str;
 
 	if (!pjob || !(pjob->ji_qs.ji_svrflags & JOB_SVFLG_ArrayJob) || !pjob->ji_ajtrk)
@@ -831,8 +835,8 @@ fixup_arrayindicies(attribute *pattr, void *pobj, int mode)
  * @return	pointer to new job
  * @retval  NULL	- error
  */
-job *
-create_subjob(job *parent, char *newjid, int *rc)
+svrjob_t *
+create_subjob(svrjob_t *parent, char *newjid, int *rc)
 {
 	pbs_list_head  attrl;
 	int	   i;
@@ -843,7 +847,7 @@ create_subjob(job *parent, char *newjid, int *rc)
 	attribute *ppar;
 	attribute *psub;
 	svrattrl  *psatl;
-	job 	  *subj;
+	svrjob_t 	  *subj;
 	long	   eligibletime;
 	long	    time_msec;
 	struct timeval	    tval;
@@ -876,7 +880,7 @@ create_subjob(job *parent, char *newjid, int *rc)
 	 * non-saved items before ji_qs.
 	 */
 
-	if ((subj = job_alloc()) == NULL) {
+	if ((subj = svrjob_alloc()) == NULL) {
 		*rc = PBSE_SYSTEM;
 		return NULL;
 	}
@@ -955,7 +959,7 @@ create_subjob(job *parent, char *newjid, int *rc)
 	subj->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long = time_msec;
 	subj->ji_wattr[(int)JOB_ATR_qrank].at_flags |= ATR_VFLAG_SET|ATR_VFLAG_MODCACHE;
 	if (svr_enquejob(subj) != 0) {
-		job_purge(subj);
+		job_purge_generic(subj);
 		*rc = PBSE_IVALREQ;
 		return NULL;
 	}
@@ -994,7 +998,7 @@ create_subjob(job *parent, char *newjid, int *rc)
  *		(matching request type).
  */
 void
-dup_br_for_subjob(struct batch_request *opreq, job *pjob, void (*func)(struct batch_request *, job *))
+dup_br_for_subjob(struct batch_request *opreq, svrjob_t *pjob, void (*func)(struct batch_request *, svrjob_t *))
 {
 	struct batch_request  *npreq;
 
@@ -1057,7 +1061,7 @@ dup_br_for_subjob(struct batch_request *opreq, job *pjob, void (*func)(struct ba
  * @par	MT-safe: No - uses a global buffer, "jid".
  */
 char *
-mk_subjob_id(job *parent, int offset)
+mk_subjob_id(svrjob_t *parent, int offset)
 {
 	static char jid[PBS_MAXSVRJOBID+1];
 	char        hold[PBS_MAXSVRJOBID+1];

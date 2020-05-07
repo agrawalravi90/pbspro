@@ -3528,9 +3528,9 @@ nodes_free(job *pj)
 			while (ep) {
 
 				if (ep->ee_argv)
-					arrayfree(ep->ee_argv);
+					free_string_array(ep->ee_argv);
 				if (ep->ee_envp)
-					arrayfree(ep->ee_envp);
+					free_string_array(ep->ee_envp);
 				delete_link(&ep->ee_next);
 				free(ep);
 				ep = (eventent *)GET_NEXT(np->hn_events);

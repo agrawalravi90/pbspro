@@ -79,15 +79,15 @@
 /* Private Function local to this file */
 
 void post_signal_req(struct work_task *);
-static void req_signaljob2(struct batch_request *preq, job *pjob);
-void set_admin_suspend(job *pjob, int set_remove_nstate);
-int create_resreleased (job *pjob);
+static void req_signaljob2(struct batch_request *preq, svrjob_t *pjob);
+void set_admin_suspend(svrjob_t *pjob, int set_remove_nstate);
+int create_resreleased (svrjob_t *pjob);
 
 /* Global Data Items: */
 
 extern char *msg_momreject;
 extern char *msg_signal_job;
-extern job  *chk_job_request(char *, struct batch_request *, int *, int *);
+extern svrjob_t  *chk_job_request(char *, struct batch_request *, int *, int *);
 
 
 /**
@@ -109,8 +109,8 @@ req_signaljob(struct batch_request *preq)
 	int jt; /* job type */
 	int offset;
 	char *pc;
-	job *pjob;
-	job *parent;
+	svrjob_t *pjob;
+	svrjob_t *parent;
 	char *range;
 	int suspend = 0;
 	int resume = 0;
@@ -122,7 +122,7 @@ req_signaljob(struct batch_request *preq)
 
 	parent = chk_job_request(jid, preq, &jt, &err);
 	if (parent == NULL) {
-		pjob = find_job(jid);
+		pjob = find_svrjob(jid);
 		if (pjob != NULL && pjob->ji_pmt_preq != NULL)
 			reply_preempt_jobs_request(err, PREEMPT_METHOD_SUSPEND, pjob);
 		return; /* note, req_reject already called */
@@ -287,7 +287,7 @@ req_signaljob(struct batch_request *preq)
  * @param[in]	preq	-	Signal Job Request
  */
 static void
-req_signaljob2(struct batch_request *preq, job *pjob)
+req_signaljob2(struct batch_request *preq, svrjob_t *pjob)
 {
 	int			rc;
 	char			*pnodespec;
@@ -410,7 +410,7 @@ req_signaljob2(struct batch_request *preq, job *pjob)
  */
 
 int
-issue_signal(job *pjob, char *signame, void (*func)(struct work_task *), void *extra)
+issue_signal(svrjob_t *pjob, char *signame, void (*func)(struct work_task *), void *extra)
 {
 	struct batch_request *newreq;
 
@@ -438,12 +438,12 @@ issue_signal(job *pjob, char *signame, void (*func)(struct work_task *), void *e
 void
 post_signal_req(struct work_task *pwt)
 {
-	job			*pjob;
-	struct batch_request	*preq;
-	int			rc;
-	int			ss;
-	int			suspend = 0;
-	int			resume = 0;
+	svrjob_t *pjob;
+	struct batch_request *preq;
+	int rc;
+	int ss;
+	int suspend = 0;
+	int resume = 0;
 
 	if (pwt->wt_aux2 != PROT_TPP)
 		svr_disconnect(pwt->wt_event);	/* disconnect from MOM */
@@ -474,7 +474,7 @@ post_signal_req(struct work_task *pwt)
 		}
 
 		if (pjob == NULL)
-			pjob = find_job(preq->rq_ind.rq_signal.rq_jid);
+			pjob = find_svrjob(preq->rq_ind.rq_signal.rq_jid);
 		if (pjob != NULL && pjob->ji_pmt_preq != NULL)
 			reply_preempt_jobs_request(rc, PREEMPT_METHOD_SUSPEND, pjob);
 
@@ -529,7 +529,7 @@ post_signal_req(struct work_task *pwt)
 		}
 
 		if (pjob == NULL)
-			pjob = find_job(preq->rq_ind.rq_signal.rq_jid);
+			pjob = find_svrjob(preq->rq_ind.rq_signal.rq_jid);
 		if (pjob != NULL && pjob->ji_pmt_preq != NULL)
 			reply_preempt_jobs_request(PBSE_NONE, PREEMPT_METHOD_SUSPEND, pjob);
 
@@ -548,7 +548,7 @@ post_signal_req(struct work_task *pwt)
  * @retval 0 - In case of success
  */
 int
-create_resreleased(job *pjob)
+create_resreleased(svrjob_t *pjob)
 {
 	char *chunk;
 	int j;
@@ -645,7 +645,7 @@ create_resreleased(job *pjob)
  *
  *	@return void
  */
-void set_admin_suspend(job *pjob, int set_remove_nstate) {
+void set_admin_suspend(svrjob_t *pjob, int set_remove_nstate) {
 	char *chunk;
 	char *execvncopy;
 	char *last;

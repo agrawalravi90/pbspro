@@ -191,6 +191,12 @@ find_job(char *jobid)
 	return NULL;
 }
 
+svrjob_t *
+find_svrjob(char *jobid)
+{
+	return NULL;
+}
+
 resc_resv *
 find_resv(char *resvid)
 {
@@ -272,7 +278,7 @@ is_job_array(char *jobid)
 	return (0);
 }
 
-job *
+svrjob_t *
 find_arrayparent(char *subjobid)
 {
 	return NULL;

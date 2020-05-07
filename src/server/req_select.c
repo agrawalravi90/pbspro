@@ -102,7 +102,7 @@ build_selist(svrattrl *, int perm, struct  select_list **,
 	pbs_queue **, int *bad, char **pstate);
 static void free_sellist(struct select_list *pslist);
 static int  sel_attr(attribute *, struct select_list *);
-static int  select_job(job *, struct select_list *, int, int);
+static int  select_job(svrjob_t *, struct select_list *, int, int);
 static int  select_subjob(int, struct select_list *);
 
 
@@ -277,7 +277,7 @@ add_select_entry(char *jid, struct brp_select ***pselx)
  * @retval	>0	: no. of entries added
  */
 static int
-add_select_array_entries(job *pjob, int dosub, char *statelist,
+add_select_array_entries(svrjob_t *pjob, int dosub, char *statelist,
 	struct brp_select ***pselx,
 	struct select_list *psel)
 {
@@ -288,7 +288,7 @@ add_select_array_entries(job *pjob, int dosub, char *statelist,
 		return 0;
 	else if ((dosub == 0) ||
 		(pjob->ji_qs.ji_svrflags & JOB_SVFLG_ArrayJob) == 0) {
-		/* is or treat as a normal job */
+		/* is or treat as a normal svrjob_t */
 		ct = add_select_entry(pjob->ji_qs.ji_jobid, pselx);
 	} else {
 		/* Array Job */
@@ -323,19 +323,19 @@ add_select_array_entries(job *pjob, int dosub, char *statelist,
 void
 req_selectjobs(struct batch_request *preq)
 {
-	int		    bad = 0;
-	int		    i;
-	job		   *pjob;
-	svrattrl	   *plist;
-	pbs_queue	   *pque;
+	int bad = 0;
+	int i;
+	svrjob_t *pjob;
+	svrattrl *plist;
+	pbs_queue *pque;
 	struct batch_reply *preply;
 	struct brp_select **pselx;
-	int		    dosubjobs = 0;
-	int		    dohistjobs = 0;
-	char		   *pstate = NULL;
-	int		    rc;
+	int dosubjobs = 0;
+	int dohistjobs = 0;
+	char *pstate = NULL;
+	int rc;
 	struct select_list *selistp;
-	pbs_sched	   *psched;
+	pbs_sched *psched;
 
 	/*
 	 * if the letter T (or t) is in the extend string,  select subjobs
@@ -399,9 +399,9 @@ req_selectjobs(struct batch_request *preq)
 	/* now start checking for jobs that match the selection criteria */
 
 	if (pque)
-		pjob = (job *)GET_NEXT(pque->qu_jobs);
+		pjob = (svrjob_t *)GET_NEXT(pque->qu_jobs);
 	else
-		pjob = (job *)GET_NEXT(svr_alljobs);
+		pjob = (svrjob_t *)GET_NEXT(svr_alljobs);
 	while (pjob) {
 		if (server.sv_attr[(int)SRV_ATR_query_others].at_val.at_long ||
 			(svr_authorize_jobreq(preq, pjob) == 0)) {
@@ -450,9 +450,9 @@ req_selectjobs(struct batch_request *preq)
 			}
 		}
 		if (pque)
-			pjob = (job *)GET_NEXT(pjob->ji_jobque);
+			pjob = (svrjob_t *)GET_NEXT(pjob->ji_jobque);
 		else
-			pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+			pjob = (svrjob_t *)GET_NEXT(pjob->ji_alljobs);
 	}
 out:
 	free_sellist(selistp);
@@ -478,7 +478,7 @@ out:
  */
 
 static int
-select_job(job *pjob, struct select_list *psel, int dosubjobs, int dohistjobs)
+select_job(svrjob_t *pjob, struct select_list *psel, int dosubjobs, int dohistjobs)
 {
 
 	/*

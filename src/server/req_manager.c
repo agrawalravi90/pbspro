@@ -1090,7 +1090,7 @@ mgr_unset_attr(attribute *pattr, attribute_def *pdef, int limit, svrattrl *plist
 
 			case PARENT_TYPE_JOB:
 				obj.pbs_db_obj_type = PBS_DB_JOB;
-				parent_id = ((job *) pobj)->ji_qs.ji_jobid;
+				parent_id = ((svrjob_t *) pobj)->ji_qs.ji_jobid;
 				break;
 
 			case PARENT_TYPE_RESV:
@@ -3828,7 +3828,7 @@ is_entity_resource_set(attribute *pattr, char *resc_name)
 static int
 check_resource_set_on_jobs_or_resvs(struct batch_request *preq, resource_def *prdef, int mod)
 {
-	job *pj;
+	svrjob_t *pj;
 	resc_resv *pr;
 	char *rmatch;
 	int rlen;
@@ -3837,7 +3837,7 @@ check_resource_set_on_jobs_or_resvs(struct batch_request *preq, resource_def *pr
 
 	/* Reject if resource is on a job and the type or flag are being modified */
 
-	for (pj = (job *)GET_NEXT(svr_alljobs); pj != NULL; pj = (job *)GET_NEXT(pj->ji_alljobs)) {
+	for (pj = (svrjob_t *)GET_NEXT(svr_alljobs); pj != NULL; pj = (svrjob_t *)GET_NEXT(pj->ji_alljobs)) {
 		pattr = &pj->ji_wattr[JOB_ATR_resource];
 		presc = get_resource(pattr, prdef);
 		if ((presc != NULL) && (mod == 1)) {

@@ -91,7 +91,7 @@ extern void write_node_state(void);
 extern int write_single_node_state(struct pbsnode *);
 extern int setup_nodes(void);
 extern int setup_resc(int);
-extern void update_job_node_rassn(job *, attribute *, enum batch_op);
+extern void update_job_node_rassn(svrjob_t*, attribute *, enum batch_op);
 extern void mark_node_down(char *, char *);
 extern void mark_node_offline_by_mom(char *, char *);
 extern void clear_node_offline_by_mom(char *, char *);
@@ -99,7 +99,7 @@ extern void mark_which_queues_have_nodes(void);
 extern void set_sched_sock(int, pbs_sched *);
 extern void pbs_close_stdfiles(void);
 extern int is_job_array(char *);
-extern int get_queued_subjobs_ct(job *);
+extern int get_queued_subjobs_ct(svrjob_t*);
 extern char *get_index_from_jid(char *);
 extern int parse_subjob_index(char *, char **, int *, int *, int *, int *);
 extern int expand_resc_array(char *, int, int);
@@ -111,30 +111,29 @@ extern char *convert_long_to_time(long);
 extern int svr_chk_history_conf(void);
 extern int update_svrlive(void);
 extern void init_socket_licenses(char *);
-extern void update_job_finish_comment(job *, int, char *);
-extern void svr_saveorpurge_finjobhist(job *);
-extern int recreate_exec_vnode(job *, char *, char *, char *, int);
-extern void unset_extra_attributes(job *);
+extern void update_job_finish_comment(svrjob_t*, int, char *);
+extern void svr_saveorpurge_finjobhist(svrjob_t*);
+extern int recreate_exec_vnode(svrjob_t*, char *, char *, char *, int);
+extern void unset_extra_attributes(svrjob_t*);
 extern int node_delete_db(struct pbsnode *);
 extern int node_recov_db_raw(void *, pbs_list_head *);
 extern int save_attr_db(pbs_db_conn_t *, pbs_db_attr_info_t *, struct attribute_def *, struct attribute *, int, int);
 extern int recov_attr_db(pbs_db_conn_t *, void *, pbs_db_attr_info_t *, struct attribute_def *, struct attribute *, int, int);
 extern int pbsd_init(int);
 extern int resv_save_db(resc_resv *, int);
-extern int svr_chk_histjob(job *);
+extern int svr_chk_histjob(svrjob_t*);
 extern int chk_and_update_db_svrhost(void);
 extern int recov_attr_db_raw(pbs_db_conn_t *, pbs_db_attr_info_t *, pbs_list_head *);
 extern int apply_aoe_inchunk_rules(resource *, attribute *, void *, int);
 extern int apply_select_inchunk_rules(resource *, attribute *, void *, int, int);
-extern int svr_create_tmp_jobscript(job *, char *);
+extern int svr_create_tmp_jobscript(svrjob_t*, char *);
 extern void unset_jobscript_max_size(void);
-extern char *svr_load_jobscript(job *);
-extern int direct_write_requested(job *);
-extern void spool_filename(job *, char *, char *);
+extern char *svr_load_jobscript(svrjob_t*);
+extern void spool_filename(svrjob_t*, char *, char *);
 extern enum failover_state are_we_primary(void);
 extern void license_more_nodes(void);
 extern void reset_svr_sequence_window(void);
-extern void reply_preempt_jobs_request(int, int, struct job *);
+extern void reply_preempt_jobs_request(int, int, svrjob_t*);
 extern int copy_params_from_job(char *, resc_resv *);
 extern int confirm_resv_locally(resc_resv *, struct batch_request *, char *);
 extern int set_select_and_place(int, void *, attribute *);
@@ -143,7 +142,7 @@ extern resc_resv *find_resv_by_quename(char *);
 extern int make_schedselect(attribute *, resource *, pbs_queue *, attribute *);
 
 #ifdef _PROVISION_H
-extern int find_prov_vnode_list(job *, exec_vnode_listtype *, char **);
+extern int find_prov_vnode_list(svrjob_t*, exec_vnode_listtype *, char **);
 #endif /* _PROVISION_H */
 
 #if !defined(PBS_MOM) && defined(_AVLTREE_H)
@@ -165,86 +164,87 @@ extern int fix_indirect_resc_targets(struct pbsnode *, resource *, int, int);
 #endif /* _PBS_NODES_H */
 
 #ifdef _PBS_JOB_H
-extern int assign_hosts(job *, char *, int);
-extern void clear_exec_on_run_fail(job *);
-extern void discard_job(job *, char *, int);
+extern int assign_hosts(svrjob_t*, char *, int);
+extern void clear_exec_on_run_fail(svrjob_t*);
+extern void discard_job(svrjob_t*, char *, int);
 extern void post_rerun(struct work_task *);
-extern void force_reque(job *);
+extern void force_reque(svrjob_t*);
 extern void set_resc_assigned(void *, int, enum batch_op);
 extern int is_ts_node(char *);
-extern char *cnv_eh(job *);
+extern char *cnv_eh(svrjob_t*);
 extern char *find_ts_node(void);
-extern void job_purge(job *);
-extern void check_block(job *, char *);
-extern void free_nodes(job *);
-extern int job_route(job *);
-extern void rel_resc(job *);
-extern void remove_stagein(job *);
-extern size_t check_for_cred(job *, char **);
-extern void svr_mailowner(job *, int, int, char *);
-extern void svr_mailowner_id(char *, job *, int, int, char *);
+extern void job_purge(job*);
+extern void job_purge_svr(svrjob_t *);
+extern void check_block(svrjob_t*, char *);
+extern void free_nodes(svrjob_t*);
+extern int job_route(svrjob_t*);
+extern void rel_resc(svrjob_t*);
+extern void remove_stagein(svrjob_t*);
+extern size_t check_for_cred(svrjob_t*, char **);
+extern void svr_mailowner(svrjob_t*, int, int, char *);
+extern void svr_mailowner_id(char *, svrjob_t*, int, int, char *);
 extern char *lastname(char *);
-extern void chk_array_doneness(job *);
-extern void update_array_indices_remaining_attr(job *);
-extern job *create_subjob(job *, char *, int *);
+extern void chk_array_doneness(svrjob_t*);
+extern void update_array_indices_remaining_attr(svrjob_t*);
+extern svrjob_t* create_subjob(svrjob_t*, char *, int *);
 extern char *cvt_range(struct ajtrkhd *, int);
-extern job *find_arrayparent(char *);
-extern int get_subjob_state(job *, int);
-extern int get_subjob_discarding(job *, int);
-extern char *mk_subjob_id(job *, int);
-extern void set_subjob_tblstate(job *, int, int);
-extern void update_subjob_state(job *, int);
-extern void update_subjob_state_ct(job *);
-extern char *subst_array_index(job *, char *);
-extern int subjob_index_to_offset(job *, char *);
-extern int numindex_to_offset(job *, int);
+extern svrjob_t* find_arrayparent(char *);
+extern int get_subjob_state(svrjob_t*, int);
+extern int get_subjob_discarding(svrjob_t*, int);
+extern char *mk_subjob_id(svrjob_t*, int);
+extern void set_subjob_tblstate(svrjob_t*, int, int);
+extern void update_subjob_state(svrjob_t*, int);
+extern void update_subjob_state_ct(svrjob_t*);
+extern char *subst_array_index(svrjob_t*, char *);
+extern int subjob_index_to_offset(svrjob_t*, char *);
+extern int numindex_to_offset(svrjob_t*, int);
 #ifndef PBS_MOM
-extern void svr_setjob_histinfo(job *, histjob_type);
-extern void svr_histjob_update(job *, int, int);
+extern void svr_setjob_histinfo(svrjob_t*, histjob_type);
+extern void svr_histjob_update(svrjob_t*, int, int);
 extern char *form_attr_comment(const char *, const char *);
-extern void complete_running(job *);
-extern void am_jobs_add(job *);
-extern int was_job_alteredmoved(job *);
-extern void check_failed_attempts(job *);
+extern void complete_running(svrjob_t*);
+extern void am_jobs_add(svrjob_t*);
+extern int was_job_alteredmoved(svrjob_t*);
+extern void check_failed_attempts(svrjob_t*);
 #endif
 #ifdef _QUEUE_H
-extern int check_entity_ct_limit_max(job *, pbs_queue *);
-extern int check_entity_ct_limit_queued(job *, pbs_queue *);
-extern int check_entity_resc_limit_max(job *, pbs_queue *, attribute *);
-extern int check_entity_resc_limit_queued(job *, pbs_queue *, attribute *);
-extern int set_entity_ct_sum_max(job *, pbs_queue *, enum batch_op);
-extern int set_entity_ct_sum_queued(job *, pbs_queue *, enum batch_op);
-extern int set_entity_resc_sum_max(job *, pbs_queue *, attribute *, enum batch_op);
-extern int set_entity_resc_sum_queued(job *, pbs_queue *, attribute *, enum batch_op);
-extern int account_entity_limit_usages(job *, pbs_queue *, attribute *, enum batch_op, int);
+extern int check_entity_ct_limit_max(svrjob_t*, pbs_queue *);
+extern int check_entity_ct_limit_queued(svrjob_t*, pbs_queue *);
+extern int check_entity_resc_limit_max(svrjob_t*, pbs_queue *, attribute *);
+extern int check_entity_resc_limit_queued(svrjob_t*, pbs_queue *, attribute *);
+extern int set_entity_ct_sum_max(svrjob_t*, pbs_queue *, enum batch_op);
+extern int set_entity_ct_sum_queued(svrjob_t*, pbs_queue *, enum batch_op);
+extern int set_entity_resc_sum_max(svrjob_t*, pbs_queue *, attribute *, enum batch_op);
+extern int set_entity_resc_sum_queued(svrjob_t*, pbs_queue *, attribute *, enum batch_op);
+extern int account_entity_limit_usages(svrjob_t*, pbs_queue *, attribute *, enum batch_op, int);
 extern void eval_chkpnt(attribute *, attribute *);
 #endif /* _QUEUE_H */
 
 #ifdef _BATCH_REQUEST_H
-extern int svr_startjob(job *, struct batch_request *);
-extern int svr_authorize_jobreq(struct batch_request *, job *);
-extern void dup_br_for_subjob(struct batch_request *, job *, void (*)(struct batch_request *, job *));
-extern void set_old_nodes(job *);
-extern int send_job_exec_update_to_mom(job *, char *, int, struct batch_request *);
-extern int free_sister_vnodes(job *, char *, char *, char *, int, struct batch_request *);
+extern int svr_startjob(svrjob_t*, struct batch_request *);
+extern int svr_authorize_jobreq(struct batch_request *, svrjob_t*);
+extern void dup_br_for_subjob(struct batch_request *, svrjob_t*, void (*)(struct batch_request *, svrjob_t*));
+extern void set_old_nodes(svrjob_t*);
+extern int send_job_exec_update_to_mom(svrjob_t*, char *, int, struct batch_request *);
+extern int free_sister_vnodes(svrjob_t*, char *, char *, char *, int, struct batch_request *);
 #ifdef _WORK_TASK_H
-extern int send_job(job *, pbs_net_t, int, int, void (*)(struct work_task *), struct batch_request *);
-extern int relay_to_mom(job *, struct batch_request *, void (*)(struct work_task *));
-extern int relay_to_mom2(job *, struct batch_request *, void (*)(struct work_task *), struct work_task **);
-extern int recreate_exec_vnode(job *, char *, char *, char *, int);
-extern int send_job_exec_update_to_mom(job *, char *, int, struct batch_request *);
-extern int free_sister_vnodes(job *, char *, char *, char *, int, struct batch_request *);
+extern int send_job(svrjob_t*, pbs_net_t, int, int, void (*)(struct work_task *), struct batch_request *);
+extern int relay_to_mom(svrjob_t*, struct batch_request *, void (*)(struct work_task *));
+extern int relay_to_mom2(svrjob_t*, struct batch_request *, void (*)(struct work_task *), struct work_task **);
+extern int recreate_exec_vnode(svrjob_t*, char *, char *, char *, int);
+extern int send_job_exec_update_to_mom(svrjob_t*, char *, int, struct batch_request *);
+extern int free_sister_vnodes(svrjob_t*, char *, char *, char *, int, struct batch_request *);
 extern void indirect_target_check(struct work_task *);
 extern void primary_handshake(struct work_task *);
 extern void secondary_handshake(struct work_task *);
 #endif /* _WORK_TASK_H */
 #endif /* _BATCH_REQUEST_H */
 #ifdef _TICKET_H
-extern int write_cred(job *, char *, size_t);
-extern int read_cred(job *, char **, size_t *);
-extern int get_credential(char *, job *, int, char **, size_t *);
+extern int write_cred(void*, char *, size_t);
+extern int read_cred(void*, char **, size_t *);
+extern int get_credential(char *, void*, int, char **, size_t *);
 #endif /* _TICKET_H */
-extern int local_move(job *, struct batch_request *);
+extern int local_move(svrjob_t*, struct batch_request *);
 extern int user_read_password(char *, char **, size_t *);
 
 #endif /* _PBS_JOB_H */
@@ -291,13 +291,13 @@ extern int setup_arrayjob_attrs(attribute *, void *, int);
 extern int deflt_chunk_action(attribute *, void *, int);
 extern int action_svr_iteration(attribute *, void *, int);
 extern void update_node_rassn(attribute *, enum batch_op);
-extern void update_job_node_rassn(job *, attribute *, enum batch_op);
+extern void update_job_node_rassn(svrjob_t*, attribute *, enum batch_op);
 extern int cvt_nodespec_to_select(char *, char **, size_t *, attribute *);
 extern int is_valid_resource(attribute *, void *, int);
 extern int queuestart_action(attribute *, void *, int);
 extern int alter_eligibletime(attribute *, void *, int);
 extern int set_chunk_sum(attribute *, attribute *);
-extern int update_resources_rel(job *, attribute *, enum batch_op);
+extern int update_resources_rel(svrjob_t*, attribute *, enum batch_op);
 extern int keepfiles_action(attribute *, void *, int);
 extern int removefiles_action(attribute *, void *, int);
 
@@ -397,9 +397,9 @@ struct stat_cntl {
 	char sc_jobid[PBS_MAXSVRJOBID + 1];
 };
 
-extern int status_job(job *, struct batch_request *, svrattrl *, pbs_list_head *, int *);
-extern int status_subjob(job *, struct batch_request *, svrattrl *, int, pbs_list_head *, int *);
-extern int stat_to_mom(job *, struct stat_cntl *);
+extern int status_job(svrjob_t*, struct batch_request *, svrattrl *, pbs_list_head *, int *);
+extern int status_subjob(svrjob_t*, struct batch_request *, svrattrl *, int, pbs_list_head *, int *);
+extern int stat_to_mom(svrjob_t*, struct stat_cntl *);
 
 #endif /* STAT_CNTL */
 #ifdef __cplusplus

@@ -96,7 +96,7 @@ extern int max_connection;
  *	passed as NULL.
  */
 int
-relay_to_mom(job *pjob, struct batch_request *request,
+relay_to_mom(svrjob_t *pjob, struct batch_request *request,
 	     void (*func)(struct work_task *))
 {
 	return (relay_to_mom2(pjob, request, func, NULL));
@@ -124,7 +124,7 @@ relay_to_mom(job *pjob, struct batch_request *request,
  */
 
 int
-relay_to_mom2(job *pjob, struct batch_request *request,
+relay_to_mom2(svrjob_t *pjob, struct batch_request *request,
 	     void (*func)(struct work_task *), struct work_task **ppwt)
 {
 	int	rc;
@@ -358,396 +358,6 @@ add_mom_deferred_list(int stream, mominfo_t *minfo, void (*func)(), char *msgid,
 
 /**
  * @brief
- * 		issue a batch request to another server or to a MOM
- *		or even to ourself!
- *
- *		If the request is meant for this every server, then
- *		Set up work-task of type WORK_Deferred_Local with a dummy
- *		connection handle (PBS_LOCAL_CONNECTION).
- *
- *		Dispatch the request to be processed.  [reply_send() will
- *		dispatch the reply via the work task entry.]
- *
- *		If the request is to another server/MOM, then
- *		Set up work-task of type WORK_Deferred_Reply with the
- *		connection handle as the event.
- *
- *		Encode and send the request.
- *
- *		When the reply is ready,  process_reply() will decode it and
- *		dispatch the work task.
- *
- * @note
- *		IT IS UP TO THE FUNCTION DISPATCHED BY THE WORK TASK TO CLOSE THE
- *		CONNECTION (connection handle not socket) and FREE THE REQUEST
- *		STRUCTURE.  The connection (non-negative if open) is in wt_event
- *		and the pointer to the request structure is in wt_parm1.
- *
- * @param[in] conn	- connection index
- * @param[in] request	- batch request to send
- * @param[in] func	- The callback function to invoke to handle the batch reply
- * @param[out] ppwt	- Return work task to be maintained by server to handle deferred replies
- * @param[in] prot	- PROT_TCP or PROT_TPP
- *
- * @return  Error code
- * @retval   0 - Success
- * @retval  -1 - Failure
- *
- */
-int
-issue_Drequest(int conn, struct batch_request *request, void (*func)(), struct work_task **ppwt, int prot)
-{
-	struct attropl   *patrl;
-	struct work_task *ptask;
-	struct svrattrl  *psvratl;
-	int		  rc;
-	int		  sock = -1;
-	enum work_type	  wt;
-	char 		 *msgid = NULL;
-
-	request->tppcmd_msgid = NULL;
-
-	if (conn == PBS_LOCAL_CONNECTION) {
-		wt   = WORK_Deferred_Local;
-		request->rq_conn = PBS_LOCAL_CONNECTION;
-	} else if (prot == PROT_TPP) {
-		sock = conn;
-		request->rq_conn = conn;
-		wt   = WORK_Deferred_Reply;
-	} else {
-		sock = conn;
-		request->rq_conn = sock;
-		wt   = WORK_Deferred_Reply;
-		DIS_tcp_funcs();
-	}
-
-	ptask = set_task(wt, (long) conn, func, (void *) request);
-	if (ptask == NULL) {
-		log_err(errno, __func__, "could not set_task");
-		if (ppwt != 0)
-			*ppwt = 0;
-		return (-1);
-	}
-
-	if (conn == PBS_LOCAL_CONNECTION) {
-
-		/* the request should be issued to ourself */
-
-		dispatch_request(PBS_LOCAL_CONNECTION, request);
-		if (ppwt != 0)
-			*ppwt = ptask;
-		return (0);
-	}
-
-	/* the request is bound to another server, encode/send the request */
-	switch (request->rq_type) {
-
-#ifndef PBS_MOM
-		case PBS_BATCH_DeleteJob:
-			rc =   PBSD_mgr_put(conn,
-				PBS_BATCH_DeleteJob,
-				MGR_CMD_DELETE,
-				MGR_OBJ_JOB,
-				request->rq_ind.rq_delete.rq_objname,
-				NULL,
-				request->rq_extend,
-				prot,
-				&msgid);
-			break;
-
-		case PBS_BATCH_HoldJob:
-			attrl_fixlink(&request->rq_ind.rq_hold.rq_orig.rq_attr);
-			psvratl = (struct svrattrl *)GET_NEXT(
-				request->rq_ind.rq_hold.rq_orig.rq_attr);
-			patrl = &psvratl->al_atopl;
-			rc =  PBSD_mgr_put(conn,
-				PBS_BATCH_HoldJob,
-				MGR_CMD_SET,
-				MGR_OBJ_JOB,
-				request->rq_ind.rq_hold.rq_orig.rq_objname,
-				patrl,
-				NULL,
-				prot,
-				&msgid);
-			break;
-
-		case PBS_BATCH_MessJob:
-			rc =  PBSD_msg_put(conn,
-				request->rq_ind.rq_message.rq_jid,
-				request->rq_ind.rq_message.rq_file,
-				request->rq_ind.rq_message.rq_text,
-				NULL,
-				prot,
-				&msgid);
-			break;
-
-		case PBS_BATCH_RelnodesJob:
-			rc =  PBSD_relnodes_put(conn,
-				request->rq_ind.rq_relnodes.rq_jid,
-				request->rq_ind.rq_relnodes.rq_node_list,
-				NULL,
-				prot,
-				&msgid);
-			break;
-
-		case PBS_BATCH_PySpawn:
-			rc =  PBSD_py_spawn_put(conn,
-				request->rq_ind.rq_py_spawn.rq_jid,
-				request->rq_ind.rq_py_spawn.rq_argv,
-				request->rq_ind.rq_py_spawn.rq_envp,
-				prot,
-				&msgid);
-			break;
-
-		case PBS_BATCH_ModifyJob:
-			attrl_fixlink(&request->rq_ind.rq_modify.rq_attr);
-			patrl = (struct attropl *)&((struct svrattrl *)GET_NEXT(
-				request->rq_ind.rq_modify.rq_attr))->al_atopl;
-			rc = PBSD_mgr_put(conn,
-				PBS_BATCH_ModifyJob,
-				MGR_CMD_SET,
-				MGR_OBJ_JOB,
-				request->rq_ind.rq_modify.rq_objname,
-				patrl,
-				NULL,
-				prot,
-				&msgid);
-			break;
-
-		case PBS_BATCH_ModifyJob_Async:
-			attrl_fixlink(&request->rq_ind.rq_modify.rq_attr);
-			patrl = (struct attropl *)&((struct svrattrl *)GET_NEXT(
-				request->rq_ind.rq_modify.rq_attr))->al_atopl;
-			rc = PBSD_mgr_put(conn,
-				PBS_BATCH_ModifyJob_Async,
-				MGR_CMD_SET,
-				MGR_OBJ_JOB,
-				request->rq_ind.rq_modify.rq_objname,
-				patrl,
-				NULL,
-				prot,
-				&msgid);
-			break;
-
-		case PBS_BATCH_Rerun:
-			if (prot == PROT_TPP) {
-				rc = is_compose_cmd(sock, IS_CMD, &msgid);
-				if (rc != 0)
-					break;
-			}
-			rc = encode_DIS_ReqHdr(sock, PBS_BATCH_Rerun, pbs_current_user);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_JobId(sock, request->rq_ind.rq_rerun);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_ReqExtend(sock, 0);
-			if (rc != 0)
-				break;
-			rc = dis_flush(sock);
-			break;
-
-
-		case PBS_BATCH_RegistDep:
-			if (prot == PROT_TPP) {
-				rc = is_compose_cmd(sock, IS_CMD, &msgid);
-				if (rc != 0)
-					break;
-			}
-			rc = encode_DIS_ReqHdr(sock,
-				PBS_BATCH_RegistDep, pbs_current_user);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_Register(sock, request);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_ReqExtend(sock, 0);
-			if (rc != 0)
-				break;
-			rc = dis_flush(sock);
-			break;
-
-		case PBS_BATCH_SignalJob:
-			rc =  PBSD_sig_put(conn,
-				request->rq_ind.rq_signal.rq_jid,
-				request->rq_ind.rq_signal.rq_signame,
-				NULL,
-				prot,
-				&msgid);
-			break;
-
-		case PBS_BATCH_StatusJob:
-			rc =  PBSD_status_put(conn,
-				PBS_BATCH_StatusJob,
-				request->rq_ind.rq_status.rq_id,
-				NULL, NULL,
-				prot,
-				&msgid);
-			break;
-
-		case PBS_BATCH_TrackJob:
-			if (prot == PROT_TPP) {
-				rc = is_compose_cmd(sock, IS_CMD, &msgid);
-				if (rc != 0)
-					break;
-			}
-			rc = encode_DIS_ReqHdr(sock, PBS_BATCH_TrackJob, pbs_current_user);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_TrackJob(sock, request);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_ReqExtend(sock, request->rq_extend);
-			if (rc != 0)
-				break;
-			rc = dis_flush(sock);
-			break;
-
-		case PBS_BATCH_CopyFiles:
-			if (prot == PROT_TPP) {
-				rc = is_compose_cmd(sock, IS_CMD, &msgid);
-				if (rc != 0)
-					break;
-			}
-			rc = encode_DIS_ReqHdr(sock,
-				PBS_BATCH_CopyFiles, pbs_current_user);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_CopyFiles(sock, request);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_ReqExtend(sock, get_job_credid(request->rq_ind.rq_cpyfile.rq_jobid));
-			if (rc != 0)
-				break;
-			rc = dis_flush(sock);
-			break;
-
-		case PBS_BATCH_CopyFiles_Cred:
-			if (prot == PROT_TPP) {
-				rc = is_compose_cmd(sock, IS_CMD, &msgid);
-				if (rc != 0)
-					break;
-			}
-			rc = encode_DIS_ReqHdr(sock,
-				PBS_BATCH_CopyFiles_Cred, pbs_current_user);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_CopyFiles_Cred(sock, request);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_ReqExtend(sock, 0);
-			if (rc != 0)
-				break;
-			rc = dis_flush(sock);
-			break;
-
-		case PBS_BATCH_DelFiles:
-			if (prot == PROT_TPP) {
-				rc = is_compose_cmd(sock, IS_CMD, &msgid);
-				if (rc != 0)
-					break;
-			}
-			rc = encode_DIS_ReqHdr(sock,
-				PBS_BATCH_DelFiles, pbs_current_user);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_CopyFiles(sock, request);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_ReqExtend(sock, 0);
-			if (rc != 0)
-				break;
-			rc = dis_flush(sock);
-			break;
-
-		case PBS_BATCH_DelFiles_Cred:
-			if (prot == PROT_TPP) {
-				rc = is_compose_cmd(sock, IS_CMD, &msgid);
-				if (rc != 0)
-					break;
-			}
-			rc = encode_DIS_ReqHdr(sock,
-				PBS_BATCH_DelFiles_Cred, pbs_current_user);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_CopyFiles_Cred(sock, request);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_ReqExtend(sock, 0);
-			if (rc != 0)
-				break;
-			rc = dis_flush(sock);
-			break;
-
-		case PBS_BATCH_FailOver:
-			/* we should never do this on tpp based connection */
-			rc = put_failover(sock, request);
-			break;
-		case PBS_BATCH_Cred:
-			rc = PBSD_cred(conn,
-				request->rq_ind.rq_cred.rq_credid,
-				request->rq_ind.rq_cred.rq_jobid,
-				request->rq_ind.rq_cred.rq_cred_type,
-				request->rq_ind.rq_cred.rq_cred_data,
-				request->rq_ind.rq_cred.rq_cred_validity,
-				prot,
-				&msgid);
-			break;
-
-#else	/* PBS_MOM */
-
-		case PBS_BATCH_JobObit:
-			rc = encode_DIS_ReqHdr(sock, PBS_BATCH_JobObit, pbs_current_user);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_JobObit(sock, request);
-			if (rc != 0)
-				break;
-			rc = encode_DIS_ReqExtend(sock, 0);
-			if (rc != 0)
-				break;
-			rc = dis_flush(sock);
-			break;
-
-#endif	/* PBS_MOM */
-
-		default:
-			(void)sprintf(log_buffer, msg_issuebad, request->rq_type);
-			log_err(-1, __func__, log_buffer);
-			delete_task(ptask);
-			rc = -1;
-			break;
-	}
-
-	if (rc) {
-		sprintf(log_buffer,
-			"issue_Drequest failed, error=%d on request %d",
-			rc, request->rq_type);
-		log_err(-1, __func__, log_buffer);
-		if (msgid)
-			free(msgid);
-		delete_task(ptask);
-	} else if (ppwt != 0) {
-		if (prot == PROT_TPP) {
-			tpp_add_close_func(sock, process_DreplyTPP); /* register a close handler */
-
-			ptask->wt_event2 = msgid;
-			/*
-			 * since its delayed task for tpp based connection
-			 * remove it from the task_event list
-			 * caller will add to moms deferred cmd list
-			 */
-			delete_link(&ptask->wt_linkall);
-		}
-		ptask->wt_aux2 = prot;
-		*ppwt = ptask;
-	}
-
-	return (rc);
-}
-
-/**
- * @brief
  * 		process the reply received for a request issued to
  *		another server via issue_request() over TCP
  *
@@ -904,4 +514,376 @@ process_DreplyTPP(int handle)
 		}
 		free(msgid); /* the msgid read should be free after use in matching */
 	}
+}
+
+/**
+ * @brief
+ * 		issue a batch request to another server
+ *		or even to ourself!
+ *
+ *		If the request is meant for this every server, then
+ *		Set up work-task of type WORK_Deferred_Local with a dummy
+ *		connection handle (PBS_LOCAL_CONNECTION).
+ *
+ *		Dispatch the request to be processed.  [reply_send() will
+ *		dispatch the reply via the work task entry.]
+ *
+ *		If the request is to another server/MOM, then
+ *		Set up work-task of type WORK_Deferred_Reply with the
+ *		connection handle as the event.
+ *
+ *		Encode and send the request.
+ *
+ *		When the reply is ready,  process_reply() will decode it and
+ *		dispatch the work task.
+ *
+ * @note
+ *		IT IS UP TO THE FUNCTION DISPATCHED BY THE WORK TASK TO CLOSE THE
+ *		CONNECTION (connection handle not socket) and FREE THE REQUEST
+ *		STRUCTURE.  The connection (non-negative if open) is in wt_event
+ *		and the pointer to the request structure is in wt_parm1.
+ *
+ * @param[in] conn	- connection index
+ * @param[in] request	- batch request to send
+ * @param[in] func	- The callback function to invoke to handle the batch reply
+ * @param[out] ppwt	- Return work task to be maintained by server to handle deferred replies
+ * @param[in] prot	- PROT_TCP or PROT_TPP
+ *
+ * @return  Error code
+ * @retval   0 - Success
+ * @retval  -1 - Failure
+ *
+ */
+int
+issue_Drequest(int conn, struct batch_request *request, void (*func)(), struct work_task **ppwt, int prot)
+{
+	struct attropl *patrl;
+	struct svrattrl *psvratl;
+	struct work_task *ptask;
+	int rc;
+	int sock = -1;
+	enum work_type wt;
+	char *msgid = NULL;
+
+	request->tppcmd_msgid = NULL;
+
+	if (conn == PBS_LOCAL_CONNECTION) {
+		wt = WORK_Deferred_Local;
+		request->rq_conn = PBS_LOCAL_CONNECTION;
+	} else if (prot == PROT_TPP) {
+		sock = conn;
+		request->rq_conn = conn;
+		wt = WORK_Deferred_Reply;
+	} else {
+		sock = conn;
+		request->rq_conn = sock;
+		wt = WORK_Deferred_Reply;
+		DIS_tcp_funcs();
+	}
+
+	ptask = set_task(wt, (long) conn, func, (void *) request);
+	if (ptask == NULL) {
+		log_err(errno, __func__, "could not set_task");
+		if (ppwt != 0)
+			*ppwt = 0;
+		return (-1);
+	}
+
+	if (conn == PBS_LOCAL_CONNECTION) {
+
+		/* the request should be issued to ourself */
+
+		dispatch_request(PBS_LOCAL_CONNECTION, request);
+		if (ppwt != 0)
+			*ppwt = ptask;
+		return (0);
+	}
+
+	/* the request is bound to another server, encode/send the request */
+	switch (request->rq_type) {
+	case PBS_BATCH_DeleteJob:
+		rc = PBSD_mgr_put(conn,
+				  PBS_BATCH_DeleteJob,
+				  MGR_CMD_DELETE,
+				  MGR_OBJ_JOB,
+				  request->rq_ind.rq_delete.rq_objname,
+				  NULL,
+				  request->rq_extend,
+				  prot,
+				  &msgid);
+		break;
+
+	case PBS_BATCH_HoldJob:
+		attrl_fixlink(&request->rq_ind.rq_hold.rq_orig.rq_attr);
+		psvratl = (struct svrattrl *) GET_NEXT(
+		    request->rq_ind.rq_hold.rq_orig.rq_attr);
+		patrl = &psvratl->al_atopl;
+		rc = PBSD_mgr_put(conn,
+				  PBS_BATCH_HoldJob,
+				  MGR_CMD_SET,
+				  MGR_OBJ_JOB,
+				  request->rq_ind.rq_hold.rq_orig.rq_objname,
+				  patrl,
+				  NULL,
+				  prot,
+				  &msgid);
+		break;
+
+	case PBS_BATCH_MessJob:
+		rc = PBSD_msg_put(conn,
+				  request->rq_ind.rq_message.rq_jid,
+				  request->rq_ind.rq_message.rq_file,
+				  request->rq_ind.rq_message.rq_text,
+				  NULL,
+				  prot,
+				  &msgid);
+		break;
+
+	case PBS_BATCH_RelnodesJob:
+		rc = PBSD_relnodes_put(conn,
+				       request->rq_ind.rq_relnodes.rq_jid,
+				       request->rq_ind.rq_relnodes.rq_node_list,
+				       NULL,
+				       prot,
+				       &msgid);
+		break;
+
+	case PBS_BATCH_PySpawn:
+		rc = PBSD_py_spawn_put(conn,
+				       request->rq_ind.rq_py_spawn.rq_jid,
+				       request->rq_ind.rq_py_spawn.rq_argv,
+				       request->rq_ind.rq_py_spawn.rq_envp,
+				       prot,
+				       &msgid);
+		break;
+
+	case PBS_BATCH_ModifyJob:
+		attrl_fixlink(&request->rq_ind.rq_modify.rq_attr);
+		patrl = (struct attropl *) &((struct svrattrl *) GET_NEXT(
+						 request->rq_ind.rq_modify.rq_attr))
+			    ->al_atopl;
+		rc = PBSD_mgr_put(conn,
+				  PBS_BATCH_ModifyJob,
+				  MGR_CMD_SET,
+				  MGR_OBJ_JOB,
+				  request->rq_ind.rq_modify.rq_objname,
+				  patrl,
+				  NULL,
+				  prot,
+				  &msgid);
+		break;
+
+	case PBS_BATCH_ModifyJob_Async:
+		attrl_fixlink(&request->rq_ind.rq_modify.rq_attr);
+		patrl = (struct attropl *) &((struct svrattrl *) GET_NEXT(
+						 request->rq_ind.rq_modify.rq_attr))
+			    ->al_atopl;
+		rc = PBSD_mgr_put(conn,
+				  PBS_BATCH_ModifyJob_Async,
+				  MGR_CMD_SET,
+				  MGR_OBJ_JOB,
+				  request->rq_ind.rq_modify.rq_objname,
+				  patrl,
+				  NULL,
+				  prot,
+				  &msgid);
+		break;
+
+	case PBS_BATCH_Rerun:
+		if (prot == PROT_TPP) {
+			rc = is_compose_cmd(sock, IS_CMD, &msgid);
+			if (rc != 0)
+				break;
+		}
+		rc = encode_DIS_ReqHdr(sock, PBS_BATCH_Rerun, pbs_current_user);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_JobId(sock, request->rq_ind.rq_rerun);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_ReqExtend(sock, 0);
+		if (rc != 0)
+			break;
+		rc = dis_flush(sock);
+		break;
+
+	case PBS_BATCH_RegistDep:
+		if (prot == PROT_TPP) {
+			rc = is_compose_cmd(sock, IS_CMD, &msgid);
+			if (rc != 0)
+				break;
+		}
+		rc = encode_DIS_ReqHdr(sock,
+				       PBS_BATCH_RegistDep, pbs_current_user);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_Register(sock, request);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_ReqExtend(sock, 0);
+		if (rc != 0)
+			break;
+		rc = dis_flush(sock);
+		break;
+
+	case PBS_BATCH_SignalJob:
+		rc = PBSD_sig_put(conn,
+				  request->rq_ind.rq_signal.rq_jid,
+				  request->rq_ind.rq_signal.rq_signame,
+				  NULL,
+				  prot,
+				  &msgid);
+		break;
+
+	case PBS_BATCH_StatusJob:
+		rc = PBSD_status_put(conn,
+				     PBS_BATCH_StatusJob,
+				     request->rq_ind.rq_status.rq_id,
+				     NULL, NULL,
+				     prot,
+				     &msgid);
+		break;
+
+	case PBS_BATCH_TrackJob:
+		if (prot == PROT_TPP) {
+			rc = is_compose_cmd(sock, IS_CMD, &msgid);
+			if (rc != 0)
+				break;
+		}
+		rc = encode_DIS_ReqHdr(sock, PBS_BATCH_TrackJob, pbs_current_user);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_TrackJob(sock, request);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_ReqExtend(sock, request->rq_extend);
+		if (rc != 0)
+			break;
+		rc = dis_flush(sock);
+		break;
+
+	case PBS_BATCH_CopyFiles:
+		if (prot == PROT_TPP) {
+			rc = is_compose_cmd(sock, IS_CMD, &msgid);
+			if (rc != 0)
+				break;
+		}
+		rc = encode_DIS_ReqHdr(sock,
+				       PBS_BATCH_CopyFiles, pbs_current_user);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_CopyFiles(sock, request);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_ReqExtend(sock, get_job_credid(request->rq_ind.rq_cpyfile.rq_jobid));
+		if (rc != 0)
+			break;
+		rc = dis_flush(sock);
+		break;
+
+	case PBS_BATCH_CopyFiles_Cred:
+		if (prot == PROT_TPP) {
+			rc = is_compose_cmd(sock, IS_CMD, &msgid);
+			if (rc != 0)
+				break;
+		}
+		rc = encode_DIS_ReqHdr(sock,
+				       PBS_BATCH_CopyFiles_Cred, pbs_current_user);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_CopyFiles_Cred(sock, request);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_ReqExtend(sock, 0);
+		if (rc != 0)
+			break;
+		rc = dis_flush(sock);
+		break;
+
+	case PBS_BATCH_DelFiles:
+		if (prot == PROT_TPP) {
+			rc = is_compose_cmd(sock, IS_CMD, &msgid);
+			if (rc != 0)
+				break;
+		}
+		rc = encode_DIS_ReqHdr(sock,
+				       PBS_BATCH_DelFiles, pbs_current_user);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_CopyFiles(sock, request);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_ReqExtend(sock, 0);
+		if (rc != 0)
+			break;
+		rc = dis_flush(sock);
+		break;
+
+	case PBS_BATCH_DelFiles_Cred:
+		if (prot == PROT_TPP) {
+			rc = is_compose_cmd(sock, IS_CMD, &msgid);
+			if (rc != 0)
+				break;
+		}
+		rc = encode_DIS_ReqHdr(sock,
+				       PBS_BATCH_DelFiles_Cred, pbs_current_user);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_CopyFiles_Cred(sock, request);
+		if (rc != 0)
+			break;
+		rc = encode_DIS_ReqExtend(sock, 0);
+		if (rc != 0)
+			break;
+		rc = dis_flush(sock);
+		break;
+
+	case PBS_BATCH_FailOver:
+		/* we should never do this on tpp based connection */
+		rc = put_failover(sock, request);
+		break;
+	case PBS_BATCH_Cred:
+		rc = PBSD_cred(conn,
+			       request->rq_ind.rq_cred.rq_credid,
+			       request->rq_ind.rq_cred.rq_jobid,
+			       request->rq_ind.rq_cred.rq_cred_type,
+			       request->rq_ind.rq_cred.rq_cred_data,
+			       request->rq_ind.rq_cred.rq_cred_validity,
+			       prot,
+			       &msgid);
+		break;
+
+	default:
+		(void) sprintf(log_buffer, msg_issuebad, request->rq_type);
+		log_err(-1, __func__, log_buffer);
+		delete_task(ptask);
+		rc = -1;
+		break;
+	}
+
+	if (rc) {
+		sprintf(log_buffer,
+			"issue_Drequest failed, error=%d on request %d",
+			rc, request->rq_type);
+		log_err(-1, __func__, log_buffer);
+		if (msgid)
+			free(msgid);
+		delete_task(ptask);
+	} else if (ppwt != 0) {
+		if (prot == PROT_TPP) {
+			tpp_add_close_func(sock, process_DreplyTPP); /* register a close handler */
+
+			ptask->wt_event2 = msgid;
+			/*
+			 * since its delayed task for tpp based connection
+			 * remove it from the task_event list
+			 * caller will add to moms deferred cmd list
+			 */
+			delete_link(&ptask->wt_linkall);
+		}
+		ptask->wt_aux2 = prot;
+		*ppwt = ptask;
+	}
+
+	return (rc);
 }

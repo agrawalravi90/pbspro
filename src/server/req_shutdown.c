@@ -81,10 +81,10 @@
 
 /* Private Fuctions Local to this File */
 
-int shutdown_preempt_chkpt(job *);
+int shutdown_preempt_chkpt(svrjob_t *);
 void post_hold(struct work_task *);
 static void post_chkpt(struct work_task *);
-static void rerun_or_kill(job *, char *text);
+static void rerun_or_kill(svrjob_t *, char *text);
 
 /* Private Data Items */
 
@@ -127,11 +127,11 @@ extern attribute_def svr_attr_def[];
 void
 svr_shutdown(int type)
 {
-	attribute	  *pattr;
-	job		  *pjob;
-	job		  *pnxt;
-	long		 *state;
-	int		  wait_for_secondary = 0;
+	attribute *pattr;
+	svrjob_t *pjob;
+	svrjob_t *pnxt;
+	long *state;
+	int wait_for_secondary = 0;
 
 	/* Lets start by logging shutdown and saving everything */
 
@@ -198,9 +198,9 @@ svr_shutdown(int type)
 		return;
 	svr_save_db(&server, SVR_SAVE_QUICK);
 
-	pnxt = (job *)GET_NEXT(svr_alljobs);
+	pnxt = (svrjob_t *)GET_NEXT(svr_alljobs);
 	while ((pjob = pnxt) != NULL) {
-		pnxt = (job *)GET_NEXT(pjob->ji_alljobs);
+		pnxt = (svrjob_t *)GET_NEXT(pjob->ji_alljobs);
 
 		if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING) {
 
@@ -300,7 +300,7 @@ req_shutdown(struct batch_request *preq)
  */
 
 int
-shutdown_preempt_chkpt(job *pjob)
+shutdown_preempt_chkpt(svrjob_t *pjob)
 {
 	struct batch_request *phold;
 	attribute temp;
@@ -360,11 +360,11 @@ shutdown_preempt_chkpt(job *pjob)
 static void
 post_chkpt(struct work_task *ptask)
 {
-	job		     *pjob;
+	svrjob_t *pjob;
 	struct batch_request *preq;
 
 	preq = (struct batch_request *)ptask->wt_parm1;
-	pjob = find_job(preq->rq_ind.rq_hold.rq_orig.rq_objname);
+	pjob = find_svrjob(preq->rq_ind.rq_hold.rq_orig.rq_objname);
 	if (!preq || !pjob)
 		return;
 	if (preq->rq_reply.brp_code == 0) {
@@ -404,7 +404,7 @@ post_chkpt(struct work_task *ptask)
  * @param[in]	text	-	message to be logged before purging the job.
  */
 static void
-rerun_or_kill(job *pjob, char *text)
+rerun_or_kill(svrjob_t *pjob, char *text)
 {
 	long server_state = server.sv_attr[(int)SRV_ATR_State].at_val.at_long;
 

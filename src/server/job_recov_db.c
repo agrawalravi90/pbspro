@@ -50,7 +50,7 @@
  * Functions included are:
  *
  *	job_save_db()         -	save job to database
- *	job_or_resv_save_db() -	save to database (job/reservation)
+ *	job_or_resv_save_db() -	save to database (svrjob_t/reservation)
  *	job_recov_db()        - recover(read) job from database
  *	job_or_resv_recov_db() -	recover(read) job/reservation from database
  *	svr_to_db_job		  -	Load a server job object to a database job object
@@ -106,12 +106,10 @@
 
 #define MAX_SAVE_TRIES 3
 
-#ifndef PBS_MOM
 extern pbs_db_conn_t	*svr_db_conn;
 #ifndef WIN32
 #define BACKTRACE_BUF_SIZE 50
 void print_backtrace(char *);
-#endif
 #endif
 
 #ifdef NAS /* localmod 005 */
@@ -131,8 +129,6 @@ extern int recov_attr_db(pbs_db_conn_t *conn,
 /* global data items */
 extern time_t time_now;
 
-#ifndef PBS_MOM
-
 /**
  * @brief
  *		Load a server job object to a database job object
@@ -148,7 +144,7 @@ extern time_t time_now;
  * @retval   0    Success
  */
 static int
-svr_to_db_job(job *pjob, pbs_db_job_info_t *dbjob, int updatetype)
+svr_to_db_job(svrjob_t *pjob, pbs_db_job_info_t *dbjob, int updatetype)
 {
 	memset(dbjob, 0, sizeof(pbs_db_job_info_t));
 	strcpy(dbjob->ji_jobid, pjob->ji_qs.ji_jobid);
@@ -207,7 +203,7 @@ svr_to_db_job(job *pjob, pbs_db_job_info_t *dbjob, int updatetype)
  * @retval   0    Success
  */
 static int
-db_to_svr_job(job *pjob,  pbs_db_job_info_t *dbjob)
+db_to_svr_job(svrjob_t *pjob,  pbs_db_job_info_t *dbjob)
 {
 	/* Variables assigned constant values are not stored in the DB */
 	pjob->ji_qs.ji_jsversion = JSVERSION;
@@ -363,7 +359,7 @@ db_to_svr_resv(resc_resv *presv, pbs_db_resv_info_t *pdresv)
  *
  */
 int
-job_save_db(job *pjob, int updatetype)
+job_save_db(svrjob_t *pjob, int updatetype)
 {
 	pbs_db_job_info_t dbjob;
 	pbs_db_obj_info_t obj;
@@ -490,14 +486,14 @@ db_err:
  * @retval	!NULL - Success, pointer to job structure recovered
  *
  */
-job *
+svrjob_t *
 job_recov_db_spl(pbs_db_job_info_t *dbjob)
 {
-	job		*pj;
+	svrjob_t		*pj;
 
-	pj = job_alloc();	/* allocate & initialize job structure space */
-	if (pj == (job *)0) {
-		return ((job *)0);
+	pj = svrjob_alloc(); /* allocate & initialize job structure space */
+	if (pj == (svrjob_t *)0) {
+		return ((svrjob_t *)0);
 	}
 
 	if (db_to_svr_job(pj, dbjob) != 0)
@@ -506,7 +502,7 @@ job_recov_db_spl(pbs_db_job_info_t *dbjob)
 	return (pj);
 db_err:
 	if (pj)
-		job_free(pj);
+		svrjob_free(pj);
 
 	snprintf(log_buffer, LOG_BUF_SIZE, "Failed to recover job %s", dbjob->ji_jobid);
 	log_err(-1, "job_recov", log_buffer);
@@ -525,10 +521,10 @@ db_err:
  * @retval	!NULL - Success, pointer to job structure recovered
  *
  */
-job *
+svrjob_t *
 job_recov_db(char *jid)
 {
-	job		*pj = NULL;
+	svrjob_t		*pj = NULL;
 	pbs_db_job_info_t dbjob = {{0}};
 	pbs_db_obj_info_t obj;
 	pbs_db_conn_t *conn = svr_db_conn;
@@ -560,7 +556,7 @@ db_err:
 	pbs_db_reset_obj(&obj);
 
 	if (pj)
-		job_free(pj);
+		svrjob_free(pj);
 
 	(void) pbs_db_end_trx(conn, PBS_DB_ROLLBACK);
 	return (NULL);
@@ -726,7 +722,7 @@ db_err:
  * @param[in]   updatetype - Type of update, see descriptions of job_save_db
  *			     and resv_save_db
  *				0=quick, 1=full existing, 2=full new
- * @param[in]	objtype	- Type of the object, job or resv
+ * @param[in]	objtype	- Type of the object, svrjob_t or resv
  *			JOB_OBJECT or RESC_RESV_OBJECT
  *
  * @return      Error code
@@ -748,7 +744,7 @@ job_or_resv_save_db(void *pobj, int updatetype, int objtype)
 		if (rc)
 			return (rc);
 	} else if (objtype == JOB_OBJECT) {
-		job *pj = (job *) pobj;
+		svrjob_t *pj = (svrjob_t *) pobj;
 
 		rc = job_save_db(pj, updatetype);
 		if (rc)
@@ -834,5 +830,3 @@ print_backtrace(char *jobid) {
 #endif /*-- GLIBC --*/
 #endif /*-- GNUC  --*/
 }
-
-#endif

@@ -524,7 +524,6 @@ extern int action_resc_job(attribute *pattr, void *pobject, int actmode);
 extern int ck_chkpnt(attribute *pattr, void *pobject, int actmode);
 extern int keepfiles_action(attribute *pattr, void *pobject, int actmode);
 extern int removefiles_action(attribute *pattr, void *pobject, int actmode);
-/*extern int depend_on_que(attribute *, void *, int);*/
 extern int comp_chkpnt(attribute *, attribute *);
 extern int alter_eligibletime(attribute *, void *, int);
 /* Extern functions from svr_attr_def */

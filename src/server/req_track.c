@@ -233,7 +233,7 @@ track_save(struct work_task *pwt)
  */
 
 void
-issue_track(job *pjob)
+issue_track(svrjob_t *pjob)
 {
 	struct batch_request   *preq;
 	char		       *pc;
@@ -269,15 +269,15 @@ issue_track(job *pjob)
 static void
 track_history_job(struct rq_track *prqt, char *extend)
 {
-	char	*comment = "Job has been moved to";
-	job	*pjob = NULL;
-	char	dest_queue[PBS_MAXROUTEDEST+1] = {'\0'};
+	char *comment = "Job has been moved to";
+	svrjob_t *pjob = NULL;
+	char dest_queue[PBS_MAXROUTEDEST+1] = {'\0'};
 
 	/* return if the server is not configured for job history */
 	if (svr_chk_history_conf() == 0)
 		return;
 
-	pjob = find_job(prqt->rq_jid);
+	pjob = find_svrjob(prqt->rq_jid);
 
 	/*
 	 * Return if not found the job OR job is not created here

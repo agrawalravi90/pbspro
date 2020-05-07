@@ -79,7 +79,8 @@
       #include "attribute.h"
       #include "job.h"
       #include "server_limits.h"
-
+      #include "svrjob.h"
+   
       attribute_def job_attr_def[] = {
       </SVR>
       <ECL>

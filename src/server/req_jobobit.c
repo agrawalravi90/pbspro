@@ -98,7 +98,7 @@
 #include "tpp.h"
 #include "libutil.h"
 #include "pbs_sched.h"
-
+#include "svrjob.h"
 
 /* External Global Data Items */
 
@@ -125,19 +125,19 @@ extern time_t time_now;
 /* External Functions called */
 
 extern void set_resc_assigned(void *, int,  enum batch_op);
-extern long get_walltime(const job *, int);
+extern long get_walltime(const svrjob_t *, int);
 
 /* Local public functions  */
 
 void	job_obit(struct resc_used_update *, int s);
 void	on_job_rerun(struct work_task *ptask);
 void	on_job_exit(struct work_task *ptask);
-extern void set_admin_suspend(job *pjob, int set_remove_nstate);
+extern void set_admin_suspend(svrjob_t *pjob, int set_remove_nstate);
 
 /* Local private functions */
 
 static struct batch_request *setup_cpyfiles
-(struct batch_request *, job *, char *,  char *, int, int);
+(struct batch_request *, svrjob_t *, char *,  char *, int, int);
 
 static char *msg_obitnotrun = "job not running, may have been requeued on node failure";
 /**
@@ -152,7 +152,7 @@ static char *msg_obitnotrun = "job not running, may have been requeued on node f
  */
 
 static char *
-setup_from(job  *pjob, char *suffix)
+setup_from(svrjob_t  *pjob, char *suffix)
 {
 	char *from;
 
@@ -182,7 +182,7 @@ setup_from(job  *pjob, char *suffix)
 
 static
 struct batch_request *
-setup_cpyfiles(struct batch_request *preq, job  *pjob, char *from, char *to, int  direction, int  tflag)
+setup_cpyfiles(struct batch_request *preq, svrjob_t  *pjob, char *from, char *to, int  direction, int  tflag)
 {
 	struct rq_cpyfile *pcf;
 	struct rq_cpyfile_cred *pcfc;
@@ -336,7 +336,7 @@ setup_cpyfiles(struct batch_request *preq, job  *pjob, char *from, char *to, int
  */
 static int
 is_joined(pjob, ati)
-job		*pjob;
+svrjob_t		*pjob;
 enum job_atr	 ati;
 {
 	char       key;
@@ -374,7 +374,7 @@ enum job_atr	 ati;
  * @retval	NULL	failure
  */
 
-static struct batch_request *cpy_stdfile(struct batch_request *preq, job *pjob, enum job_atr ati)
+static struct batch_request *cpy_stdfile(struct batch_request *preq, svrjob_t *pjob, enum job_atr ati)
 {
 	char *from;
 	char  key;
@@ -477,7 +477,7 @@ static struct batch_request *cpy_stdfile(struct batch_request *preq, job *pjob, 
  * @return	batch_request *
  */
 
-struct batch_request *cpy_stage(struct batch_request *preq, job *pjob, enum job_atr ati, int direction)
+struct batch_request *cpy_stage(struct batch_request *preq, svrjob_t *pjob, enum job_atr ati, int direction)
 {
 	int		      i;
 	char		     *from;
@@ -541,7 +541,7 @@ struct batch_request *cpy_stage(struct batch_request *preq, job *pjob, enum job_
  */
 
 int
-mom_comm(job *pjob, void (*func)(struct work_task *))
+mom_comm(svrjob_t *pjob, void (*func)(struct work_task *))
 {
 	unsigned int dum;
 	long t;
@@ -608,7 +608,7 @@ mom_comm(job *pjob, void (*func)(struct work_task *))
  * @param[in]	pjob	- job structure
  */
 void
-rel_resc(job *pjob)
+rel_resc(svrjob_t *pjob)
 {
 	conn_t *conn = NULL;
 	pbs_sched *psched;
@@ -656,7 +656,7 @@ rel_resc(job *pjob)
  * @param[in]	fmt	- failure message
  */
 static void
-on_exitrerun_msg(job *pjob, char *fmt)
+on_exitrerun_msg(svrjob_t *pjob, char *fmt)
 {
 	char	       *hostname = " ? ";
 
@@ -681,7 +681,7 @@ on_exitrerun_msg(job *pjob, char *fmt)
  */
 
 static void
-conn_to_mom_failed(job *pjob, void(*func)(struct work_task *))
+conn_to_mom_failed(svrjob_t *pjob, void(*func)(struct work_task *))
 {
 	struct work_task *ptask;
 
@@ -721,7 +721,7 @@ void
 on_job_exit(struct work_task *ptask)
 {
 	int    handle;
-	job   *pjob;
+	svrjob_t   *pjob;
 	struct batch_request *preq;
 	struct work_task *pt;
 	char  *rec;
@@ -734,10 +734,10 @@ on_job_exit(struct work_task *ptask)
 
 	if (ptask->wt_type != WORK_Deferred_Reply) {
 		preq = NULL;
-		pjob = (job *)ptask->wt_parm1;
+		pjob = (svrjob_t *)ptask->wt_parm1;
 	} else {
 		preq = (struct batch_request *)ptask->wt_parm1;
-		pjob = (job *)preq->rq_extra;
+		pjob = (svrjob_t *)preq->rq_extra;
 	}
 
 	if ((pjob->ji_wattr[(int)JOB_ATR_relnodes_on_stageout].at_flags & ATR_VFLAG_SET) &&
@@ -793,9 +793,11 @@ on_job_exit(struct work_task *ptask)
 
 				if (preq) {		/* have files to copy 		*/
 					if (release_nodes_on_stageout) {
-						if (free_sister_vnodes(pjob, NULL, NULL, log_buffer, LOG_BUF_SIZE, NULL) != 0) {
+						if (free_sister_vnodes(pjob, NULL, NULL, log_buffer, LOG_BUF_SIZE, NULL) != 0)
 							log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_WARNING, pjob->ji_qs.ji_jobid, log_buffer);
-						}
+						account_job_update(pjob, PBS_ACCT_UPDATE);
+						set_attr_rsc_used_acct(pjob);
+						account_jobstr(pjob, PBS_ACCT_NEXT);
 					}
 					preq->rq_extra = (void *)pjob;
 					rc = issue_Drequest(handle, preq, on_job_exit, &pt, pjob->ji_mom_prot);
@@ -971,7 +973,7 @@ on_job_exit(struct work_task *ptask)
 				/* see if have any dependencies */
 
 				if (pjob->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)
-					(void)depend_on_term(pjob);
+					depend_on_term(pjob);
 
 				/* tell mom to delete the job */
 
@@ -1048,6 +1050,9 @@ on_job_exit(struct work_task *ptask)
 				rel_resc(pjob); /* free any resc assigned to the job */
 
 				account_job_update(pjob, PBS_ACCT_LAST);
+				set_attr_rsc_used_acct(pjob);
+				if (pjob->ji_acctrec == NULL || strstr(pjob->ji_acctrec, "resources_used") == NULL)
+					set_acct_resc_used(pjob);
 				account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_END);
 
 				if (pjob->ji_acctrec)
@@ -1100,7 +1105,7 @@ on_job_exit(struct work_task *ptask)
  *
  */
 void
-unset_extra_attributes(job *pjob)
+unset_extra_attributes(svrjob_t *pjob)
 {
 	if (pjob == NULL)
 		return;
@@ -1173,7 +1178,7 @@ on_job_rerun(struct work_task *ptask)
 	int		      handle;
 	int		      newstate;
 	int		      newsubst;
-	job		     *pjob;
+	svrjob_t		     *pjob;
 	struct batch_request *preq;
 	struct work_task     *pt;
 	int		      rc;
@@ -1182,10 +1187,10 @@ on_job_rerun(struct work_task *ptask)
 
 	if (ptask->wt_type != WORK_Deferred_Reply) {
 		preq = NULL;
-		pjob = (job *)ptask->wt_parm1;
+		pjob = (svrjob_t *)ptask->wt_parm1;
 	} else {
 		preq = (struct batch_request *)ptask->wt_parm1;
-		pjob = (job *)preq->rq_extra;
+		pjob = (svrjob_t *)preq->rq_extra;
 	}
 
 	/* minor check on validatity of pjob */
@@ -1465,6 +1470,8 @@ on_job_rerun(struct work_task *ptask)
 				if (handle != -1 && pjob->ji_mom_prot == PROT_TCP)
 					svr_disconnect(handle);
 
+				if (pjob->ji_acctrec == NULL || strstr(pjob->ji_acctrec, "resources_used") == NULL)
+					set_acct_resc_used(pjob);
 				account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_RERUN);
 				if (pjob->ji_acctrec) {
 					free(pjob->ji_acctrec);	/* logged, so clear it */
@@ -1534,7 +1541,7 @@ on_job_rerun(struct work_task *ptask)
  * @retval	1	- substate left as it
  */
 static int
-setrerun(job *pjob)
+setrerun(svrjob_t *pjob)
 {
 	if ((pjob->ji_qs.ji_un.ji_exect.ji_exitstat == JOB_EXEC_RETRY) ||
 		(pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long != 0)) {
@@ -1556,7 +1563,7 @@ setrerun(job *pjob)
  * @param[in]		pjob - job structure for additional info
  */
 int
-concat_rescused_to_buffer(char **buffer, int *buffer_size, svrattrl *patlist, char *delim, const job *pjob)
+concat_rescused_to_buffer(char **buffer, int *buffer_size, const svrattrl *patlist, char *delim, const svrjob_t *pjob)
 {
 	int val_len;
 
@@ -1710,7 +1717,7 @@ job_obit(struct resc_used_update *pruu, int stream)
 	int		  mailbuf_size = 0;
 	int		  newstate;
 	int		  newsubst;
-	job		 *pjob;
+	svrjob_t		 *pjob;
 	svrattrl	 *patlist;
 	struct work_task *ptask;
 	void		(*eojproc)();
@@ -1721,7 +1728,7 @@ job_obit(struct resc_used_update *pruu, int stream)
 
 	DBPRT(("%s: Obit received for job %s status=%d hop=%d\n", __func__,
 		pruu->ru_pjobid, pruu->ru_status, pruu->ru_hop))
-	pjob = find_job(pruu->ru_pjobid);
+	pjob = find_svrjob(pruu->ru_pjobid);
 	if (pjob == NULL) {		/* not found */
 		DBPRT(("%s: job %s not found!\n", __func__, pruu->ru_pjobid))
 		if ((server_init_type == RECOV_COLD) ||

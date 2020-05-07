@@ -91,7 +91,7 @@ extern char *msg_delProgress;
 extern time_t time_now;
 
 /* Global functions */
-extern int svr_chk_histjob(job *pjob);
+extern int svr_chk_histjob(svrjob_t *pjob);
 
 /* Non-global functions */
 static	int svr_authorize_resvReq(struct batch_request*, resc_resv*);
@@ -112,7 +112,7 @@ static	int svr_authorize_resvReq(struct batch_request*, resc_resv*);
 
 
 int
-svr_chk_owner(struct batch_request *preq, job *pjob)
+svr_chk_owner(struct batch_request *preq, svrjob_t *pjob)
 {
 	char  owner[PBS_MAXUSER+1];
 	char *pu;
@@ -177,7 +177,7 @@ svr_chk_owner(struct batch_request *preq, job *pjob)
  */
 
 int
-svr_authorize_jobreq(struct batch_request *preq, job *pjob)
+svr_authorize_jobreq(struct batch_request *preq, svrjob_t *pjob)
 {
 	/* Is requestor special privileged? */
 
@@ -354,27 +354,27 @@ authenticate_user(struct batch_request *preq, struct connection *pcred)
  *						(3)    - for a range of  subjobs
  * @param[out]	err		PBSE reason why request was rejected
  *
- * @return	job *
+ * @return	svrjob_t *
  * @retval	a pointer to the job	: if found and the tests pass.
  * @retval	NULL	: failed
  */
 
 
-job *
+svrjob_t *
 chk_job_request(char *jobid, struct batch_request *preq, int *rc, int *err)
 {
-	int	 t;
-	int	 histerr = 0;
-	job	*pjob;
+	int t;
+	int histerr = 0;
+	svrjob_t *pjob;
 	int deletehist = 0;
-	char	*p1;
-	char	*p2;
+	char *p1;
+	char *p2;
 
 	if (preq->rq_extend && strstr(preq->rq_extend, DELETEHISTORY))
 		deletehist = 1;
 	t = is_job_array(jobid);
 	if ((t == IS_ARRAY_NO) || (t == IS_ARRAY_ArrayJob))
-		pjob = find_job(jobid);		/* regular or ArrayJob itself */
+		pjob = find_svrjob(jobid);		/* regular or ArrayJob itself */
 	else
 		pjob = find_arrayparent(jobid); /* subjob(s) */
 
@@ -397,7 +397,7 @@ chk_job_request(char *jobid, struct batch_request *preq, int *rc, int *err)
 		}
 		if (deletehist == 1&& pjob->ji_qs.ji_state == JOB_STATE_MOVED &&
 			pjob->ji_qs.ji_substate != JOB_SUBSTATE_FINISHED) {
-			job_purge(pjob);
+			job_purge_generic(pjob);
 			req_reject(PBSE_UNKJOBID, 0, preq);
 			return NULL;
 		}
@@ -409,7 +409,7 @@ chk_job_request(char *jobid, struct batch_request *preq, int *rc, int *err)
 	 * host portion of the job ID in the request with the host portion of
 	 * the one from the server job structure. Do not modify anything
 	 * before the first dot in the job ID because it may be an array job.
-	 * This will allow find_job() to look for an exact match when the
+	 * This will allow find_svrjob() to look for an exact match when the
 	 * request is serviced by MoM.
 	 */
 	p1 = strchr(pjob->ji_qs.ji_jobid, '.');

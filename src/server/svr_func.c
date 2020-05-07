@@ -230,9 +230,9 @@ int provision_timeout;
  */
 pbs_list_head prov_allvnodes;
 
-static int  is_runnable(job *, struct prov_vnode_info *);
+static int  is_runnable(svrjob_t *, struct prov_vnode_info *);
 extern void set_srv_prov_attributes();
-static void del_prov_vnode_entry(job *);
+static void del_prov_vnode_entry(svrjob_t *);
 extern int resize_prov_table(int);
 static void prov_startjob(struct work_task *ptask);
 extern enum failover_state are_we_primary(void);
@@ -350,13 +350,13 @@ encode_svrstate(const attribute *pattr, pbs_list_head *phead, char *atname, char
 void
 set_resc_assigned(void *pobj, int objtype, enum batch_op op)
 {
-	resc_resv    *presv = NULL;
+	resc_resv *presv = NULL;
 	resource_def *rscdef;
-	job	     *pjob = NULL;
-	resource     *pr = NULL;
-	resource     *rescp = NULL;
-	attribute    *queru = NULL;
-	attribute    *sysru = NULL;
+	svrjob_t *pjob = NULL;
+	resource *pr = NULL;
+	resource *rescp = NULL;
+	attribute *queru = NULL;
+	attribute *sysru = NULL;
 
 	/*First part of this lengthy function figures out which
 	 *"resources_assigned" lists need to get updated.  Most of
@@ -367,7 +367,7 @@ set_resc_assigned(void *pobj, int objtype, enum batch_op op)
 	 */
 
 	if (!objtype) {
-		pjob = (job *)pobj;
+		pjob = (svrjob_t *)pobj;
 
 		if ((pjob->ji_qhdr == 0) ||
 			(pjob->ji_qhdr->qu_qs.qu_type != QTYPE_Execution))
@@ -574,7 +574,7 @@ ck_chkpnt(attribute *pattr, void *pobject, int mode)
 	/* If the checkpoint attribute is being altered, then check    */
 	/* against the queue's Checkpoint_min attribute as when queued */
 	if (mode == ATR_ACTION_ALTER) {
-		pque = ((job *)pobject)->ji_qhdr;
+		pque = ((svrjob_t *)pobject)->ji_qhdr;
 
 		eval_chkpnt(pattr, &pque->qu_attr[(int)QE_ATR_ChkptMim]);
 	}
@@ -598,7 +598,7 @@ int
 keepfiles_action(attribute *pattr, void *pobject, int mode) {
     if ((mode != ATR_ACTION_ALTER) && (mode != ATR_ACTION_NEW))
         return PBSE_NONE;
-    if (pobject && ((job *)pobject)->ji_qs.ji_state == JOB_STATE_RUNNING)
+    if (pobject && ((svrjob_t *)pobject)->ji_qs.ji_state == JOB_STATE_RUNNING)
         return PBSE_MODATRRUN;
     return verify_keepfiles_common(pattr->at_val.at_str);
 }
@@ -620,7 +620,7 @@ int
 removefiles_action(attribute *pattr, void *pobject, int mode) {
     if ((mode != ATR_ACTION_ALTER) && (mode != ATR_ACTION_NEW))
         return PBSE_NONE;
-    if (pobject && ((job *)pobject)->ji_qs.ji_state == JOB_STATE_RUNNING)
+    if (pobject && ((svrjob_t *)pobject)->ji_qs.ji_state == JOB_STATE_RUNNING)
         return PBSE_MODATRRUN;
     return verify_removefiles_common(pattr->at_val.at_str);
 }
@@ -1312,8 +1312,8 @@ unset_license_linger(void)
 void
 unset_job_history_enable(void)
 {
-	job *pjob = NULL;
-	job *nxpjob = NULL;
+	svrjob_t *pjob = NULL;
+	svrjob_t *nxpjob = NULL;
 
 	sprintf(log_buffer, "job_history_enable has been unset.");
 	log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_SERVER,
@@ -1331,15 +1331,15 @@ unset_job_history_enable(void)
 	 * and JOB_STATE_FINISHED) in the server and purge them right
 	 * now as job_history_enable has been UNSET OR SET to FALSE.
 	 */
-	pjob = (job *)GET_NEXT(svr_alljobs);
+	pjob = (svrjob_t *)GET_NEXT(svr_alljobs);
 	while (pjob != NULL) {
 		/* save the next */
-		nxpjob = (job *)GET_NEXT(pjob->ji_alljobs);
+		nxpjob = (svrjob_t *)GET_NEXT(pjob->ji_alljobs);
 
 		if ((pjob->ji_qs.ji_state == JOB_STATE_MOVED) ||
 			(pjob->ji_qs.ji_state == JOB_STATE_FINISHED) ||
 			(pjob->ji_qs.ji_state == JOB_STATE_EXPIRED)) {
-			job_purge(pjob);
+			job_purge_generic(pjob);
 			pjob = NULL;
 		}
 		/* restore the next and continue */
@@ -1528,7 +1528,7 @@ unset_max_job_sequence_id(void)
 int
 eligibletime_action(attribute *pattr, void *pobject, int actmode)
 {
-	job *pj;
+	svrjob_t *pj;
 	long accruetype;
 
 	/* switching on eligible_time_enable. when switch happens,
@@ -1536,7 +1536,7 @@ eligibletime_action(attribute *pattr, void *pobject, int actmode)
 	 */
 	if (pattr->at_val.at_long == 1) {
 
-		pj = (job *)GET_NEXT(svr_alljobs);
+		pj = (svrjob_t *)GET_NEXT(svr_alljobs);
 		while (pj != NULL) {
 			/*
 			 * try to determine accruetype for
@@ -1559,7 +1559,7 @@ eligibletime_action(attribute *pattr, void *pobject, int actmode)
 					(ATR_VFLAG_SET | ATR_VFLAG_MODCACHE | ATR_VFLAG_MODIFY);
 			}
 
-			pj = (job *)GET_NEXT(pj->ji_alljobs);
+			pj = (svrjob_t *)GET_NEXT(pj->ji_alljobs);
 		}
 
 		/* if scheduling is true, need to run the scheduling cycle */
@@ -1818,15 +1818,15 @@ action_entlim_chk(attribute *pattr, void *pobject, int actmode)
 static void
 entlim_resum(struct work_task *pwt)
 {
-	void		  *ctx;
-	int		   is_resc;
-	attribute	  *pattr;
-	attribute	  *pattr2;
-	pbs_entlim_key_t  *pkey;
+	void *ctx;
+	int is_resc;
+	attribute *pattr;
+	attribute *pattr2;
+	pbs_entlim_key_t *pkey;
 	svr_entlim_leaf_t *plf;
-	job		  *pj;
-	void		  *pobject;
-	pbs_queue	  *pque;
+	svrjob_t *pj;
+	void *pobject;
+	pbs_queue *pque;
 	extern  pbs_list_head  svr_alljobs;
 
 	pobject = pwt->wt_parm1;    /* pointer to parent object */
@@ -1845,7 +1845,7 @@ entlim_resum(struct work_task *pwt)
 			pattr = &server.sv_attr[(int)SRV_ATR_max_queued];
 			pattr2 = &server.sv_attr[(int)SRV_ATR_queued_jobs_threshold];
 		}
-		pj   = (job *)GET_NEXT(svr_alljobs);
+		pj   = (svrjob_t *)GET_NEXT(svr_alljobs);
 	} else {
 		/* a queue is the parent */
 		pque = (pbs_queue *)pobject;
@@ -1857,7 +1857,7 @@ entlim_resum(struct work_task *pwt)
 			pattr = &pque->qu_attr[(int)QA_ATR_max_queued];
 			pattr2 = &pque->qu_attr[(int)QA_ATR_queued_jobs_threshold];
 		}
-		pj = (job *)GET_NEXT(pque->qu_jobs);
+		pj = (svrjob_t *)GET_NEXT(pque->qu_jobs);
 	}
 
 	/* Next, walk the limit tree and clear all current values */
@@ -1902,9 +1902,9 @@ entlim_resum(struct work_task *pwt)
 		}
 
 		if (pque)
-			pj = (job *)GET_NEXT(pj->ji_jobque);
+			pj = (svrjob_t *)GET_NEXT(pj->ji_jobque);
 		else
-			pj = (job *)GET_NEXT(pj->ji_alljobs);
+			pj = (svrjob_t *)GET_NEXT(pj->ji_alljobs);
 	}
 }
 
@@ -2066,7 +2066,7 @@ extern char	 statechars[];
  * @retval	Within_Limit	: count is within the limit
  */
 static int
-check_single_entity_ct(enum lim_keytypes kt, char *ename, attribute *patr, int subjobs, job *pjob)
+check_single_entity_ct(enum lim_keytypes kt, char *ename, attribute *patr, int subjobs, svrjob_t *pjob)
 {
 	char *kstr;
 	void *ctx;
@@ -2146,10 +2146,10 @@ check_single_entity_ct(enum lim_keytypes kt, char *ename, attribute *patr, int s
 static int
 check_single_entity_res(enum lim_keytypes kt, char *ename,
 	attribute *patr,
-	resource  *newr,
-	resource  *oldr,
-	int	  subjobs,
-	job	  *pjob)
+	resource *newr,
+	resource *oldr,
+	int subjobs,
+	svrjob_t *pjob)
 {
 	char *kstr;
 	void               *ctx;
@@ -2263,7 +2263,7 @@ check_single_entity_res(enum lim_keytypes kt, char *ename,
  *		On an error, a formatted message is attached to the job in ji_
  */
 int
-check_entity_ct_limit_queued(job *pjob, pbs_queue *pque)
+check_entity_ct_limit_queued(svrjob_t *pjob, pbs_queue *pque)
 {
 	char	    *egroup;
 	char	    *project;
@@ -2447,7 +2447,7 @@ check_entity_ct_limit_queued(job *pjob, pbs_queue *pque)
  *		On an error, a formatted message is attached to the job in ji_
  */
 int
-check_entity_ct_limit_max(job *pjob, pbs_queue *pque)
+check_entity_ct_limit_max(svrjob_t *pjob, pbs_queue *pque)
 {
 	char	    *egroup;
 	char	    *project;
@@ -2633,7 +2633,7 @@ check_entity_ct_limit_max(job *pjob, pbs_queue *pque)
  *		Error message text returned in ebuffer if limit exceeded
  */
 int
-check_entity_resc_limit_queued(job *pjob, pbs_queue *pque, attribute *altered_resc)
+check_entity_resc_limit_queued(svrjob_t *pjob, pbs_queue *pque, attribute *altered_resc)
 {
 	char	    *egroup;
 	char	    *project;
@@ -2886,7 +2886,7 @@ check_entity_resc_limit_queued(job *pjob, pbs_queue *pque, attribute *altered_re
  * 		Error message text returned in ebuffer if limit exceeded
  */
 int
-check_entity_resc_limit_max(job *pjob, pbs_queue *pque, attribute *altered_resc)
+check_entity_resc_limit_max(svrjob_t *pjob, pbs_queue *pque, attribute *altered_resc)
 {
 	char	    *egroup;
 	char	    *project;
@@ -3139,7 +3139,7 @@ check_entity_resc_limit_max(job *pjob, pbs_queue *pque, attribute *altered_resc)
  */
 
 static int
-set_single_entity_ct(enum lim_keytypes kt, char *ename, attribute *patr, job *pjob, int subjobs, enum batch_op op)
+set_single_entity_ct(enum lim_keytypes kt, char *ename, attribute *patr, svrjob_t *pjob, int subjobs, enum batch_op op)
 {
 	char *kstr;
 	void *ctx;
@@ -3217,7 +3217,7 @@ set_single_entity_ct(enum lim_keytypes kt, char *ename, attribute *patr, job *pj
 static int
 set_single_entity_res(enum lim_keytypes kt, char *ename,
 	attribute *patr, resource  *newval,
-	resource  *oldval, job *pjob, int subjobs, enum batch_op op)
+	resource  *oldval, svrjob_t *pjob, int subjobs, enum batch_op op)
 {
 	char *rescn = newval->rs_defin->rs_name;
 	char *kstr;
@@ -3364,7 +3364,7 @@ set_single_entity_res(enum lim_keytypes kt, char *ename,
  * @retval	PBS_Enumber	: if error, typically a system or internal error
  */
 int
-set_entity_ct_sum_queued(job *pjob, pbs_queue *pque, enum batch_op op)
+set_entity_ct_sum_queued(svrjob_t *pjob, pbs_queue *pque, enum batch_op op)
 {
 	char	    *egroup;
 	char	    *project;
@@ -3479,7 +3479,7 @@ set_entity_ct_sum_queued(job *pjob, pbs_queue *pque, enum batch_op op)
  * @retval	PBS_Enumber	: if error, typically a system or internal error
  */
 int
-set_entity_ct_sum_max(job *pjob, pbs_queue *pque, enum batch_op op)
+set_entity_ct_sum_max(svrjob_t *pjob, pbs_queue *pque, enum batch_op op)
 {
 	char	    *egroup;
 	char	    *project;
@@ -3593,7 +3593,7 @@ set_entity_ct_sum_max(job *pjob, pbs_queue *pque, enum batch_op op)
 static
 int revert_entity_resources(attribute *pmaxqresc, attribute *pattr_old,
 	resource *presc_new, resource *presc_old, resource *presc_first,
-	job *pjob, int subjobs, enum batch_op op)
+	svrjob_t *pjob, int subjobs, enum batch_op op)
 {
 
 	int res_flag=1;
@@ -3653,7 +3653,7 @@ int revert_entity_resources(attribute *pmaxqresc, attribute *pattr_old,
  * @retval	PBS_Enumber	: if error, typically a system or internal error
  */
 int
-set_entity_resc_sum_queued(job *pjob, pbs_queue *pque, attribute *altered_resc,
+set_entity_resc_sum_queued(svrjob_t *pjob, pbs_queue *pque, attribute *altered_resc,
 	enum batch_op op)
 {
 	char	    *egroup=NULL;
@@ -3893,7 +3893,7 @@ set_entity_resc_sum_queued(job *pjob, pbs_queue *pque, attribute *altered_resc,
  * @retval	PBS_Enumber	: if error, typically a system or internal error
  */
 int
-set_entity_resc_sum_max(job *pjob, pbs_queue *pque, attribute *altered_resc,
+set_entity_resc_sum_max(svrjob_t *pjob, pbs_queue *pque, attribute *altered_resc,
 	enum batch_op op)
 {
 	char	    *egroup=NULL;
@@ -4130,7 +4130,7 @@ set_entity_resc_sum_max(job *pjob, pbs_queue *pque, attribute *altered_resc,
  * @retval	PBS_Enumber	: if error, typically a system or internal error
  */
 int
-account_entity_limit_usages(job *pjob, pbs_queue *pque, attribute *altered_resc,
+account_entity_limit_usages(svrjob_t *pjob, pbs_queue *pque, attribute *altered_resc,
 	enum batch_op op, int op_flag)
 {
 	int rc,ret_error = PBSE_NONE;
@@ -4720,7 +4720,7 @@ node_need_prov(struct pbsnode *pnode, char *aoe_name)
  */
 
 int
-find_prov_vnode_list(job *pjob, exec_vnode_listtype *prov_vnodes, char **aoe_name)
+find_prov_vnode_list(svrjob_t *pjob, exec_vnode_listtype *prov_vnodes, char **aoe_name)
 {
 	/* Variables used in parsing the "exec_vnode" string */
 	char		*psubspec;
@@ -4974,16 +4974,16 @@ free_prov_vnode(struct pbsnode * pnode)
  */
 
 static int
-is_runnable(job *ptr, struct prov_vnode_info *pvnfo)
+is_runnable(svrjob_t *ptr, struct prov_vnode_info *pvnfo)
 {
-	struct			pbsnode	*np = NULL;
-	int			i;
-	int			eflag = 0;
-	exec_vnode_listtype 	prov_vnode_list=NULL;
-	int			num_of_prov_vnodes = 1;
-	job			*pjob;
-	char			*aoe_req=NULL;
-	char			*current_aoe;
+	struct pbsnode	*np = NULL;
+	int i;
+	int eflag = 0;
+	exec_vnode_listtype prov_vnode_list = NULL;
+	int num_of_prov_vnodes = 1;
+	svrjob_t *pjob;
+	char *aoe_req = NULL;
+	char *current_aoe;
 
 
 	if (!ptr) {
@@ -4991,7 +4991,7 @@ is_runnable(job *ptr, struct prov_vnode_info *pvnfo)
 		return -1;
 	}
 
-	pjob = (job *) ptr;
+	pjob = (svrjob_t *) ptr;
 	DBPRT(("%s: Entered jobid=%s\n", __func__, pjob->ji_qs.ji_jobid))
 
 	aoe_req = pvnfo->pvnfo_aoe_req;
@@ -5103,7 +5103,7 @@ label1:
 void
 fail_vnode_job(struct prov_vnode_info * prov_vnode_info, int hold_or_que)
 {
-	job 			*pjob;
+	svrjob_t 			*pjob;
 	int			cnt;	/* no. of prov vnodes */
 	exec_vnode_listtype 	prov_vnode_list = NULL;
 	int			i;
@@ -5124,7 +5124,7 @@ fail_vnode_job(struct prov_vnode_info * prov_vnode_info, int hold_or_que)
 	if (prov_vnode_info->pvnfo_jobid[0] == '\0')
 		return;
 
-	pjob = (job *) find_job(prov_vnode_info->pvnfo_jobid);
+	pjob = (svrjob_t *) find_svrjob(prov_vnode_info->pvnfo_jobid);
 	if (!pjob)
 		return;
 
@@ -5134,14 +5134,14 @@ fail_vnode_job(struct prov_vnode_info * prov_vnode_info, int hold_or_que)
 	/* log job prov failed message */
 	if (hold_or_que == 0) {
 		sprintf(log_buffer,
-			"Provisioning for job %s failed, job held",
+			"Provisioning for job %s failed, svrjob_t held",
 			pjob->ji_qs.ji_jobid);
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO,
 				pjob->ji_qs.ji_jobid, log_buffer);
 
 	} else if (hold_or_que == 1) {
 		sprintf(log_buffer,
-			"Provisioning for job %s failed, job queued",
+			"Provisioning for job %s failed, svrjob_t queued",
 			pjob->ji_qs.ji_jobid);
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO,
 				pjob->ji_qs.ji_jobid, log_buffer);
@@ -5413,9 +5413,9 @@ offline_all_provisioning_vnodes()
 static void
 check_and_run_jobs(struct prov_vnode_info * prov_vnode_info)
 {
-	job			*pjob;
-	int			rc;
-	struct 			work_task task;
+	svrjob_t *pjob;
+	int rc;
+	struct work_task task;
 
 	if (!prov_vnode_info) {
 		DBPRT(("%s: prov_vnode_info is NULL\n", __func__))
@@ -5433,7 +5433,7 @@ check_and_run_jobs(struct prov_vnode_info * prov_vnode_info)
 	DBPRT(("%s: Entered, node=%s, jobid=%s\n", __func__,
 		prov_vnode_info->pvnfo_vnode, prov_vnode_info->pvnfo_jobid))
 
-	pjob = (job *) find_job(prov_vnode_info->pvnfo_jobid);
+	pjob = (svrjob_t *) find_svrjob(prov_vnode_info->pvnfo_jobid);
 	if (pjob == NULL)
 		return;
 
@@ -5593,11 +5593,11 @@ is_vnode_prov_done(char * vnode)
 static void
 prov_startjob(struct work_task *ptask)
 {
-	job			*pjob;
-	int			rc;
+	svrjob_t *pjob;
+	int rc;
 
 	assert(ptask->wt_parm1 != NULL);
-	pjob = (job *) ptask->wt_parm1;
+	pjob = (svrjob_t *) ptask->wt_parm1;
 	if (do_sync_mom_hookfiles || sync_mom_hookfiles_proc_running) {
 
 		/**
@@ -6154,7 +6154,7 @@ start_vnode_provisioning(struct prov_vnode_info * prov_vnode_info)
 	struct	work_task	*ptask_defer;
 	struct	work_task	*ptask_timed;
 	struct pbsnode		*pnode;
-	job 			*pjob;
+	svrjob_t 			*pjob;
 	int 			rc = -1;
 #ifndef	WIN32
 	struct 			sigaction act;
@@ -6322,7 +6322,7 @@ start_vnode_provisioning(struct prov_vnode_info * prov_vnode_info)
 		return (PBSE_INTERNAL);
 	}
 
-	pjob = find_job(prov_vnode_info->pvnfo_jobid);
+	pjob = find_svrjob(prov_vnode_info->pvnfo_jobid);
 	if (pjob) {
 		/* log job prov success message */
 		sprintf(log_buffer, "Provisioning vnode %s with AOE %s "
@@ -6368,7 +6368,7 @@ start_vnode_provisioning(struct prov_vnode_info * prov_vnode_info)
  */
 
 int
-check_and_enqueue_provisioning(job *pjob, int *need_prov)
+check_and_enqueue_provisioning(svrjob_t *pjob, int *need_prov)
 {
 	exec_vnode_listtype 	prov_vnode_list = NULL;
 	int			num_of_prov_vnodes = -1;
@@ -6431,7 +6431,7 @@ check_and_enqueue_provisioning(job *pjob, int *need_prov)
 		 * prov_vnode_info carries only the id's of the
 		 * job/resv and not pointers this is because, this
 		 * structure would be used by work tasks later and
-		 * at that point of time, job / resv pointers may not
+		 * at that point of time, svrjob_t / resv pointers may not
 		 * be valid as its possible that they could be
 		 * deleted by the server
 		 */
@@ -6596,7 +6596,7 @@ do_provisioning(struct work_task * wtask)
  *
  */
 static void
-del_prov_vnode_entry(job *pjob)
+del_prov_vnode_entry(svrjob_t *pjob)
 {
 	struct prov_vnode_info *tmp_record;
 	struct prov_vnode_info *nxt_record;
@@ -6811,7 +6811,7 @@ extern char *path_spool;
  *
  */
 char *
-svr_load_jobscript(job *pj)
+svr_load_jobscript(svrjob_t *pj)
 {
 	pbs_db_conn_t *conn = (pbs_db_conn_t *) svr_db_conn;
 	pbs_db_jobscr_info_t jobscr;
@@ -6866,7 +6866,7 @@ svr_load_jobscript(job *pj)
  * @retval  0 - Success
  */
 int
-svr_create_tmp_jobscript(job *pj, char *script_name)
+svr_create_tmp_jobscript(svrjob_t *pj, char *script_name)
 {
 	int fds;
 	int filemode = 0600;

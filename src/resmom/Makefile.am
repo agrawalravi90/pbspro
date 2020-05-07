@@ -76,12 +76,8 @@ pbs_mom_SOURCES = \
 	$(top_builddir)/src/lib/Libattr/job_attr_def.c \
 	$(top_builddir)/src/lib/Libattr/resc_def_all.c \
 	$(top_builddir)/src/lib/Libpython/shared_python_utils.c \
-	$(top_srcdir)/src/server/mom_info.c \
 	$(top_srcdir)/src/server/attr_recov.c \
 	$(top_srcdir)/src/server/dis_read.c \
-	$(top_srcdir)/src/server/job_func.c \
-	$(top_srcdir)/src/server/job_recov.c \
-	$(top_srcdir)/src/server/process_request.c \
 	$(top_srcdir)/src/server/reply_send.c \
 	$(top_srcdir)/src/server/req_quejob.c \
 	$(top_srcdir)/src/server/resc_attr.c \
@@ -96,6 +92,7 @@ pbs_mom_SOURCES = \
 	mock_run.h \
 	mom_comm.c \
 	mom_hook_func.c \
+	mom_info.c \
 	mom_inter.c \
 	mom_main.c \
 	mom_pmix.c \
@@ -103,7 +100,9 @@ pbs_mom_SOURCES = \
 	mom_server.c \
 	mom_vnode.c \
 	mom_walltime.c \
+	momjob.c \
 	popen.c \
+	process_request.c \
 	prolog.c \
 	requests.c \
 	rm_dep.h \
@@ -111,7 +110,11 @@ pbs_mom_SOURCES = \
 	start_exec.c \
 	vnode_storage.c \
 	renew_creds.c \
-	renew_creds.h
+	renew_creds.h \
+	$(top_builddir)/src/lib/Libcommon/svr_mom_job.c \
+	$(top_builddir)/src/lib/Libcommon/svr_mom_job_recov.c \
+	$(top_builddir)/src/lib/Libcommon/svr_mom_mominfo.c \
+	$(top_builddir)/src/lib/Libcommon/svr_mom_req.c
 
 if ALPS_ENABLED
 pbs_mom_CPPFLAGS += -DMOM_ALPS=1 @expat_inc@

@@ -79,6 +79,7 @@
 #include "log.h"
 #include "pbs_nodes.h"
 #include "svrfunc.h"
+#include "svrjob.h"
 
 
 /* Global Data Items: */
@@ -99,7 +100,7 @@ extern time_t time_now;
 /* External functions */
 
 extern int issue_to_svr(char *, struct batch_request *, void (*func)(struct work_task *));
-extern struct batch_request *cpy_stage(struct batch_request *, job *, enum job_atr, int);
+extern struct batch_request *cpy_stage(struct batch_request *, svrjob_t *, enum job_atr, int);
 extern resc_resv  *chk_rescResv_request(char *, struct batch_request *);
 
 /* Private Functions in this file */
@@ -107,7 +108,7 @@ extern resc_resv  *chk_rescResv_request(char *, struct batch_request *);
 static void post_delete_route(struct work_task *);
 static void post_delete_mom1(struct work_task *);
 static void post_deljobfromresv_req(struct work_task *);
-static void req_deletejob2(struct batch_request *preq, job *pjob);
+static void req_deletejob2(struct batch_request *preq, svrjob_t *pjob);
 
 /* Private Data Items */
 
@@ -128,7 +129,7 @@ static int qdel_mail = 1; /* true: sending mail */
 
 void
 remove_stagein(pjob)
-job *pjob;
+svrjob_t *pjob;
 {
 	struct batch_request *preq = 0;
 
@@ -163,7 +164,7 @@ job *pjob;
  */
 
 static void
-acct_del_write(char *jid, job *pjob, struct batch_request *preq, int nomail)
+acct_del_write(char *jid, svrjob_t *pjob, struct batch_request *preq, int nomail)
 {
 	(void) sprintf(log_buffer, acct_fmt, preq->rq_user, preq->rq_host);
 	write_account_record(PBS_ACCT_DEL, jid, log_buffer);
@@ -207,8 +208,8 @@ acct_del_write(char *jid, job *pjob, struct batch_request *preq, int nomail)
 int
 check_deletehistoryjob(struct batch_request * preq)
 {
-	job *histpjob;
-	job *pjob;
+	svrjob_t *histpjob;
+	svrjob_t *pjob;
 	int historyjob;
 	int histerr;
 	int t;
@@ -234,7 +235,7 @@ check_deletehistoryjob(struct batch_request * preq)
 		}
 	}
 
-	histpjob = find_job(jid);
+	histpjob = find_svrjob(jid);
 
 	historyjob = svr_chk_histjob(histpjob);
 	if (historyjob == PBSE_HISTJOBID) {
@@ -254,7 +255,7 @@ check_deletehistoryjob(struct batch_request * preq)
 				int i;
 				for (i = 0; i < histpjob->ji_ajtrk->tkm_ct; i++) {
 					char *sjid = mk_subjob_id(histpjob, i);
-					job  *psjob;
+					svrjob_t  *psjob;
 
 					if ((psjob = histpjob->ji_ajtrk->tkm_tbl[i].trk_psubjob)) {
 						snprintf(log_buffer, sizeof(log_buffer),
@@ -264,13 +265,13 @@ check_deletehistoryjob(struct batch_request * preq)
 							sjid,
 							log_buffer);
 
-						job_purge(psjob);
+						job_purge_generic(psjob);
 					}
 				}
 			}
 		}
 
-		job_purge(histpjob);
+		job_purge_generic(histpjob);
 
 		preq->rq_reply.brp_code = PBSE_HISTJOBDELETED;
 		reply_send(preq);
@@ -291,7 +292,7 @@ check_deletehistoryjob(struct batch_request * preq)
  * @param[in]	pjob - Job structure.
  */
 void
-issue_delete(job *pjob)
+issue_delete(svrjob_t *pjob)
 {
 	struct batch_request   *preq;
 	char rmt_server[PBS_MAXSERVERNAME + 1] = {'\0'};
@@ -329,7 +330,7 @@ issue_delete(job *pjob)
  * @param[in]	parent - pointer to parent Job structure.
  */
 static void
-decr_single_subjob_usage(job *parent)
+decr_single_subjob_usage(svrjob_t *parent)
 {
 	parent->ji_qs.ji_svrflags &= ~JOB_SVFLG_ArrayJob; /* small hack to decrement usage for a single un-instantiated subjob */
 	account_entity_limit_usages(parent, NULL, NULL, DECR, ETLIM_ACC_ALL); /* for server limit */
@@ -356,8 +357,8 @@ req_deletejob(struct batch_request *preq)
 	int jt; /* job type */
 	int offset;
 	char *pc;
-	job *pjob;
-	job *parent;
+	svrjob_t *pjob;
+	svrjob_t *parent;
 	char *range;
 	int sjst; /* subjob state */
 	int x, y, z;
@@ -383,7 +384,7 @@ req_deletejob(struct batch_request *preq)
 
 	parent = chk_job_request(jid, preq, &jt, &err);
 	if (parent == NULL) {
-		pjob = find_job(jid);
+		pjob = find_svrjob(jid);
 		if (pjob != NULL && pjob->ji_pmt_preq != NULL)
 			reply_preempt_jobs_request(err, PREEMPT_METHOD_DELETE, pjob);
 		return; /* note, req_reject already called */
@@ -424,7 +425,7 @@ req_deletejob(struct batch_request *preq)
 
 		if ((i == JOB_STATE_EXITING) && (forcedel == 0)) {
 			if (parent->ji_pmt_preq != NULL) {
-				pjob = find_job(jid);
+				pjob = find_svrjob(jid);
 				reply_preempt_jobs_request(PBSE_BADSTATE, PREEMPT_METHOD_DELETE, pjob);
 			}
 			req_reject(PBSE_BADSTATE, 0, preq);
@@ -483,7 +484,7 @@ req_deletejob(struct batch_request *preq)
 					log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO,
 						pjob->ji_qs.ji_jobid,
 						log_buffer);
-					job_purge(pjob);
+					job_purge_generic(pjob);
 				}else
 					dup_br_for_subjob(preq, pjob, req_deletejob2);
 			} else {
@@ -505,7 +506,7 @@ req_deletejob(struct batch_request *preq)
 		/* If not deleteing running subjobs, delete2 to del parent   */
 
 		if (--preq->rq_refct == 0) {
-			if ((parent = find_job(jid)) != NULL)
+			if ((parent = find_svrjob(jid)) != NULL)
 				req_deletejob2(preq, parent);
 			else
 				reply_send(preq);
@@ -562,7 +563,7 @@ req_deletejob(struct batch_request *preq)
 					log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO,
 						pjob->ji_qs.ji_jobid,
 						log_buffer);
-					job_purge(pjob);
+					job_purge_generic(pjob);
 				}else
 					dup_br_for_subjob(preq, pjob, req_deletejob2);
 			} else {
@@ -608,7 +609,7 @@ req_deletejob(struct batch_request *preq)
  */
 
 static void
-req_deletejob2(struct batch_request *preq, job *pjob)
+req_deletejob2(struct batch_request *preq, svrjob_t *pjob)
 {
 	int abortjob = 0;
 	char *sig;
@@ -824,7 +825,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 
 			/* see if it has any dependencies */
 			if (pjob->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)
-				(void)depend_on_term(pjob);
+				depend_on_term(pjob);
 
 			/*
 			 * Check if the history of the finished job can be saved or it needs to be purged .
@@ -940,7 +941,7 @@ req_deleteReservation(struct batch_request *preq)
 	static int lenF = 6; /*strlen ("False") + 1*/
 
 	resc_resv *presv;
-	job *pjob;
+	svrjob_t *pjob;
 	struct batch_request *newreq;
 	struct work_task *pwt;
 
@@ -1058,7 +1059,7 @@ req_deleteReservation(struct batch_request *preq)
 		 */
 
 		int deleteProblem = 0;
-		job *pnxj;
+		svrjob_t *pnxj;
 
 		if (presv->ri_qp->qu_attr[QA_ATR_Enabled].at_val.at_long) {
 
@@ -1122,16 +1123,16 @@ req_deleteReservation(struct batch_request *preq)
 		eval_resvState(presv, RESVSTATE_req_deleteReservation,
 			relVal, &state, &sub);
 		(void) resv_setResvState(presv, state, sub);
-		pjob = (job *) GET_NEXT(presv->ri_qp->qu_jobs);
+		pjob = (svrjob_t *) GET_NEXT(presv->ri_qp->qu_jobs);
 		while (pjob != NULL) {
 
-			pnxj = (job *) GET_NEXT(pjob->ji_jobque);
+			pnxj = (svrjob_t *) GET_NEXT(pjob->ji_jobque);
 
 			/* skip all expired subjobs, expired subjobs are deleted when array parent is
 			 * issued delete request
 			 */
 			for (; pnxj != NULL && (pnxj->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) &&
-			     pnxj->ji_qs.ji_state == JOB_STATE_EXPIRED; pnxj = (job *) GET_NEXT(pnxj->ji_jobque))
+			     pnxj->ji_qs.ji_state == JOB_STATE_EXPIRED; pnxj = (svrjob_t *) GET_NEXT(pnxj->ji_jobque))
 				;
 			/*
 			 * If a history job (job state is JOB_STATE_MOVED
@@ -1203,13 +1204,13 @@ req_deleteReservation(struct batch_request *preq)
 			 */
 			pjob = NULL;
 			if (presv && presv->ri_qp)
-				pjob = (job *) GET_NEXT(presv->ri_qp->qu_jobs);
+				pjob = (svrjob_t *) GET_NEXT(presv->ri_qp->qu_jobs);
 			while (pjob != NULL) {
 				if ((pjob->ji_qs.ji_state != JOB_STATE_MOVED) &&
 					(pjob->ji_qs.ji_state != JOB_STATE_FINISHED) &&
 					(pjob->ji_qs.ji_state != JOB_STATE_EXPIRED))
 					break;
-				pjob = (job *) GET_NEXT(pjob->ji_jobque);
+				pjob = (svrjob_t *) GET_NEXT(pjob->ji_jobque);
 			}
 			if (pjob == NULL) /* all are history jobs only */
 				resv_purge(presv);
@@ -1273,7 +1274,7 @@ static void
 post_delete_mom1(struct work_task *pwt)
 {
 	int auxcode;
-	job *pjob;
+	svrjob_t *pjob;
 	struct batch_request *preq_sig; /* signal request to MOM */
 	struct batch_request *preq_clt; /* original client request */
 	int rc;
@@ -1288,7 +1289,7 @@ post_delete_mom1(struct work_task *pwt)
 		return;
 	}
 
-	pjob = find_job(preq_sig->rq_ind.rq_signal.rq_jid);
+	pjob = find_svrjob(preq_sig->rq_ind.rq_signal.rq_jid);
 	release_req(pwt);
 	if (pjob == NULL) {
 		/* job has gone away */
@@ -1385,7 +1386,7 @@ post_deljobfromresv_req(pwt)
 struct work_task *pwt;
 {
 	resc_resv *presv;
-	job *pjob = NULL;
+	svrjob_t *pjob = NULL;
 
 	presv = (resc_resv *)((struct batch_request *) pwt->wt_parm1);
 
@@ -1396,13 +1397,13 @@ struct work_task *pwt;
 	presv->ri_downcnt = presv->ri_qp->qu_numjobs;
 	if (presv->ri_downcnt != 0) {
 		if (presv->ri_qp)
-			pjob = (job *) GET_NEXT(presv->ri_qp->qu_jobs);
+			pjob = (svrjob_t *) GET_NEXT(presv->ri_qp->qu_jobs);
 		while (pjob != NULL) {
 			if ((pjob->ji_qs.ji_state != JOB_STATE_MOVED) &&
 				(pjob->ji_qs.ji_state != JOB_STATE_FINISHED) &&
 				(pjob->ji_qs.ji_state != JOB_STATE_EXPIRED))
 				break;
-			pjob = (job *) GET_NEXT(pjob->ji_jobque);
+			pjob = (svrjob_t *) GET_NEXT(pjob->ji_jobque);
 		}
 		/*
 			* If pjob is NULL, then all are history jobs only,

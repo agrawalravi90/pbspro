@@ -103,16 +103,16 @@
 
 /* External functions called */
 
-extern void	stat_mom_job(job *);
-int  local_move(job *, struct batch_request *);
+extern void	stat_mom_job(svrjob_t *);
+int  local_move(svrjob_t *, struct batch_request *);
 
 /* Private Functions local to this file */
 
 static void post_movejob(struct work_task *);
 static void post_routejob(struct work_task *);
-static int small_job_files(job* pjob);
+static int small_job_files(svrjob_t* pjob);
 extern int should_retry_route(int err);
-extern int move_job_file(int con, job *pjob, enum job_file which, int prot, char **msgid);
+extern int move_job_file(int con, svrjob_t *pjob, enum job_file which, int prot, char **msgid);
 extern void post_sendmom(struct work_task *pwt);
 
 
@@ -136,7 +136,7 @@ extern pbs_net_t pbs_server_addr;
 extern unsigned int pbs_server_port_dis;
 extern int	resc_access_perm;
 extern time_t	time_now;
-extern int svr_create_tmp_jobscript(job *pj, char *script_name);
+extern int svr_create_tmp_jobscript(svrjob_t *pj, char *script_name);
 extern int	scheduler_jobs_stat;
 extern	char	*path_hooks_workdir;
 extern struct work_task *add_mom_deferred_list(int stream, mominfo_t *minfo, void (*func)(), char *msgid, void *parm1, void *parm2);
@@ -158,7 +158,7 @@ extern struct work_task *add_mom_deferred_list(int stream, mominfo_t *minfo, voi
  * @reval	2	: deferred (ie move in progress), check later
  */
 int
-svr_movejob(job	*jobp, char *destination, struct batch_request *req)
+svr_movejob(svrjob_t	*jobp, char *destination, struct batch_request *req)
 {
 	pbs_net_t destaddr;
 	unsigned int port = pbs_server_port_dis;
@@ -212,7 +212,7 @@ svr_movejob(job	*jobp, char *destination, struct batch_request *req)
  * @retval  1	: failed but try again later
  */
 int
-local_move(job *jobp, struct batch_request *req)
+local_move(svrjob_t *jobp, struct batch_request *req)
 {
 	pbs_queue *qp;
 	char	  *destination = jobp->ji_qs.ji_destin;
@@ -333,7 +333,7 @@ post_routejob(struct work_task *pwt)
 	int	 newsub;
 	int	 r;
 	int	 stat = pwt->wt_aux;
-	job	*jobp = (job *)pwt->wt_parm2;
+	svrjob_t *jobp = (svrjob_t *)pwt->wt_parm2;
 
 	if (jobp == NULL) {
 		log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB, LOG_INFO, "", "post_routejob failed, jobp NULL");
@@ -364,7 +364,7 @@ post_routejob(struct work_task *pwt)
 			if (svr_chk_history_conf())
 				svr_setjob_histinfo(jobp, T_MOV_JOB);
 			else
-				job_purge(jobp); /* need to remove server job struct */
+				job_purge_generic(jobp); /* need to remove server job struct */
 			return;
 		case SEND_JOB_FATAL:		/* permanent rejection (or signal) */
 			if (jobp->ji_qs.ji_substate == JOB_SUBSTATE_ABORT) {
@@ -413,7 +413,7 @@ post_movejob(struct work_task *pwt)
 	int	newsub;
 	int	stat;
 	int	r;
-	job	*jobp;
+	svrjob_t *jobp;
 
 	req  = (struct batch_request *)pwt->wt_parm1;
 	stat = pwt->wt_aux;
@@ -424,8 +424,8 @@ post_movejob(struct work_task *pwt)
 		return;
 	}
 
-	jobp = find_job(req->rq_ind.rq_move.rq_jid);
-	if ((jobp == NULL) || (jobp != (job *)pwt->wt_parm2)) {
+	jobp = find_svrjob(req->rq_ind.rq_move.rq_jid);
+	if ((jobp == NULL) || (jobp != (svrjob_t *)pwt->wt_parm2)) {
 		sprintf(log_buffer,
 			"job %s not found",
 			req->rq_ind.rq_move.rq_jid);
@@ -452,7 +452,7 @@ post_movejob(struct work_task *pwt)
 			if (svr_chk_history_conf())
 				svr_setjob_histinfo(jobp, T_MOV_JOB);
 			else
-				job_purge(jobp);
+				job_purge_generic(jobp);
 		} else
 			r = PBSE_ROUTEREJ;
 	} else {
@@ -493,7 +493,7 @@ post_movejob(struct work_task *pwt)
  *
  */
 int
-send_job_exec(job *jobp, pbs_net_t hostaddr, int port, struct batch_request *request)
+send_job_exec(svrjob_t *jobp, pbs_net_t hostaddr, int port, struct batch_request *request)
 {
 	pbs_list_head attrl;
 	attribute *pattr;
@@ -547,7 +547,7 @@ send_job_exec(job *jobp, pbs_net_t hostaddr, int port, struct batch_request *req
 		}
 	}
 	attrl_fixlink(&attrl);
-	/* save the job id for when after we purge the job */
+	/* save the job id for when after we purge the svrjob_t */
 
 	/* read any credential file */
 	(void)get_credential(pmom->mi_host, jobp, PBS_GC_BATREQ, &credbuf, &credlen);
@@ -666,7 +666,7 @@ send_err:
  * @retval	SEND_JOB_NODEDW child	: 3 execution node down, retry different node
  */
 int
-send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
+send_job(svrjob_t *jobp, pbs_net_t hostaddr, int port, int move_type,
 	void (*post_func)(struct work_task *), struct batch_request *preq)
 {
 	pbs_list_head	 attrl;
@@ -746,7 +746,7 @@ send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
 			return (-1);
 		} else {
 			ptask->wt_parm2 = jobp;
-			append_link(&((job *)jobp)->ji_svrtask,
+			append_link(&((svrjob_t *)jobp)->ji_svrtask,
 				&ptask->wt_linkobj, ptask);
 		}
 		return 2;
@@ -1001,7 +1001,7 @@ send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
  */
 
 int
-net_move(job *jobp, struct batch_request *req)
+net_move(svrjob_t *jobp, struct batch_request *req)
 {
 	void		*data;
 	char		*destination = jobp->ji_qs.ji_destin;
@@ -1093,7 +1093,7 @@ should_retry_route(int err)
  * @retval	!=0	: error code
  */
 int
-move_job_file(int conn, job *pjob, enum job_file which, int prot, char **msgid)
+move_job_file(int conn, svrjob_t *pjob, enum job_file which, int prot, char **msgid)
 {
 	char path[MAXPATHLEN+1];
 
@@ -1130,7 +1130,7 @@ move_job_file(int conn, job *pjob, enum job_file which, int prot, char **msgid)
  * @retval	1	: failed but try again
  */
 int
-cnvrt_local_move(job *jobp, struct batch_request *req)
+cnvrt_local_move(svrjob_t *jobp, struct batch_request *req)
 {
 	return (local_move(jobp, req));
 }
@@ -1148,7 +1148,7 @@ cnvrt_local_move(job *jobp, struct batch_request *req)
  * @retval	1	: all job files are smaller than 2MB.
  */
 static int
-small_job_files(job* pjob)
+small_job_files(svrjob_t* pjob)
 {
 	int  		max_bytes_over_tpp = 2*1024*1024;
 	char 		path[MAXPATHLEN+1] = {0};

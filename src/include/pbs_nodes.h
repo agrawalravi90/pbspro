@@ -149,7 +149,7 @@ struct mom_svrinfo {
 	int	      msr_numvslots; /* number of slots in msr_children */
 	struct pbsnode **msr_children;  /* array of vnodes supported by Mom */
 	int	      msr_jbinxsz;  /* size of job index array */
-	struct job  **msr_jobindx;  /* index array of jobs on this Mom */
+	svrjob_t **msr_jobindx;  /* index array of jobs on this Mom */
 	long	      msr_vnode_pool;/* the pool of vnodes that belong to this Mom */
 };
 typedef struct mom_svrinfo mom_svrinfo_t;
@@ -228,7 +228,7 @@ struct	prop {
 };
 
 struct	jobinfo {
-	struct	job	*job;
+	svrjob_t	*job;
 	int		has_cpu;
 	size_t		mem;
 	struct	jobinfo	*next;
@@ -424,7 +424,6 @@ extern mominfo_t **mominfo_array;
 extern pntPBS_IP_LIST pbs_iplist;
 extern int mominfo_array_size;
 extern int mom_send_vnode_map;
-extern int svr_num_moms;
 extern int svr_chngNodesfile;
 
 /* Handlers for vnode state changing.for degraded reservations */

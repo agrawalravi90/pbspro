@@ -112,7 +112,7 @@ determine_euser(void *pobj, int objtype, attribute *pattr, int *isowner)
 	attribute *objattrs;
 	static char username[PBS_MAXUSER+1];
 #ifdef WIN32
-	extern int read_cred(job *pjob, char **cred, size_t *len);
+	extern int read_credsvrjob_t *pjob, char **cred, size_t *len);
 	extern int decrypt_pwd(char *crypted, size_t len, char **passwd);
 #endif
 	memset(username,'\0', sizeof(username));
@@ -120,7 +120,7 @@ determine_euser(void *pobj, int objtype, attribute *pattr, int *isowner)
 	/* set index and pointers based on object type */
 	if (objtype == JOB_OBJECT) {
 		idx_owner = (int)JOB_ATR_job_owner;
-		objattrs = &((job *)pobj)->ji_wattr[0];
+		objattrs = &((svrjob_t *)pobj)->ji_wattr[0];
 	} else {
 		idx_owner = (int)RESV_ATR_resv_owner;
 		objattrs = &((resc_resv *)pobj)->ri_wattr[0];
@@ -152,7 +152,7 @@ determine_euser(void *pobj, int objtype, attribute *pattr, int *isowner)
 	/* copy user name into return buffer and strip off host name only when hit is set
 	 * i.e. when either no user is specified(in this case, default the job to the object owner)
 	 * or a user is provided with the correct host name.
-	 * If not set, job can't be run as no user to run the job */
+	 * If not set, svrjob_t can't be run as no user to run the job */
 	if (hit) {
 		cvrt_fqn_to_name(hit, username);
 	}
@@ -296,8 +296,8 @@ set_objexid(void *pobj, int objtype, attribute *attrry)
 		idx_egroup = (int)JOB_ATR_egroup;
 		idx_acct = (int)JOB_ATR_account;
 		obj_attr_def = job_attr_def;
-		objattrs = ((job *)pobj)->ji_wattr;
-		owner = ((job *)pobj)->ji_wattr[idx_owner].at_val.at_str;
+		objattrs = ((svrjob_t *)pobj)->ji_wattr;
+		owner = ((svrjob_t *)pobj)->ji_wattr[idx_owner].at_val.at_str;
 		paclRoot = &server.sv_attr[(int)SRV_ATR_AclRoot];
 		bad_euser = PBSE_BADUSER;
 		bad_egrp = PBSE_BADGRP;

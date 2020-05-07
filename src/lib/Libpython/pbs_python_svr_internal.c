@@ -3561,14 +3561,18 @@ ERROR_EXIT:
  *
  */
 static PyObject *
-_pps_helper_get_job(job *pjob_o, const char *jobid, const char *qname, char *perf_label)
+_pps_helper_get_job(void *pjob_o, const char *jobid, const char *qname, char *perf_label)
 {
 	PyObject *py_job_class = NULL;
 	PyObject *py_job = NULL;
 	PyObject *py_jargs = NULL;
 	PyObject *py_que = NULL;
 	PyObject *py_server = NULL;
+#ifdef PBS_MOM
 	job *pjob;
+#else
+	svrjob_t *pjob;
+#endif
 	int tmp_rc = -1;
 	int t;
 	char	perf_action[MAXBUFLEN];
@@ -3584,12 +3588,12 @@ _pps_helper_get_job(job *pjob_o, const char *jobid, const char *qname, char *per
 		t = is_job_array((char *)jobid);
 
 		if (t == IS_ARRAY_Single) {
-			pjob = find_job((char *)jobid); /* has data if instantiated */
+			pjob = find_svrjob((char *)jobid); /* has data if instantiated */
 			if (pjob == NULL) { /* otherwise, return parent */
 				pjob = find_arrayparent((char *)jobid);
 			}
 		} else if ((t == IS_ARRAY_NO) || (t == IS_ARRAY_ArrayJob)) {
-			pjob = find_job((char *)jobid); /* regular or ArrayJob itself */
+			pjob = find_svrjob((char *)jobid); /* regular or ArrayJob itself */
 		} else {
 			pjob = find_arrayparent((char *)jobid); /* subjob(s) */
 		}
@@ -9070,7 +9074,7 @@ pbsv1mod_meth_iter_nextfunc(PyObject *self, PyObject *args, PyObject *kwds)
 				iter_entry->data = (pbs_queue *)GET_NEXT(\
 				((pbs_queue *)iter_entry->data)->qu_link);
 			} else if (strcmp(obj_name, ITER_JOBS) == 0) {
-				py_object = _pps_helper_get_job((job *)iter_entry->data, NULL, NULL, HOOK_PERF_FUNC);
+				py_object = _pps_helper_get_job(iter_entry->data, NULL, NULL, HOOK_PERF_FUNC);
 
 
 #ifdef NAS /* localmod 014 */

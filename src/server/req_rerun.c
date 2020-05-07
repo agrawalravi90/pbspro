@@ -72,17 +72,18 @@
 #include "pbs_nodes.h"
 #include "svrfunc.h"
 #include "net_connect.h"
+#include "svrjob.h"
 
 
 /* Private Function local to this file */
-static void req_rerunjob2(struct batch_request *preq, job *pjob);
+static void req_rerunjob2(struct batch_request *preq, svrjob_t *pjob);
 
 /* Global Data Items: */
 
 extern char *msg_manager;
 extern char *msg_jobrerun;
 extern time_t time_now;
-extern job  *chk_job_request(char *, struct batch_request *, int *, int *);
+extern svrjob_t  *chk_job_request(char *, struct batch_request *, int *, int *);
 
 
 
@@ -100,13 +101,13 @@ extern job  *chk_job_request(char *, struct batch_request *, int *, int *);
 void
 post_rerun(struct work_task *pwt)
 {
-	job	*pjob;
+	svrjob_t *pjob;
 	struct batch_request *preq;
 	struct depend *pdep;
 
 	preq = (struct batch_request *)pwt->wt_parm1;
 
-	pjob = find_job(preq->rq_ind.rq_signal.rq_jid);
+	pjob = find_svrjob(preq->rq_ind.rq_signal.rq_jid);
 
 	if (pjob != NULL) {
 		if (preq->rq_reply.brp_code != 0) {
@@ -137,7 +138,7 @@ post_rerun(struct work_task *pwt)
  * @param[in,out]	pwt	-	job which needs to be rerun
  */
 void
-force_reque(job *pjob)
+force_reque(svrjob_t *pjob)
 {
 	int  newstate;
 	int  newsubstate;
@@ -171,6 +172,8 @@ force_reque(job *pjob)
 	rel_resc(pjob);
 
 	/* note in accounting file */
+	if (pjob->ji_acctrec == NULL || strstr(pjob->ji_acctrec, "resources_used") == NULL)
+		set_acct_resc_used(pjob);
 	account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_RERUN);
 
 	/*
@@ -215,8 +218,8 @@ req_rerunjob(struct batch_request *preq)
 	int jt;				/* job type */
 	int offset;
 	char *pc;
-	job *pjob;
-	job *parent;
+	svrjob_t *pjob;
+	svrjob_t *parent;
 	char *range;
 	char *vrange;
 	int x, y, z;
@@ -225,7 +228,7 @@ req_rerunjob(struct batch_request *preq)
 	snprintf(jid, sizeof(jid), "%s", preq->rq_ind.rq_signal.rq_jid);
 	parent = chk_job_request(jid, preq, &jt, &err);
 	if (parent == NULL) {
-		pjob = find_job(jid);
+		pjob = find_svrjob(jid);
 		if (pjob != NULL && pjob->ji_pmt_preq != NULL)
 			reply_preempt_jobs_request(err, PREEMPT_METHOD_REQUEUE, pjob);
 		return; /* note, req_reject already called */
@@ -385,7 +388,7 @@ req_rerunjob(struct batch_request *preq)
 static void
 timeout_rerun_request(struct work_task *pwt)
 {
-	job *pjob = (job *) pwt->wt_parm1;
+	svrjob_t *pjob = (svrjob_t *) pwt->wt_parm1;
 	conn_t *conn = NULL;
 
 	if ((pjob == NULL) || (pjob->ji_rerun_preq == NULL)) {
@@ -412,7 +415,7 @@ timeout_rerun_request(struct work_task *pwt)
  *  @param[in,out]	pjob	-	ptr to the subjob
  */
 static void
-req_rerunjob2(struct batch_request *preq, job *pjob)
+req_rerunjob2(struct batch_request *preq, svrjob_t *pjob)
 {
 	long	force = 0;
 	struct  work_task *ptask;

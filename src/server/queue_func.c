@@ -217,10 +217,10 @@ que_purge(pbs_queue *pque)
 		 */
 		if (svr_history_enable) { /* SVR histconf chk */
 
-			job 	*pjob = NULL;
-			job 	*nxpjob = NULL;
+			svrjob_t 	*pjob = NULL;
+			svrjob_t 	*nxpjob = NULL;
 
-			pjob = (job *)GET_NEXT(pque->qu_jobs);
+			pjob = (svrjob_t *)GET_NEXT(pque->qu_jobs);
 			while (pjob) {
 				/*
 				 * If it is not a history job (MOVED/FINISHED), then
@@ -230,7 +230,7 @@ que_purge(pbs_queue *pque)
 					(pjob->ji_qs.ji_state != JOB_STATE_FINISHED) &&
 					(pjob->ji_qs.ji_state != JOB_STATE_EXPIRED))
 					return (PBSE_OBJBUSY);
-				pjob = (job *)GET_NEXT(pjob->ji_jobque);
+				pjob = (svrjob_t *)GET_NEXT(pjob->ji_jobque);
 			}
 			/*
 			 * All are history jobs, unlink all of them from queue.
@@ -239,9 +239,9 @@ que_purge(pbs_queue *pque)
 			 * should point to the queue to be purged, make the queue
 			 * header pointer of job(pjob->ji_qhdr) to NULL.
 			 */
-			pjob = (job *)GET_NEXT(pque->qu_jobs);
+			pjob = (svrjob_t *)GET_NEXT(pque->qu_jobs);
 			while (pjob) {
-				nxpjob = (job *)GET_NEXT(pjob->ji_jobque);
+				nxpjob = (svrjob_t *)GET_NEXT(pjob->ji_jobque);
 				delete_link(&pjob->ji_jobque);
 				--pque->qu_numjobs;
 				--pque->qu_njstate[pjob->ji_qs.ji_state];
@@ -399,7 +399,7 @@ get_dfltque(void)
 int
 queuestart_action(attribute *pattr, void *pobject, int actmode)
 {
-	job 	*pj;		/* pointer to job */
+	svrjob_t 	*pj;		/* pointer to job */
 	long	oldtype;
 	long 	newaccruetype = -1;	/* if determining accrue type */
 	pbs_queue *pque = (pbs_queue *) pobject;
@@ -412,7 +412,7 @@ queuestart_action(attribute *pattr, void *pobject, int actmode)
 			/* running jobs and jobs accruing ineligible time are exempted */
 			/* jobs accruing eligible time are also exempted */
 
-			pj = (job*)GET_NEXT(pque->qu_jobs);
+			pj = (svrjob_t*)GET_NEXT(pque->qu_jobs);
 
 			while (pj != NULL) {
 
@@ -425,13 +425,13 @@ queuestart_action(attribute *pattr, void *pobject, int actmode)
 					(void)update_eligible_time(JOB_ELIGIBLE, pj);
 				}
 
-				pj = (job*)GET_NEXT(pj->ji_jobque);
+				pj = (svrjob_t*)GET_NEXT(pj->ji_jobque);
 			}
 
 		} else { 			/* started = ON */
 			/* determine accrue type and accrue time */
 
-			pj = (job*)GET_NEXT(pque->qu_jobs);
+			pj = (svrjob_t*)GET_NEXT(pque->qu_jobs);
 
 			while (pj != NULL) {
 
@@ -444,7 +444,7 @@ queuestart_action(attribute *pattr, void *pobject, int actmode)
 					(void)update_eligible_time(newaccruetype, pj);
 				}
 
-				pj = (job*)GET_NEXT(pj->ji_jobque);
+				pj = (svrjob_t*)GET_NEXT(pj->ji_jobque);
 			}
 
 			/* if scheduling = True, notify scheduler to start */

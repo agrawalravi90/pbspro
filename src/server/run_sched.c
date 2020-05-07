@@ -104,7 +104,7 @@ extern int svr_unsent_qrun_req;
 static struct   am_jobs {
 	int   am_used;		/* number of jobs in the array  */
 	int   am_max;		/* number of slots in the array */
-	job **am_array;		/* pointer the malloc-ed array  */
+	svrjob_t **am_array;		/* pointer the malloc-ed array  */
 } am_jobs = { 0, 0, NULL };
 
 
@@ -176,14 +176,14 @@ err:
 int
 find_assoc_sched_jid(char *jid, pbs_sched **target_sched)
 {
-	job *pj;
+	svrjob_t *pj;
 	int t;
 
 	*target_sched = NULL;
 
 	t = is_job_array(jid);
 	if ((t == IS_ARRAY_NO) || (t == IS_ARRAY_ArrayJob))
-		pj = find_job(jid);		/* regular or ArrayJob itself */
+		pj = find_svrjob(jid);		/* regular or ArrayJob itself */
 	else
 		pj = find_arrayparent(jid); /* subjob(s) */
 
@@ -421,7 +421,7 @@ schedule_jobs(pbs_sched *psched)
 			if (pdefr->dr_sent == 0) {
 				s = is_job_array(pdefr->dr_id);
 				if (s == IS_ARRAY_NO) {
-					if (find_job(pdefr->dr_id) != NULL) {
+					if (find_svrjob(pdefr->dr_id) != NULL) {
 						jid = pdefr->dr_id;
 						cmd = SCH_SCHEDULE_AJOB;
 						break;
@@ -551,11 +551,11 @@ scheduler_close(int sock)
  * @param[in]	pjob	-	pointer to job to add to the array.
  */
 void
-am_jobs_add(job *pjob)
+am_jobs_add(svrjob_t *pjob)
 {
 	if (am_jobs.am_used == am_jobs.am_max) {
 		/* Need to expand the array, increase by 4 slots */
-		job **tmp = realloc(am_jobs.am_array, sizeof(job *) * (am_jobs.am_max + 4));
+		svrjob_t **tmp = realloc(am_jobs.am_array, sizeof(svrjob_t *) * (am_jobs.am_max + 4));
 		if (tmp == NULL)
 			return;	/* cannot increase array, so be it */
 		am_jobs.am_array = tmp;
@@ -576,7 +576,7 @@ am_jobs_add(job *pjob)
  * @retval	1	- job is in list
  */
 int
-was_job_alteredmoved(job *pjob)
+was_job_alteredmoved(svrjob_t *pjob)
 {
 	int i;
 	for (i=0; i<am_jobs.am_used; ++i) {

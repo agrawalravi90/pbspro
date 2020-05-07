@@ -70,7 +70,7 @@ long svr_cred_renew_cache_period = SVR_RENEW_CACHE_PERIOD_DEFAULT;
 extern time_t time_now;
 extern pbs_list_head svr_alljobs;
 
-extern int send_cred(job *pjob);
+extern int send_cred(svrjob_t *pjob);
 
 /* @brief
  *	The work task for particular job. This work task renew credentials for
@@ -84,9 +84,9 @@ void
 svr_renew_job_cred(struct work_task *pwt)
 {
 	char	*jobid = (char *)pwt->wt_parm1;
-	job 	*pjob = NULL;
+	svrjob_t 	*pjob = NULL;
 	int	rc;
-	if ((pjob = find_job(jobid)) != NULL) {
+	if ((pjob = find_svrjob(jobid)) != NULL) {
 		if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING)
 			return;
 
@@ -120,8 +120,8 @@ svr_renew_job_cred(struct work_task *pwt)
 void
 svr_renew_creds(struct work_task *pwt)
 {
-	job 	*pjob = NULL;
-	job 	*nxpjob = NULL;
+	svrjob_t 	*pjob = NULL;
+	svrjob_t 	*nxpjob = NULL;
 
 	/* first, set up another work task for next time period */
 	if (pwt && svr_cred_renew_enable) {
@@ -138,11 +138,11 @@ svr_renew_creds(struct work_task *pwt)
 	 * Traverse through the SERVER job list and set renew task if necessary.
 	 * The renew tasks are spread within SVR_RENEW_CREDS_TM
 	 */
-	pjob = (job *)GET_NEXT(svr_alljobs);
+	pjob = (svrjob_t *)GET_NEXT(svr_alljobs);
 
 	while (pjob) {
 		/* save the next job */
-		nxpjob = (job *)GET_NEXT(pjob->ji_alljobs);
+		nxpjob = (svrjob_t *)GET_NEXT(pjob->ji_alljobs);
 
 		if ((pjob->ji_wattr[(int)JOB_ATR_cred_id].at_flags & ATR_VFLAG_SET) &&
 			pjob->ji_qs.ji_state == JOB_STATE_RUNNING) {

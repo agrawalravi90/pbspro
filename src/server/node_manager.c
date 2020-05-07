@@ -175,6 +175,7 @@
 #include	"provision.h"
 #include 	"pbs_sched.h"
 #include	"svrfunc.h"
+#include	"svrjob.h"
 
 #if !defined(H_ERRNO_DECLARED) && !defined(WIN32)
 extern int h_errno;
@@ -617,7 +618,7 @@ node_down_requeue(struct work_task *pwt)
 	char			*nname;
 	mominfo_t		*mp;
 	mom_svrinfo_t		*svmp;
-	job			*pj;
+	svrjob_t			*pj;
 	struct pbsnode		*np;
 	struct pbssubn		*psn;
 	struct jobinfo		*pjinfo;
@@ -733,7 +734,7 @@ node_down_requeue(struct work_task *pwt)
 							(pj->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)) {
 								/* set job exit status from MOM */
 								pj->ji_qs.ji_un.ji_exect.ji_exitstat = JOB_EXEC_RERUN_MS_FAIL;
-								(void)depend_on_term(pj);
+								depend_on_term(pj);
 						}
 
 						/* notify all sisters to discard the job */
@@ -776,7 +777,7 @@ node_down_requeue(struct work_task *pwt)
  * @par MT-safe: No
  */
 static void
-post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
+post_discard_job(svrjob_t *pjob, mominfo_t *pmom, int newstate)
 {
 	char	        *downmom = NULL;
 	struct jbdscrd  *pdsc;
@@ -863,6 +864,8 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 		sprintf(log_buffer, ndreque, downmom);
 		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, log_buffer);
+		if (pjob->ji_acctrec == NULL || strstr(pjob->ji_acctrec, "resources_used") == NULL)
+			set_acct_resc_used(pjob);
 		account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_RERUN);
 		if (pjob->ji_acctrec) {
 			free(pjob->ji_acctrec);	/* logged, so clear it */
@@ -887,6 +890,7 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 	if (pjob->ji_acctrec) {
 		/* fairly normal job exit, record accounting info */
 		account_job_update(pjob, PBS_ACCT_LAST);
+		set_attr_rsc_used_acct(pjob);
 		account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_END);
 
 		if (server.sv_attr[(int)SRV_ATR_log_events].at_val.at_long &
@@ -927,7 +931,7 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 	if (svr_chk_history_conf())
 		svr_setjob_histinfo(pjob, T_MOM_DOWN);
 	else
-		job_purge(pjob);
+		job_purge_generic(pjob);
 
 	return;
 }
@@ -950,7 +954,7 @@ momptr_down(mominfo_t *pmom, char *why)
 	int		 nchild;
 	struct pbsnode  *np;
 	struct  jobinfo *pji;
-	job	       **parray;
+	svrjob_t	       **parray;
 	struct  pbssubn *psn;
 	mom_svrinfo_t   *psvrmom = (mom_svrinfo_t *)(pmom->mi_data);
 	long		 sec;
@@ -1015,7 +1019,7 @@ momptr_down(mominfo_t *pmom, char *why)
 				/* if any, save pointer to the jobs in an array as the    */
 				/* list may be distrubed by the post_discard_job function */
 				if (nj != 0) {
-					parray = (job **)calloc((size_t)nj, sizeof(job *));
+					parray = (svrjob_t **)calloc((size_t)nj, sizeof(svrjob_t *));
 					if (parray) {
 						i = 0;
 						for (pji = psn->jobs; pji; pji = pji->next) {
@@ -2267,7 +2271,7 @@ stat_update(int stream)
 	int			 bad;
 	int			 num;
 	int			 njobs;
-	job			*pjob;
+	svrjob_t			*pjob;
 	int			 rc;
 	struct resc_used_update	 rused = {0};
 	svrattrl		*sattrl;
@@ -2293,7 +2297,7 @@ stat_update(int stream)
 		}
 		DBPRT(("stat_update: update for %s\n", rused.ru_pjobid))
 
-		if (((pjob = find_job(rused.ru_pjobid)) != NULL)     &&
+		if (((pjob = find_svrjob(rused.ru_pjobid)) != NULL)     &&
 			((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) ||
 			(pjob->ji_qs.ji_state == JOB_STATE_EXITING)) &&
 			(pjob->ji_wattr[(int)JOB_ATR_run_version].at_val.at_long == rused.ru_hop)) {
@@ -2433,9 +2437,8 @@ stat_update(int stream)
 					 * then release the after dependency for its childs as the current job
 					 * is changing its state from JOB_SUBSTATE_PRERUN to JOB_SUBSTATE_RUNNING
 					 */
-					if (pjob->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET) {
-						(void)depend_on_exec(pjob);
-					}
+					if (pjob->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)
+						depend_on_exec(pjob);
 				}
 			} else if ((pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags & ATR_VFLAG_SET) == 0) {
 				/* this has been downgraded to DEBUG3  */
@@ -2664,7 +2667,7 @@ send_discard_job(int stream, char *jobid, int runver, char *txt)
  * @return	void
  */
 void
-discard_job(job *pjob, char *txt, int noack)
+discard_job(svrjob_t *pjob, char *txt, int noack)
 {
 	int	 i;
 	int      nmom;
@@ -2699,7 +2702,7 @@ discard_job(job *pjob, char *txt, int noack)
 	}
 
 	/* first count up number of vnodes in exec_vnode to size the	*/
-	/* jbdscrd (job discard) array, this may result in more entries	*/
+	/* jbdscrd (svrjob_t discard) array, this may result in more entries	*/
 	/* than needed for the number of Moms, but that is ok		*/
 
 	nmom = 1;
@@ -2800,7 +2803,7 @@ recv_wk_job_idle(int stream)
 	int   rc;
 	int   which;
 	char *jobid;
-	job  *pjob;
+	svrjob_t  *pjob;
 
 	which = disrui(stream, &rc);	/* 1 = suspend, 0 = resume */
 	if (rc)
@@ -2810,7 +2813,7 @@ recv_wk_job_idle(int stream)
 	if (rc)
 		return;
 
-	pjob = find_job(jobid);
+	pjob = find_svrjob(jobid);
 	if (pjob) {
 		/* suspend or resume job */
 
@@ -2838,7 +2841,7 @@ recv_wk_job_idle(int stream)
  *
  */
 static int
-deallocate_job_from_node(job *pjob, struct pbsnode *pnode)
+deallocate_job_from_node(svrjob_t *pjob, struct pbsnode *pnode)
 {
 	int              numcpus = 0;	/* for floating licensing */
 	int		 still_has_jobs; /* still jobs on this vnode */
@@ -3081,7 +3084,7 @@ is_parent_mom_of_node(mominfo_t *pmom, pbsnode *pnode)
  * @return void
  */
 static void
-deallocate_job(mominfo_t *pmom, job *pjob)
+deallocate_job(mominfo_t *pmom, svrjob_t *pjob)
 {
 	int	i;
 	int	totcpus = 0;
@@ -4270,7 +4273,7 @@ mom_running_jobs(int stream)
 	char		*execvnod = NULL;
 	char		*jobid = NULL;
 	unsigned	 njobs = 0;
-	job		*pjob = NULL;
+	svrjob_t		*pjob = NULL;
 	int		 rc = 0;
 	int		 substate = 0;
 	long             runver=0, runver_server=0;
@@ -4314,7 +4317,7 @@ mom_running_jobs(int stream)
 			goto err;
 
 		DBPRT(("mom_running_jobs: %s substate: %d runver: %ld\n", jobid, substate, runver))
-		if ((pjob = find_job(jobid)) == NULL) {
+		if ((pjob = find_svrjob(jobid)) == NULL) {
 			/* job not found,  tell Mom to discard it */
 			send_discard_job(stream, jobid, -1, "not known to Server");
 			discarded=1;
@@ -4454,7 +4457,7 @@ is_request(int stream, int version)
 	int			made_new_vnodes;
 	unsigned long		hook_seq;
 	char		       *hook_euser;
-	job		       *pjob;
+	svrjob_t		       *pjob;
 	unsigned long		ipaddr;
 	unsigned long		port;
 	struct	sockaddr_in	*addr;
@@ -5165,7 +5168,7 @@ found:
 			log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_NODE, LOG_DEBUG,
 				pmom->mi_host, log_buffer);
 			DBPRT(("%s: Mom %s %s (%d)\n", __func__, pmom->mi_host, log_buffer, j))
-			pjob = find_job(jid);
+			pjob = find_svrjob(jid);
 			if (pjob &&
 				(pjob->ji_wattr[(int)JOB_ATR_run_version].at_val.at_long==j)) {
 				post_discard_job(pjob, pmom, JDCD_REPLIED);
@@ -5204,7 +5207,7 @@ found:
 				if (ret != DIS_SUCCESS)
 					goto err;
 
-				if (((pjob = find_job(jid)) != NULL)               &&
+				if (((pjob = find_svrjob(jid)) != NULL)               &&
 					((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) ||
 					(pjob->ji_qs.ji_state == JOB_STATE_EXITING))  &&
 					(pjob->ji_wattr[(int)JOB_ATR_run_version].at_val.at_long == runct)) {
@@ -6541,12 +6544,12 @@ update_FLic_attr(void)
  * @retval	-1	- could not realloc memory for adding job index
  */
 static int
-add_job_index_to_mom(struct pbsnode *pnode, job *pjob)
+add_job_index_to_mom(struct pbsnode *pnode, svrjob_t *pjob)
 {
 	int    i;
 	size_t newn;
 	size_t oldn;
-	job  **pnew;
+	svrjob_t  **pnew;
 	mom_svrinfo_t *psm;
 
 	psm = (mom_svrinfo_t *)((pnode->nd_moms[0])->mi_data);
@@ -6565,7 +6568,7 @@ add_job_index_to_mom(struct pbsnode *pnode, job *pjob)
 	oldn = psm->msr_jbinxsz;
 	newn = oldn + JBINXSZ_GROW;
 
-	pnew = realloc(psm->msr_jobindx, sizeof(struct job *) * newn);
+	pnew = realloc(psm->msr_jobindx, sizeof(svrjob_t *) * newn);
 	if (pnew == NULL) {
 		log_err(PBSE_SYSTEM, "add_job_index_to_mom",
 			"could not realloc memory for adding job index");
@@ -6597,10 +6600,10 @@ add_job_index_to_mom(struct pbsnode *pnode, job *pjob)
  * @retval	-1	- already in use or slot doesn't exist.
  */
 static int
-set_old_job_index(struct pbsnode *pnode, job *pjob, int slot)
+set_old_job_index(struct pbsnode *pnode, svrjob_t *pjob, int slot)
 {
 	int    i;
-	job  **pnew;
+	svrjob_t  **pnew;
 	mom_svrinfo_t *psm;
 
 	psm = (mom_svrinfo_t *)((pnode->nd_moms[0])->mi_data);
@@ -6616,7 +6619,7 @@ set_old_job_index(struct pbsnode *pnode, job *pjob, int slot)
 		oldn = psm->msr_jbinxsz;
 		newn = slot + JBINXSZ_GROW;
 
-		pnew = realloc(psm->msr_jobindx, sizeof(struct job *) * newn);
+		pnew = realloc(psm->msr_jobindx, sizeof(svrjob_t *) * newn);
 		if (pnew == NULL) {
 			log_err(PBSE_SYSTEM, "set_old_job_index",
 				"could not realloc memory for adding job index");
@@ -6659,7 +6662,7 @@ set_old_job_index(struct pbsnode *pnode, job *pjob, int slot)
  * @par MT-safe: No
  */
 static char *
-build_execvnode(job *pjob, char *nds)
+build_execvnode(svrjob_t *pjob, char *nds)
 {
 	int    i;
 	int    j;
@@ -6931,7 +6934,7 @@ set_nodes(void *pobj, int objtype, char *execvnod_in, char **execvnod_out, char 
 	mominfo_t    *parentmom_first = NULL;
 	char	     *peh = NULL;
 	char	     *pehnxt = NULL;
-	job	     *pjob = NULL;
+	svrjob_t	     *pjob = NULL;
 	char	     *pc;
 	char         *pc2;
 	int	      share_job = VNS_UNSET;
@@ -6977,7 +6980,7 @@ set_nodes(void *pobj, int objtype, char *execvnod_in, char **execvnod_out, char 
 		resource *pplace;
 		resource_def *prsdef;
 
-		pjob = (job *)pobj;
+		pjob = (svrjob_t *)pobj;
 		patresc = &pjob->ji_wattr[(int)JOB_ATR_resource];
 
 		if (execvnod_in == NULL) {
@@ -7503,7 +7506,7 @@ set_nodes(void *pobj, int objtype, char *execvnod_in, char **execvnod_out, char 
  * @return	void
  */
 void
-free_nodes(job *pjob)
+free_nodes(svrjob_t *pjob)
 {
 	struct	pbssubn	*np;
 	mom_svrinfo_t	*psvrmom;
@@ -7861,7 +7864,7 @@ adj_resc_on_node(char *noden, int aflag, enum batch_op op, resource_def *prdef, 
  * @return	void
  */
 void
-update_job_node_rassn(job *pjob, attribute *pexech, enum batch_op op)
+update_job_node_rassn(svrjob_t *pjob, attribute *pexech, enum batch_op op)
 {
 	int	  asgn = ATR_DFLAG_ANASSN | ATR_DFLAG_FNASSN;
 	char     *chunk;
@@ -8464,7 +8467,7 @@ set_last_used_time_node(void *pobj, int type)
 		presv = pobj;
 		pn = parse_plus_spec(presv->ri_wattr[(int)RESV_ATR_resv_nodes].at_val.at_str, &rc);
 	} else {
-		job *pjob;
+		svrjob_t *pjob;
 
 		pjob = pobj;
 		pn = parse_plus_spec(pjob->ji_wattr[(int)JOB_ATR_exec_vnode].at_val.at_str, &rc);
@@ -8506,7 +8509,7 @@ set_last_used_time_node(void *pobj, int type)
  * @retval 0  - SUCCESS
  * @retval > 0 - FAILURE
  */
-int update_resources_rel(job *pjob, attribute *attrib, enum batch_op op)
+int update_resources_rel(svrjob_t *pjob, attribute *attrib, enum batch_op op)
 {
 	char * chunk;
 	int j;
@@ -8593,7 +8596,7 @@ int update_resources_rel(job *pjob, attribute *attrib, enum batch_op op)
  * @retval != 0  - failure error code.
  */
 int
-free_sister_vnodes(job *pjob, char *vnodelist, char *keep_select, char *err_msg,
+free_sister_vnodes(svrjob_t *pjob, char *vnodelist, char *keep_select, char *err_msg,
 			int err_msg_sz, struct batch_request *reply_req)
 {
 	int		rc = 0;
@@ -8630,11 +8633,6 @@ free_sister_vnodes(job *pjob, char *vnodelist, char *keep_select, char *err_msg,
 		log_err(-1, __func__, "Unable to find scheduler associated with partition");
 	}
 	rc = send_job_exec_update_to_mom(pjob, err_msg, err_msg_sz, reply_req);
-
-	if (rc == 0) {
-		account_job_update(pjob, PBS_ACCT_UPDATE);
-		account_jobstr(pjob, PBS_ACCT_NEXT);
-	}
 
 	return (rc);
 }

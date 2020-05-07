@@ -99,7 +99,7 @@ extern char *msg_nostf_resv;
 int modify_resv_attr(resc_resv *presv, svrattrl *plist, int perm, int *bad);
 extern void resv_revert_alter_times(resc_resv *presv);
 extern int gen_future_reply(resc_resv *presv, long fromNow);
-extern job  *chk_job_request(char *, struct batch_request *, int *, int *);
+extern svrjob_t  *chk_job_request(char *, struct batch_request *, int *, int *);
 extern resc_resv  *chk_rescResv_request(char *, struct batch_request *);
 
 
@@ -156,7 +156,7 @@ req_modifyjob(struct batch_request *preq)
 	int		 newstate;
 	int		 newsubstate;
 	resource_def	*outsideselect = NULL;
-	job		*pjob;
+	svrjob_t		*pjob;
 	svrattrl	*plist;
 	resource	*presc;
 	resource_def	*prsd;
@@ -204,7 +204,7 @@ req_modifyjob(struct batch_request *preq)
 	}
 
 	psched = find_sched_from_sock(preq->rq_conn);
-	/* allow scheduler to modify job */
+	/* allow scheduler to modify svrjob_t */
 	if (psched == NULL) {
 		/* provisioning job is not allowed to be modified */
 		if ((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) &&
@@ -458,7 +458,7 @@ find_name_in_svrattrl(svrattrl *plist, char *name)
  * @param[out]	bad	-	Pointer to the attribute index in case of a failed
  */
 int
-modify_job_attr(job *pjob, svrattrl *plist, int perm, int *bad)
+modify_job_attr(svrjob_t *pjob, svrattrl *plist, int perm, int *bad)
 {
 	int	   changed_resc;
 	int	   allow_unkn;

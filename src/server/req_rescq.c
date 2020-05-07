@@ -94,7 +94,7 @@ void resv_revert_alter_times(resc_resv *presv);
 extern int     svr_totnodes;
 extern time_t  time_now;
 
-extern int cnvrt_local_move(job *, struct batch_request *);
+extern int cnvrt_local_move(svrjob_t *, struct batch_request *);
 
 /**
  * @brief work task to delete reservation if there are no jobs in the reservation queue
@@ -177,7 +177,7 @@ int
 cnvrt_qmove(resc_resv *presv)
 {
 	int rc;
-	struct job *pjob;
+	svrjob_t *pjob;
 	char *q_job_id, *at;
 	struct batch_request *reqcnvrt;
 
@@ -186,7 +186,7 @@ cnvrt_qmove(resc_resv *presv)
 		return (-1);
 	}
 
-	pjob = find_job(presv->ri_wattr[(int)RESV_ATR_convert].at_val.at_str);
+	pjob = find_svrjob(presv->ri_wattr[(int)RESV_ATR_convert].at_val.at_str);
 	if (pjob != NULL)
 		q_job_id = pjob->ji_qs.ji_jobid;
 	else {

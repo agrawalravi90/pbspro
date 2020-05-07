@@ -84,10 +84,7 @@ pbs_server_bin_SOURCES = \
 	geteusernam.c \
 	hook_func.c \
 	issue_request.c \
-	job_func.c \
-	job_recov.c \
 	job_recov_db.c \
-	job_route.c \
 	license_client.c \
 	mom_info.c \
 	node_func.c \
@@ -110,7 +107,6 @@ pbs_server_bin_SOURCES = \
 	req_preemptjob.c \
 	req_movejob.c \
 	req_quejob.c \
-	req_register.c \
 	req_rerun.c \
 	req_rescq.c \
 	req_runjob.c \
@@ -137,7 +133,14 @@ pbs_server_bin_SOURCES = \
 	svr_resccost.c \
 	svr_credfunc.c \
 	user_func.c \
-	vnparse.c
+	vnparse.c \
+	svrjob/svrjob.c \
+	svrjob/job_route.c \
+	svrjob/job_depend.c \
+	$(top_builddir)/src/lib/Libcommon/svr_mom_job.c \
+	$(top_builddir)/src/lib/Libcommon/svr_mom_job_recov.c \
+	$(top_builddir)/src/lib/Libcommon/svr_mom_mominfo.c \
+	$(top_builddir)/src/lib/Libcommon/svr_mom_req.c
 
 pbs_comm_CPPFLAGS = \
 	-I$(top_srcdir)/src/include \

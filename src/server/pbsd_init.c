@@ -204,22 +204,22 @@ extern void   on_job_rerun(struct work_task *);
 extern int resize_prov_table(int newsize);
 extern void offline_all_provisioning_vnodes(void);
 extern void stop_db();
-extern job * job_recov_db_spl(pbs_db_job_info_t *dbjob);
+extern svrjob_t * job_recov_db_spl(pbs_db_job_info_t *dbjob);
 /* Private functions in this file */
 
 static void  catch_child(int);
-static void  init_abt_job(job *);
+static void  init_abt_job(svrjob_t *);
 static void  change_logs(int);
 int   chk_save_file(char *filename);
 static void  need_y_response(int, char *);
-static int   pbsd_init_job(job *pjob, int type);
-static int   pbsd_init_reque(job *job, int change_state);
+static int   pbsd_init_job(svrjob_t *pjob, int type);
+static int   pbsd_init_reque(svrjob_t *job, int change_state);
 static void  resume_net_move(struct work_task *);
 static void  stop_me(int);
-static int   Rmv_if_resv_not_possible(job *);
+static int   Rmv_if_resv_not_possible(svrjob_t *);
 static int   attach_queue_to_reservation(resc_resv *);
 static void  call_log_license(struct work_task *);
-extern int create_resreleased(job *pjob);
+extern int create_resreleased(svrjob_t *pjob);
 
 extern pbs_sched *sched_alloc(char *sched_name);
 /* private data */
@@ -373,7 +373,7 @@ pbsd_init(int type)
 	int	hook_suf_len = strlen(hook_suffix);
 	int	 logtype;
 	int	 numjobs;
-	job	*pjob;
+	svrjob_t	*pjob;
 	hook	*phook, *phook_current;
 	pbs_queue *pque;
 	resc_resv *presv;
@@ -923,13 +923,13 @@ pbsd_init(int type)
 				svr_mailowner(pjob, MAIL_ABORT, MAIL_NORMAL,
 					msg_init_abt);
 				check_block(pjob, msg_init_abt);
-				job_purge(pjob);
+				job_purge_generic(pjob);
 				continue;
 			}
 
 			rc = pbsd_init_job(pjob, type);
 			/*
-			 *	in the db version, job always has job script
+			 *	in the db version, svrjob_t always has job script
 			 *	since they are saved together, so nothing to
 			 *	check
 			 *
@@ -1313,7 +1313,7 @@ pbsd_init(int type)
 			}
 			buf[0] = '\0';
 			for(j = 0; j < arst->as_usedptr; j++) {
-				if(find_job(arst->as_string[j]) == NULL) {
+				if(find_svrjob(arst->as_string[j]) == NULL) {
 					strncat(buf, arst->as_string[j], len);
 					strncat(buf, ",", len);
 					buf[len] = '\0';
@@ -1365,7 +1365,7 @@ pbsd_init(int type)
  * @return	void
  */
 static void
-reassign_resc(job *pjob)
+reassign_resc(svrjob_t *pjob)
 {
 	int   set_exec_vnode;
 	int   rc;
@@ -1484,7 +1484,7 @@ reassign_resc(job *pjob)
  * @retval	-1	- error.
  */
 static int
-pbsd_init_job(job *pjob, int type)
+pbsd_init_job(svrjob_t *pjob, int type)
 {
 	unsigned int d;
 	int	 newstate;
@@ -1740,7 +1740,7 @@ pbsd_init_job(job *pjob, int type)
  * @retval	-1	- error.
  */
 static int
-pbsd_init_reque(job *pjob, int change_state)
+pbsd_init_reque(svrjob_t *pjob, int change_state)
 {
 	char logbuf[384];
 	int newstate;
@@ -1891,7 +1891,7 @@ chk_save_file(char *filename)
 static void
 resume_net_move(struct work_task *ptask)
 {
-	net_move((job *)ptask->wt_parm1, 0);
+	net_move((svrjob_t *)ptask->wt_parm1, 0);
 }
 
 /**
@@ -1963,14 +1963,14 @@ need_y_response(int type, char *txt)
  * @return	void
  */
 static void
-init_abt_job(job *pjob)
+init_abt_job(svrjob_t *pjob)
 {
 	log_event(PBSEVENT_SYSTEM|PBSEVENT_ADMIN| PBSEVENT_DEBUG,
 		PBS_EVENTCLASS_JOB, LOG_INFO,
 		pjob->ji_qs.ji_jobid, msg_init_abt);
 	svr_mailowner(pjob, MAIL_ABORT, MAIL_NORMAL, msg_init_abt);
 	check_block(pjob, msg_init_abt);
-	job_purge(pjob);
+	job_purge_generic(pjob);
 }
 
 
@@ -1990,7 +1990,7 @@ init_abt_job(job *pjob)
  * @retval	1	- should not be requeued
  */
 static int
-Rmv_if_resv_not_possible(job *pjob)
+Rmv_if_resv_not_possible(svrjob_t *pjob)
 {
 	int	    rc=0;	/*assume OK to requeue*/
 	resc_resv   *presv;

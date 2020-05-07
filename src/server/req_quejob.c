@@ -143,7 +143,7 @@ extern int    remtree(char *);
 extern int apply_aoe_inchunk_rules(resource *, attribute *, void *, int);
 #endif /* localmod 005 */
 void post_sendmom(struct work_task *);
-void post_sendmom_inner(job *, struct batch_request *, int, int, char *);
+void post_sendmom_inner(svrjob_t *, struct batch_request *, int, int, char *);
 #endif	/* PBS_MOM */
 
 /* Global Data Items: */
@@ -183,14 +183,11 @@ extern char *msg_nostf_jobarray;
 
 
 /* Private Functions in this file */
-
-static	job	*locate_new_job(struct batch_request *preq, char *jobid);
-
 #ifndef PBS_MOM	/* SERVER only */
 static	void	handle_qmgr_reply_to_resvQcreate(struct work_task *);
 static	int	get_queue_for_reservation(resc_resv *);
 static	int	ignore_attr(char *);
-static	int	validate_place_req_of_job_in_reservation(job *pj);
+static	int	validate_place_req_of_job_in_reservation(svrjob_t *pj);
 
 /* To generate the job/resv id's locally */
 static long long get_next_svr_sequence_id(void);
@@ -292,7 +289,11 @@ req_quejob(struct batch_request *preq)
 	int index;
 	char *jid;
 	attribute_def *pdef;
+#ifdef PBS_MOM
 	job *pj;
+#else
+	svrjob_t *pj;
+#endif
 	svrattrl *psatl;
 	int rc;
 	int sock = preq->rq_conn;
@@ -455,12 +456,12 @@ req_quejob(struct batch_request *preq)
 
 	/* does job already exist, check both old and new jobs */
 
-	if ((pj = find_job(jid)) == NULL) {
-		pj = (job *)GET_NEXT(svr_newjobs);
+	if ((pj = find_job_generic(jid)) == NULL) {
+		pj = GET_NEXT(svr_newjobs);
 		while (pj) {
 			if (!strcasecmp(pj->ji_qs.ji_jobid, jid))
 				break;
-			pj = (job *)GET_NEXT(pj->ji_alljobs);
+			pj = GET_NEXT(pj->ji_alljobs);
 		}
 	}
 
@@ -477,7 +478,7 @@ req_quejob(struct batch_request *preq)
 	if (pj != NULL) {
 		if ((svr_chk_history_conf()) &&
 			(pj->ji_qs.ji_state == JOB_STATE_MOVED)) {
-			job_purge(pj);
+			job_purge_generic(pj);
 		} else {
 			/* server rejects the queue request */
 			req_reject(PBSE_JOBEXIST, 0, preq);
@@ -505,7 +506,7 @@ req_quejob(struct batch_request *preq)
 	}
 
 	/* create the job structure */
-	if ((pj = job_alloc()) == NULL) {
+	if ((pj = job_alloc_generic()) == NULL) {
 		req_reject(PBSE_SYSTEM, 0, preq);
 		return;
 	}
@@ -577,7 +578,7 @@ req_quejob(struct batch_request *preq)
 
 		/* if not already here, allocate job struct */
 
-		if ((pj = job_alloc()) == NULL) {
+		if ((pj = job_alloc_generic()) == NULL) {
 			req_reject(PBSE_SYSTEM, 0, preq);
 			return;
 		}
@@ -605,7 +606,7 @@ req_quejob(struct batch_request *preq)
 					&& *pj->ji_qs.ji_jobid == '\0') {
                         	snprintf(pj->ji_qs.ji_jobid, sizeof(pj->ji_qs.ji_jobid), "%s", jid);
 			}
-			job_purge(pj);
+			job_purge_generic(pj);
 			req_reject(PBSE_SYSTEM, 0, preq);
 			free(namebuf);
 			return;
@@ -659,7 +660,7 @@ req_quejob(struct batch_request *preq)
 					    ATR_DFLAG_Creat;
 		}
 		if (((pdef->at_flags & resc_access_perm) == 0)) {
-			job_purge(pj);
+			job_purge_generic(pj);
 			reply_badattr(PBSE_ATTRRO, 1, psatl, preq);
 			return;
 		}
@@ -672,7 +673,7 @@ req_quejob(struct batch_request *preq)
 				presv = find_resv_by_quename(qname);
 
 				if (presv) {
-					job_purge(pj);
+					job_purge_generic(pj);
 					req_reject(PBSE_RESV_FROM_RESVJOB, 0, preq);
 					return;
 				}
@@ -692,13 +693,13 @@ req_quejob(struct batch_request *preq)
 				/* unknown resources not allow in Exec queue */
 
 				if (pque->qu_qs.qu_type == QTYPE_Execution) {
-					job_purge(pj);
+					job_purge_generic(pj);
 					reply_badattr(rc, 1, psatl, preq);
 					return;
 				}
 			} else {
 				/* any other error is fatal */
-				job_purge(pj);
+				job_purge_generic(pj);
 				reply_badattr(rc, 1, psatl, preq);
 				return;
 			}
@@ -707,7 +708,7 @@ req_quejob(struct batch_request *preq)
 		if (rc != 0) {
 			/* all  errors are fatal for MOM */
 
-			job_purge(pj);
+			job_purge_generic(pj);
 			reply_badattr(rc, 1, psatl, preq);
 			return;
 		}
@@ -720,7 +721,7 @@ req_quejob(struct batch_request *preq)
 				prdef = find_resc_def(svr_resc_def, psatl->al_resc,
 					svr_resc_size);
 				if (prdef == 0) {
-					job_purge(pj);
+					job_purge_generic(pj);
 					reply_badattr(rc, 1, psatl, preq);
 					return;
 				}
@@ -746,7 +747,7 @@ req_quejob(struct batch_request *preq)
 			(pdef->at_action)) {
 			rc = pdef->at_action(&pj->ji_wattr[i], pj, ATR_ACTION_NEW);
 			if (rc) {
-				job_purge(pj);
+				job_purge_generic(pj);
 				req_reject(rc, i, preq);
 				return;
 			}
@@ -766,7 +767,7 @@ req_quejob(struct batch_request *preq)
 
 		if (server.sv_attr[(int)SRV_ATR_acl_krb_submit_realms].at_flags & ATR_VFLAG_SET) {
 			if (!acl_check(&server.sv_attr[(int)SRV_ATR_acl_krb_submit_realms], conn->cn_credid, ACL_Host)) {
-				job_purge(pj);
+				job_purge_generic(pj);
 				req_reject(PBSE_PERM, 0, preq);
 				return;
 			}
@@ -838,13 +839,13 @@ req_quejob(struct batch_request *preq)
 					rc = PBSE_INVALJOBRESC;
 				if ((resc_in_err = strdup(prdefbad->rs_name)) == NULL)
 					rc = PBSE_SYSTEM;
-				job_purge(pj);
+				job_purge_generic(pj);
 				req_reject(rc, 0, preq);
 				return;
 			}
 			if (have_selectplace == SET_RESC_PLACE) {
 				/* cannot have place without select */
-				job_purge(pj);
+				job_purge_generic(pj);
 				req_reject(PBSE_PLACENOSELECT, 0, preq);
 				return;
 			}
@@ -858,7 +859,7 @@ req_quejob(struct batch_request *preq)
 				at_val.at_long < -1024) ||
 				(pj->ji_wattr[(int)JOB_ATR_priority].
 				at_val.at_long > 1024)) {
-				job_purge(pj);
+				job_purge_generic(pj);
 				req_reject(PBSE_BADATVAL, 0, preq);
 				return;
 			}
@@ -956,13 +957,13 @@ req_quejob(struct batch_request *preq)
 
 		if ((pj->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str==0) ||
 			(pj->ji_wattr[(int)JOB_ATR_errpath].at_val.at_str==0)) {
-			job_purge(pj);
+			job_purge_generic(pj);
 			req_reject(PBSE_NOATTR, 0, preq);
 			return;
 		}
 
 		if ((pj->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) && (pj->ji_wattr[(int)JOB_ATR_array_indices_submitted].at_flags & ATR_VFLAG_SET)) {
-			job_purge(pj);
+			job_purge_generic(pj);
 			req_reject(PBSE_NOSUP, 0, preq);
 			return;
 
@@ -988,7 +989,7 @@ req_quejob(struct batch_request *preq)
 
 		if (!(pj->ji_wattr[(int)JOB_ATR_job_owner].at_flags &
 			ATR_VFLAG_SET)) {
-			job_purge(pj);
+			job_purge_generic(pj);
 			req_reject(PBSE_IVALREQ, 0, preq);
 			return;
 		}
@@ -999,7 +1000,7 @@ req_quejob(struct batch_request *preq)
 			ATR_VFLAG_MODCACHE;
 		if (++pj->ji_wattr[(int)JOB_ATR_hopcount].at_val.at_long >
 			PBS_MAX_HOPCOUNT) {
-			job_purge(pj);
+			job_purge_generic(pj);
 			req_reject(PBSE_HOPCOUNT, 0, preq);
 			return;
 		}
@@ -1034,7 +1035,7 @@ req_quejob(struct batch_request *preq)
 		if ((pj->ji_wattr[(int)JOB_ATR_cred].at_flags &
 			ATR_VFLAG_SET) == 0 ||
 			strcmp(reqc, jobc) != 0) {
-			job_purge(pj);
+			job_purge_generic(pj);
 			req_reject(PBSE_BADCRED, 0, preq);
 			return;
 		}
@@ -1054,7 +1055,7 @@ req_quejob(struct batch_request *preq)
 			reply_text(preq, rc, pj->ji_clterrmsg);
 		else
 			req_reject(rc, 0, preq);
-		job_purge(pj);
+		job_purge_generic(pj);
 		return;
 	}
 
@@ -1076,7 +1077,7 @@ req_quejob(struct batch_request *preq)
 		pj->ji_myResv = pque->qu_resvp;
 
 		if (!validate_place_req_of_job_in_reservation(pj)) {
-			job_purge(pj);
+			job_purge_generic(pj);
 			psatl = (svrattrl *)GET_NEXT(
 				preq->rq_ind.rq_queuejob.rq_attr);
 			while (psatl) {
@@ -1108,7 +1109,7 @@ req_quejob(struct batch_request *preq)
 		rc = apply_aoe_inchunk_rules(presc, &pj->ji_wattr[(int)JOB_ATR_resource],
 			pj, PARENT_TYPE_JOB);
 		if (rc) {
-			job_purge(pj);
+			job_purge_generic(pj);
 			req_reject(rc, 0, preq);
 			return;
 		}
@@ -1147,7 +1148,7 @@ req_quejob(struct batch_request *preq)
 		{
 			log_err(-1, __func__, msg_mom_reject_root_scripts);
 			reply_text(preq, PBSE_MOM_REJECT_ROOT_SCRIPTS, msg_mom_reject_root_scripts);
-			job_purge(pj);
+			job_purge_generic(pj);
 			return;
 		}
 	}
@@ -1188,7 +1189,7 @@ req_quejob(struct batch_request *preq)
 			}
 
 			reply_text(preq, hook_errcode, hook_msg);
-			job_purge(pj);
+			job_purge_generic(pj);
 			return;
 	}
 #endif
@@ -1201,7 +1202,7 @@ req_quejob(struct batch_request *preq)
 			/* reply failed, purge the job and close the connection */
 
 			close_client(sock);
-			job_purge(pj);
+			job_purge_generic(pj);
 			return;
 		}
 	} else {
@@ -1236,7 +1237,7 @@ req_quejob(struct batch_request *preq)
 
 #ifndef	PBS_MOM
 	{
-		job	*pjob;
+		svrjob_t *pjob;
 		int	myport, port;
 		char	*myhost, *host;
 
@@ -1254,9 +1255,9 @@ req_quejob(struct batch_request *preq)
 		if (myport == 0)
 			return;
 
-		for (pjob = (job *)GET_NEXT(svr_alljobs);
+		for (pjob = (svrjob_t *)GET_NEXT(svr_alljobs);
 			pjob != NULL;
-			pjob = (job *)GET_NEXT(pjob->ji_alljobs)) {
+			pjob = (svrjob_t *)GET_NEXT(pjob->ji_alljobs)) {
 			if (pjob == pj)
 				continue;
 			if ((pjob->ji_wattr[(int)JOB_ATR_block].at_flags &
@@ -1299,7 +1300,7 @@ req_quejob(struct batch_request *preq)
 void
 req_jobcredential(struct batch_request *preq)
 {
-	job	*pj;
+	svrjob_t *pj;
 	int	type;
 	char	*cred;
 	size_t	len;
@@ -1357,12 +1358,13 @@ req_jobcredential(struct batch_request *preq)
 void
 req_jobscript(struct batch_request *preq)
 {
-	job	*pj;
 #ifdef PBS_MOM
 	int	 filemode = 0700;
 	int	 fds;
 	char namebuf[MAXPATHLEN];
+	job *pj;
 #else
+	svrjob_t *pj;
 	char *temp;
 	u_Long size;
 #endif
@@ -1459,12 +1461,14 @@ req_jobscript(struct batch_request *preq)
 	/* add the script to the job */
 	size = get_bytes_from_attr(&attr_jobscript_max_size);
 	if (preq->rq_ind.rq_jobfile.rq_size > size){
+		job_purge_generic(pj);
 		req_reject(PBSE_JOBSCRIPTMAXSIZE, 0, preq);
 		return;
 	}
 	temp = realloc(pj->ji_script, pj->ji_qs.ji_un.ji_newt.ji_scriptsz +
 		preq->rq_ind.rq_jobfile.rq_size + 1);
 	if (!temp) {
+		job_purge_generic(pj);
 		req_reject(PBSE_SYSTEM, 0, preq);
 		return;
 	}
@@ -1502,9 +1506,9 @@ req_jobscript(struct batch_request *preq)
 void
 req_mvjobfile(struct batch_request *preq)
 {
-	int	 fds;
-	char	 namebuf[MAXPATHLEN+1];
-	job	*pj;
+	int fds;
+	char namebuf[MAXPATHLEN+1];
+	svrjob_t *pj;
 #ifndef WIN32
 	mode_t	 cur_mask;
 	struct stat sb;
@@ -1512,7 +1516,7 @@ req_mvjobfile(struct batch_request *preq)
 
 	pj = locate_new_job(preq, NULL);
 	if (pj == NULL)
-		pj = find_job(preq->rq_ind.rq_jobfile.rq_jobid);
+		pj = find_svrjob(preq->rq_ind.rq_jobfile.rq_jobid);
 
 	if ((preq->rq_fromsvr == 0) || (pj == NULL)) {
 		req_reject(PBSE_IVALREQ, 0, preq);
@@ -1650,11 +1654,11 @@ req_mvjobfile(struct batch_request *preq)
 void
 req_mvjobfile(struct batch_request *preq)
 {
-	int		fds;
-	enum job_file	jft;
-	int		oflag;
-	job		*pj;
-	struct passwd	*check_pwd(job *);
+	int fds;
+	enum job_file jft;
+	int oflag;
+	job *pj;
+	struct passwd *check_pwd(job *);
 
 	jft = (enum job_file)preq->rq_ind.rq_jobfile.rq_type;
 	if (preq->rq_ind.rq_jobfile.rq_sequence == 0)
@@ -1729,283 +1733,6 @@ req_mvjobfile(struct batch_request *preq)
 	(void)close(fds);
 }
 #endif /* PBS_MOM */
-
-
-
-/**
- * @brief
- *		Commit ownership of job
- * @par Functionality:
- *		Set state of job to JOB_STATE_QUEUED (or Held or Waiting) and
- *		enqueue the job into its destination queue.
- *
- *  @param[in]	preq	-	The batch request structure
- *
- */
-
-void
-req_commit(struct batch_request *preq)
-{
-	job			*pj;
-#ifndef	PBS_MOM
-	int			newstate;
-	int			newsub;
-	pbs_queue	*pque;
-	int			rc;
-	pbs_db_jobscr_info_t	jobscr;
-	pbs_db_obj_info_t	obj;
-	long			time_msec;
-#ifdef	WIN32
-	struct	_timeb		tval;
-#else
-	struct timeval		tval;
-#endif
-	pbs_db_conn_t		*conn = (pbs_db_conn_t *) svr_db_conn;
-#endif
-
-	pj = locate_new_job(preq, preq->rq_ind.rq_commit);
-	if (pj == NULL) {
-		req_reject(PBSE_UNKJOBID, 0, preq);
-		return;
-	}
-
-	if (pj->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN) {
-		req_reject(PBSE_IVALREQ, 0, preq);
-		return;
-	}
-
-	pj->ji_qs.ji_state = JOB_STATE_TRANSIT;
-	pj->ji_wattr[(int) JOB_ATR_state].at_val.at_char = 'T';
-	pj->ji_wattr[(int) JOB_ATR_state].at_flags |=
-		ATR_VFLAG_SET | ATR_VFLAG_MODCACHE;
-	pj->ji_qs.ji_substate = JOB_SUBSTATE_TRANSICM;
-	pj->ji_wattr[(int) JOB_ATR_substate].at_flags |=
-		ATR_VFLAG_SET | ATR_VFLAG_MODCACHE;
-
-#ifdef PBS_MOM	/* MOM only */
-
-	/* move job from new job list to "all" job list, set to running state */
-
-	delete_link(&pj->ji_alljobs);
-	append_link(&svr_alljobs, &pj->ji_alljobs, pj);
-	/*
-	 ** Set JOB_SVFLG_HERE to indicate that this is Mother Superior.
-	 */
-	pj->ji_qs.ji_svrflags |= JOB_SVFLG_HERE;
-
-	pj->ji_qs.ji_state = JOB_STATE_RUNNING;
-	pj->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_VFLAG_MODIFY;
-	pj->ji_qs.ji_substate = JOB_SUBSTATE_PRERUN;
-	pj->ji_wattr[(int)JOB_ATR_substate].at_flags |= ATR_VFLAG_MODIFY;
-	pj->ji_qs.ji_un_type = JOB_UNION_TYPE_MOM;
-	if (preq->prot) {
-		struct sockaddr_in* addr = tpp_getaddr(preq->rq_conn);
-		if (addr)
-			pj->ji_qs.ji_un.ji_momt.ji_svraddr = (pbs_net_t) ntohl(addr->sin_addr.s_addr);
-	} else
-		pj->ji_qs.ji_un.ji_momt.ji_svraddr = get_connectaddr(preq->rq_conn);
-	pj->ji_qs.ji_un.ji_momt.ji_exitstat = 0;
-	if ((pj->ji_qs.ji_svrflags & (JOB_SVFLG_CHKPT|JOB_SVFLG_ChkptMig)) == 0) {
-		pj->ji_qs.ji_stime = time_now; 	/* start of walltime */
-		pj->ji_wattr[(int)JOB_ATR_stime].at_flags |= ATR_VFLAG_MODIFY;
-	}
-
-	/*
-	 * For MOM - reply to the request and start up the job
-	 * any errors will be dealt with via the mechanism
-	 * used for a terminated job
-	 */
-
-	(void)reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Commit);
-	start_exec(pj);
-	job_or_resv_save((void *)pj, SAVEJOB_NEW, JOB_OBJECT);
-
-	/* The ATR_VFLAG_MODIFY bit for several attributes used to be
-	 * set here. Now we rely on these bits to be set when and where
-	 * an attribute is modified. Several of these are also set in
-	 * record_finish_exec().
-	 */
-
-#else	/* PBS_SERVER */
-	if (svr_authorize_jobreq(preq, pj) == -1) {
-		req_reject(PBSE_PERM, 0, preq);
-		return;
-	}
-
-	/* Set Server level entity usage */
-
-	if ((rc = account_entity_limit_usages(pj, NULL, NULL, INCR, ETLIM_ACC_ALL)) != 0) {
-		job_purge(pj);
-		req_reject(rc, 0, preq);
-		return;
-	}
-
-	/* remove job for the server new job list, set state, and enqueue it */
-
-	delete_link(&pj->ji_alljobs);
-
-	svr_evaljobstate(pj, &newstate, &newsub, 1);
-	(void)svr_setjobstate(pj, newstate, newsub);
-
-#ifdef WIN32
-	_ftime_s(&tval);
-	time_msec = (tval.time * 1000L) + tval.millitm;
-#else
-	gettimeofday(&tval, NULL);
-	time_msec = (tval.tv_sec * 1000L) + (tval.tv_usec/1000L);
-#endif
-	/* set the queue rank attribute */
-	pj->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long = time_msec;
-	pj->ji_wattr[(int)JOB_ATR_qrank].at_flags |=
-		ATR_VFLAG_SET|ATR_VFLAG_MODCACHE;
-
-	if ((rc = svr_enquejob(pj)) != 0) {
-		job_purge(pj);
-		req_reject(rc, 0, preq);
-		return;
-	}
-	account_jobstr(pj, PBS_ACCT_QUEUE);
-
-	/* save job and job script within single transaction */
-	pbs_db_begin_trx(conn, 0, 0);
-
-	/* Make things faster by writing job only once here  - at commit time */
-	if (job_or_resv_save((void *) pj, SAVEJOB_NEW, JOB_OBJECT)) {
-		(void) pbs_db_end_trx(conn, PBS_DB_ROLLBACK);
-		job_purge(pj);
-		req_reject(PBSE_SAVE_ERR, 0, preq);
-		return;
-	}
-
-	strcpy(jobscr.ji_jobid, pj->ji_qs.ji_jobid);
-	jobscr.script = pj->ji_script;
-	obj.pbs_db_obj_type = PBS_DB_JOBSCR;
-	obj.pbs_db_un.pbs_db_jobscr = &jobscr;
-
-	if (pbs_db_save_obj(conn, &obj, PBS_INSERT_DB) != 0) {
-		job_purge(pj);
-		req_reject(PBSE_SYSTEM, 0, preq);
-		(void) pbs_db_end_trx(conn, PBS_DB_ROLLBACK);
-		return;
-	}
-	if (pj->ji_script) {
-		free(pj->ji_script);
-		pj->ji_script = NULL;
-	}
-
-	/* Now, no need to save server here because server
-	   has already saved in the get_next_svr_sequence_id() */
-
-	if (pbs_db_end_trx(conn, PBS_DB_COMMIT) != 0) {
-		job_purge(pj);
-		req_reject(PBSE_SYSTEM, 0, preq);
-		return;
-	}
-
-	/*
-	 * if the job went into a Route (push) queue that has been started,
-	 * try once to route it to give immediate feedback as a courtsey
-	 * to the user.
-	 */
-
-	pque = pj->ji_qhdr;
-
-	if ((preq->rq_fromsvr == 0) &&
-		(pque->qu_qs.qu_type == QTYPE_RoutePush) &&
-		(pque->qu_attr[(int)QA_ATR_Started].at_val.at_long != 0)) {
-		if ((rc = job_route(pj)) != 0) {
-			job_purge(pj);
-			req_reject(rc, 0, preq);
-			return;
-		}
-	}
-
-	/* need to format message first, before request goes away */
-
-	(void)snprintf(log_buffer, sizeof(log_buffer), msg_jobnew,
-		preq->rq_user, preq->rq_host,
-		pj->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
-		pj->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,
-		pj->ji_qhdr->qu_qs.qu_name);
-
-	/* acknowledge the request with the job id */
-	if ((rc = reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Commit))) {
-		(void)snprintf(log_buffer, sizeof(log_buffer),
-		                "Failed to reply with Job Id, error %d", rc);
-		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_ERR,
-						pj->ji_qs.ji_jobid, log_buffer);
-		job_purge(pj);
-		return;
-	}
-
-	log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
-		pj->ji_qs.ji_jobid, log_buffer);
-
-	if ((pj->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
-		issue_track(pj);	/* notify creator where job is */
-#endif		/* PBS_SERVER */
-}
-
-/**
- * @brief
- * 		locate_new_job - locate a "new" job which has been set up req_quejob on
- *		the servers new job list.
- *
- * @par Functionality:
- *		This function is used by the sub-requests which make up the global
- *		"Queue Job Request" to locate the job structure.
- *
- *		If the jobid is specified (will be for rdytocommit and commit, but not
- *		for script), we search for a matching jobid.
- *
- *		The job must (also) match the socket specified and the host associated
- *		with the socket unless ji_fromsock == -1, then its a recovery situation.
- *
- * @param[in]	preq	-	The batch request structure
- * @param[in]	jobid	-	Job Id which needs to be located
- *
- * @return	job structure associated with jobid.
- */
-
-static job *
-locate_new_job(struct batch_request *preq, char *jobid)
-{
-	job *pj;
-	int sock = -1;
-	pbs_net_t conn_addr = 0;
-
-	if (preq == NULL)
-		return NULL;
-
-	sock = preq->rq_conn;
-
-	if (!preq->prot) { /* Connection from TCP stream */
-		conn_addr = get_connectaddr(sock);
-	} else {
-		struct sockaddr_in* addr = tpp_getaddr(sock);
-		if (addr)
-			conn_addr = (pbs_net_t) ntohl(addr->sin_addr.s_addr);
-	}
-
-	pj = (job *) GET_NEXT(svr_newjobs);
-	while (pj) {
-
-		if ((pj->ji_qs.ji_un.ji_newt.ji_fromsock == -1) ||
-			((pj->ji_qs.ji_un.ji_newt.ji_fromsock == sock) &&
-			(pj->ji_qs.ji_un.ji_newt.ji_fromaddr == conn_addr))) {
-
-			if (jobid != NULL) {
-				if (!strncmp(pj->ji_qs.ji_jobid, jobid, PBS_MAXSVRJOBID))
-					break;
-			} else
-				break;
-		}
-
-		pj = (job *)GET_NEXT(pj->ji_alljobs);
-	}
-	return (pj);
-}
-
 
 #ifndef PBS_MOM	/* SERVER only */
 /**
@@ -2097,7 +1824,7 @@ req_resvSub(struct batch_request *preq)
 	char tbuf2[256] = {0};
 	int is_maintenance = 0;
 	int is_resv_from_job = 0;
-	job *pjob;
+	svrjob_t *pjob;
 	int rc2 = 0;
 	char owner[PBS_MAXUSER + 1];
 	char *partition_name = NULL;
@@ -2314,7 +2041,7 @@ req_resvSub(struct batch_request *preq)
 		}
 
 		if (!(strcasecmp(psatl->al_name, ATTR_resv_job))) {
-			if ((pjob = find_job(psatl->al_value)) == NULL) {
+			if ((pjob = find_svrjob(psatl->al_value)) == NULL) {
 				req_reject(PBSE_UNKJOBID, 0, preq);
 				resv_free(presv);
 				return;
@@ -3152,7 +2879,7 @@ act_resv_add_owner(attribute *pattr, void *pobj, int amode)
 static void
 handle_qmgr_reply_to_resvQcreate(struct work_task *pwt)
 {
-	job *pjob;
+	svrjob_t *pjob;
 	pbs_queue *pque;
 	resc_resv *presv = pwt->wt_parm2;
 	struct batch_request *preq = pwt->wt_parm1;
@@ -3168,7 +2895,7 @@ handle_qmgr_reply_to_resvQcreate(struct work_task *pwt)
 		pque = find_queuebyname(preq->rq_ind.rq_manager.rq_objname);
 		if ((presv->ri_qp = pque) != 0)
 			pque->qu_resvp = presv;
-		if ((pjob = find_job(presv->ri_wattr[RESV_ATR_job].at_val.at_str)))
+		if ((pjob = find_svrjob(presv->ri_wattr[RESV_ATR_job].at_val.at_str)))
 			pjob->ji_myResv = presv;
 		(void)strcpy(presv->ri_qs.ri_queue,
 			presv->ri_wattr[RESV_ATR_queue].at_val.at_str);
@@ -3204,7 +2931,7 @@ handle_qmgr_reply_to_resvQcreate(struct work_task *pwt)
  * @par MT-safe: No
  */
 static int
-validate_place_req_of_job_in_reservation(job *pj)
+validate_place_req_of_job_in_reservation(svrjob_t *pj)
 {
 	resource_def *prsdef;
 	resource *job_place;
@@ -3341,7 +3068,7 @@ void reset_svr_sequence_window(void)
 int
 copy_params_from_job(char *jobid, resc_resv *presv)
 {
-	job *pjob;
+	svrjob_t *pjob;
 	int bufsize;
 	attribute temp;
 	resource *presc;
@@ -3353,7 +3080,7 @@ copy_params_from_job(char *jobid, resc_resv *presv)
 
 	int walltime_copied = 0;
 
-	pjob = find_job(jobid);
+	pjob = find_svrjob(jobid);
 
 	if (pjob == NULL)
 		return PBSE_UNKJOBID;
@@ -3435,7 +3162,7 @@ int
 confirm_resv_locally(resc_resv *presv, struct batch_request *orig_preq, char *partition_name)
 {
 	char *at;
-	job *pjob;
+	svrjob_t *pjob;
 	struct work_task *pwt;
 	struct batch_request *preq;
 	int extend_size = 0;
@@ -3472,7 +3199,7 @@ confirm_resv_locally(resc_resv *presv, struct batch_request *orig_preq, char *pa
 	strcpy(preq->rq_user, orig_preq->rq_user);
 	strcpy(preq->rq_host, orig_preq->rq_host);
 
-	pjob = find_job(presv->ri_wattr[RESV_ATR_job].at_val.at_str);
+	pjob = find_svrjob(presv->ri_wattr[RESV_ATR_job].at_val.at_str);
 
 	snprintf(preq->rq_ind.rq_move.rq_jid, sizeof(preq->rq_ind.rq_move.rq_jid), "%s", presv->ri_wattr[RESV_ATR_job].at_val.at_str);
 	at = strchr(presv->ri_qs.ri_resvID, (int)'.');

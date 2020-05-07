@@ -154,7 +154,7 @@ extern int chk_save_file(char *filename);
 extern void rm_files(char *dirname);
 
 /* extern definitions to older FS based object recovery functions */
-extern job *job_recov_fs(char *filename);
+extern void *job_recov_fs(char *filename);
 extern void *job_or_resv_recov_fs(char *filename, int objtype);
 extern char *build_path(char *parent, char *name, char *sufix);
 

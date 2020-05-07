@@ -3910,7 +3910,7 @@ join_err:
 			}
 			argv[i] = NULL;
 			if (ret != DIS_SUCCESS) {
-				arrayfree(argv);
+				free_string_array(argv);
 				sprintf(log_buffer, "SPAWN_TASK read of argv array");
 				goto err;
 			}
@@ -3937,8 +3937,8 @@ join_err:
 			}
 			envp[i] = NULL;
 			if (ret != DIS_EOD) {
-				arrayfree(argv);
-				arrayfree(envp);
+				free_string_array(argv);
+				free_string_array(envp);
 				sprintf(log_buffer, "SPAWN_TASK read of envp array");
 				goto err;
 			}
@@ -3948,8 +3948,8 @@ join_err:
 			ret = DIS_SUCCESS;
 			if ((ptask = momtask_create(pjob)) == NULL) {
 				SEND_ERR(PBSE_SYSTEM);
-				arrayfree(argv);
-				arrayfree(envp);
+				free_string_array(argv);
+				free_string_array(envp);
 				break;
 			}
 			strcpy(ptask->ti_qs.ti_parentjobid, jobid);
@@ -3958,8 +3958,8 @@ join_err:
 			ptask->ti_qs.ti_parenttask = fromtask;
 			if (task_save(ptask) == -1) {
 				SEND_ERR(PBSE_SYSTEM)
-				arrayfree(argv);
-				arrayfree(envp);
+				free_string_array(argv);
+				free_string_array(envp);
 				break;
 			}
 			errcode = start_process(ptask, argv, envp, false);
@@ -3974,8 +3974,8 @@ join_err:
 				ret = diswui(stream, ptask->ti_qs.ti_task);
 			}
 
-			arrayfree(argv);
-			arrayfree(envp);
+			free_string_array(argv);
+			free_string_array(envp);
 			break;
 
 		case	IM_GET_TASKS:
@@ -6313,7 +6313,7 @@ aterr:
 				argv[i] = disrst(fd, &ret);
 				if (ret != DIS_SUCCESS) {
 					argv[i] = NULL;
-					arrayfree(argv);
+					free_string_array(argv);
 					goto done;
 				}
 				if(strlen(argv[i]) == 0)
@@ -6329,9 +6329,9 @@ aterr:
 
 				env = disrst(fd, &ret);
 				if (ret != DIS_SUCCESS && ret != DIS_EOD) {
-					arrayfree(argv);
+					free_string_array(argv);
 					envp[i] = NULL;
-					arrayfree(envp);
+					free_string_array(envp);
 					goto done;
 				}
 				if (env == NULL)
@@ -6357,8 +6357,8 @@ aterr:
 			ret = DIS_SUCCESS;
 
 			if (prev_error) {
-				arrayfree(argv);
-				arrayfree(envp);
+				free_string_array(argv);
+				free_string_array(envp);
 				goto done;
 			}
 
@@ -6386,8 +6386,8 @@ aterr:
 						}
 					}
 				}
-				arrayfree(argv);
-				arrayfree(envp);
+				free_string_array(argv);
+				free_string_array(envp);
 				ret = tm_reply(fd, version, i, event);
 				if (ret != DIS_SUCCESS)
 					goto done;
@@ -6405,40 +6405,40 @@ aterr:
 					 IM_SPAWN_TASK, ep->ee_event, fromtask,
 					 found_empty_string ? IM_PROTOCOL_VER : IM_OLD_PROTOCOL_VER);
 			if (ret != DIS_SUCCESS) {
-				arrayfree(argv);
-				arrayfree(envp);
+				free_string_array(argv);
+				free_string_array(envp);
 				goto done;
 			}
 			ret = diswui(phost->hn_stream, myvnodeid);
 			if (ret != DIS_SUCCESS) {
-				arrayfree(argv);
-				arrayfree(envp);
+				free_string_array(argv);
+				free_string_array(envp);
 				goto done;
 			}
 			ret = diswui(phost->hn_stream, tvnodeid);
 			if (ret != DIS_SUCCESS) {
-				arrayfree(argv);
-				arrayfree(envp);
+				free_string_array(argv);
+				free_string_array(envp);
 				goto done;
 			}
 			ret = diswui(phost->hn_stream, TM_NULL_TASK);
 			if (ret != DIS_SUCCESS) {
-				arrayfree(argv);
-				arrayfree(envp);
+				free_string_array(argv);
+				free_string_array(envp);
 				goto done;
 			}
 			if (found_empty_string) {
 				ret = diswui(phost->hn_stream, argc);
 				if (ret != DIS_SUCCESS) {
-					arrayfree(argv);
-					arrayfree(envp);
+					free_string_array(argv);
+					free_string_array(envp);
 					goto done;
 				}
 				for (i = 0; i < argc; i++) {
 					ret = diswst(phost->hn_stream, argv[i]);
 					if (ret != DIS_SUCCESS) {
-						arrayfree(argv);
-						arrayfree(envp);
+						free_string_array(argv);
+						free_string_array(envp);
 						goto done;
 					}
 				}
@@ -6446,36 +6446,36 @@ aterr:
 			  	for (i = 0; argv[i]; i++) {
 					ret = diswst(phost->hn_stream, argv[i]);
 					if (ret != DIS_SUCCESS) {
-						arrayfree(argv);
-						arrayfree(envp);
+						free_string_array(argv);
+						free_string_array(envp);
 						goto done;
 					}
 				}
 				ret = diswst(phost->hn_stream, "");
 				if (ret != DIS_SUCCESS) {
-					arrayfree(argv);
-					arrayfree(envp);
+					free_string_array(argv);
+					free_string_array(envp);
 					goto done;
 				}
 			}
 			for (i = 0; envp[i]; i++) {
 				ret = diswst(phost->hn_stream, envp[i]);
 				if (ret != DIS_SUCCESS) {
-					arrayfree(argv);
-					arrayfree(envp);
+					free_string_array(argv);
+					free_string_array(envp);
 					goto done;
 				}
 			}
 			ret = (dis_flush(phost->hn_stream) == -1) ?
 				DIS_NOCOMMIT : DIS_SUCCESS;
 			if (ret != DIS_SUCCESS) {
-				arrayfree(argv);
-				arrayfree(envp);
+				free_string_array(argv);
+				free_string_array(envp);
 				goto done;
 			}
 			reply = FALSE;
-			arrayfree(argv);
-			arrayfree(envp);
+			free_string_array(argv);
+			free_string_array(envp);
 
 			break;
 

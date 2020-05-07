@@ -714,19 +714,18 @@ int
 apply_aoe_inchunk_rules(resource *presc, attribute *pattr, void *pobj,
 	int type)
 {
-	job	*jb = NULL;
-	int	 c = 1, i;             /* # of chunks, len of aoename */
-	char	*name;
-	char	*paoe = NULL;          /* stores addr of aoe */
-	char	*aoename = NULL;       /* 1st aoe found in select */
-	char	*tmpptr;               /* store temp addr */
-	char	*aoe_req = NULL;       /* Null if job outside reservation,
+	svrjob_t *jb = NULL;
+	int c = 1, i; /* # of chunks, len of aoename */
+	char *name;
+	char *paoe = NULL;    /* stores addr of aoe */
+	char *aoename = NULL; /* 1st aoe found in select */
+	char *tmpptr;	      /* store temp addr */
+	char *aoe_req = NULL; /* Null if job outside reservation,
 					 * Null if reservation has no aoe,
 					 * not NULL if reservation has aoe */
 
-
 	if (type == PARENT_TYPE_JOB) {
-		jb = (job *)pobj;
+		jb = (svrjob_t *)pobj;
 		if (jb->ji_myResv) /* Get aoe requested by reservation */
 			aoe_req = (char *)find_aoe_from_request(jb->ji_myResv);
 	}
@@ -913,7 +912,7 @@ int apply_select_inchunk_rules(resource *presc, attribute *pattr, void *pobj, in
  */
 int
 action_soft_walltime(resource *presc, attribute *pattr, void *pobject, int type, int actmode) {
-	job *pjob;
+	svrjob_t *pjob;
 
 	if ((actmode != ATR_ACTION_ALTER) && (actmode != ATR_ACTION_NEW))
 		return PBSE_NONE;
@@ -926,7 +925,7 @@ action_soft_walltime(resource *presc, attribute *pattr, void *pobject, int type,
 		if (type != PARENT_TYPE_JOB)
 			return PBSE_NONE;
 
-		pjob = (job *) pobject;
+		pjob = (svrjob_t *) pobject;
 
 		/* Make sure soft_walltime < walltime */
 		if (walltime_def == NULL)
@@ -963,7 +962,7 @@ action_soft_walltime(resource *presc, attribute *pattr, void *pobject, int type,
 
 int
 action_walltime(resource *presc, attribute *pattr, void *pobject, int type, int actmode) {
-	job *pjob;
+	svrjob_t *pjob;
 
 	if ((actmode != ATR_ACTION_ALTER) && (actmode != ATR_ACTION_NEW))
 		return PBSE_NONE;
@@ -974,7 +973,7 @@ action_walltime(resource *presc, attribute *pattr, void *pobject, int type, int 
 		if (type != PARENT_TYPE_JOB)
 			return PBSE_NONE;
 
-		pjob = (job *) pobject;
+		pjob = (svrjob_t *) pobject;
 
 		/* Make sure walltime > soft_walltime */
 		if (soft_walltime_def == NULL)
@@ -1005,7 +1004,7 @@ action_walltime(resource *presc, attribute *pattr, void *pobject, int type, int 
 int
 action_min_walltime(resource *presc, attribute *pattr, void *pobject, int type, int actmode)
 {
-	job *pjob;
+	svrjob_t *pjob;
 
 	if ((actmode != ATR_ACTION_ALTER) && (actmode != ATR_ACTION_NEW))
 		return PBSE_NONE;
@@ -1018,7 +1017,7 @@ action_min_walltime(resource *presc, attribute *pattr, void *pobject, int type, 
 		if (type != PARENT_TYPE_JOB)
 			return PBSE_NONE;
 
-		pjob = (job *) pobject;
+		pjob = (svrjob_t *) pobject;
 
 #ifndef PBS_MOM /* MOM doesn't call the action functions and doesn't have access to is_job_array() */
 		/* Job arrays can't be STF jobs */
@@ -1061,7 +1060,7 @@ action_min_walltime(resource *presc, attribute *pattr, void *pobject, int type, 
 int
 action_max_walltime(resource *presc, attribute *pattr, void *pobj, int type, int actmode)
 {
-	job *pjob;
+	svrjob_t *pjob;
 
 	if ((actmode != ATR_ACTION_ALTER) && (actmode != ATR_ACTION_NEW))
 		return PBSE_NONE;
@@ -1074,7 +1073,7 @@ action_max_walltime(resource *presc, attribute *pattr, void *pobj, int type, int
 		if (type != PARENT_TYPE_JOB)
 			return PBSE_NONE;
 
-		pjob = (job *) pobj;
+		pjob = (svrjob_t *) pobj;
 
 		/* STF jobs can't request soft_walltime */
 		if (soft_walltime_def == NULL)

@@ -65,7 +65,7 @@
 #include "svrfunc.h"
 
 extern void post_signal_req(struct work_task *);
-struct preempt_ordering *svr_get_preempt_order(job *pjob, pbs_sched *psched);
+struct preempt_ordering *svr_get_preempt_order(svrjob_t *pjob, pbs_sched *psched);
 
 /* Global Data Items: */
 
@@ -194,7 +194,7 @@ static struct batch_request *create_delete_request(char *job_id)
  * @param[in] preq - the preempt request from the scheduler
  * @return success/failure
  */
-static int issue_preempt_request(int preempt_method, job *pjob, struct batch_request *preq)
+static int issue_preempt_request(int preempt_method, svrjob_t *pjob, struct batch_request *preq)
 {
 	struct batch_request *newreq;
 	struct work_task *pwt;
@@ -237,7 +237,7 @@ static int issue_preempt_request(int preempt_method, job *pjob, struct batch_req
  * @brief clear the system hold on a job after a checkpoint request
  * @param[in] pjob - the job to clear
  */
-static void clear_preempt_hold(job *pjob)
+static void clear_preempt_hold(svrjob_t *pjob)
 {
 	attribute temphold;
 	long old_hold;
@@ -276,7 +276,7 @@ req_preemptjobs(struct batch_request *preq)
 {
 	int i = 0;
 	int count = 0;
-	job *pjob = NULL;
+	svrjob_t *pjob = NULL;
 	preempt_job_info *ppj = NULL;
 	pbs_sched *psched;
 	int preempt_index = 0;
@@ -305,7 +305,7 @@ req_preemptjobs(struct batch_request *preq)
 
 	for (i = 0; i < count; i++) {
 		ppj = &(preq->rq_ind.rq_preempt.ppj_list[i]);
-		pjob = find_job(ppj->job_id);
+		pjob = find_svrjob(ppj->job_id);
 		/* The job is already out of the way. This must have happened after the scheduler
 		 * queried the universe and before it tried to preempt the jobs.
 		 * Regardless of the preempt_order, use the correct reply code to what
@@ -366,7 +366,7 @@ req_preemptjobs(struct batch_request *preq)
  */
 
 void
-reply_preempt_jobs_request(int code, int aux, struct job *pjob)
+reply_preempt_jobs_request(int code, int aux, svrjob_t *pjob)
 {
 	struct batch_request *preq;
 	int clear_preempt_vars = 0;
@@ -457,7 +457,7 @@ reply_preempt_jobs_request(int code, int aux, struct job *pjob)
  * @retval	1 for error
  */
 static int
-get_job_req_used_time(job *pjob, int *rtime, int *utime)
+get_job_req_used_time(svrjob_t *pjob, int *rtime, int *utime)
 {
 	double req = 0;
 	double used = 0;
@@ -491,7 +491,7 @@ get_job_req_used_time(job *pjob, int *rtime, int *utime)
  * @return	: struct preempt_ordering.  array containing preemption order
  *
  */
-struct preempt_ordering *svr_get_preempt_order(job *pjob, pbs_sched *psched)
+struct preempt_ordering *svr_get_preempt_order(svrjob_t *pjob, pbs_sched *psched)
 {
 	struct preempt_ordering *po = NULL;
 	int req = -1;

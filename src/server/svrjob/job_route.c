@@ -104,7 +104,7 @@ extern time_t	 time_now;
  */
 
 void
-add_dest(job *jobp)
+add_dest(svrjob_t *jobp)
 {
 	badplace	*bp;
 	char	*baddest = jobp->ji_qs.ji_destin;
@@ -136,7 +136,7 @@ add_dest(job *jobp)
  */
 
 badplace *
-is_bad_dest(job	*jobp, char *dest)
+is_bad_dest(svrjob_t	*jobp, char *dest)
 {
 	badplace	*bp;
 
@@ -172,7 +172,7 @@ is_bad_dest(job	*jobp, char *dest)
  */
 
 int
-default_router(job *jobp, struct pbs_queue *qp, long retry_time)
+default_router(svrjob_t *jobp, struct pbs_queue *qp, long retry_time)
 {
 	struct array_strings *dest_attr = NULL;
 	char		     *destination;
@@ -250,7 +250,7 @@ default_router(job *jobp, struct pbs_queue *qp, long retry_time)
  */
 
 int
-job_route(job *jobp)
+job_route(svrjob_t *jobp)
 {
 	int			 bad_state = 0;
 	time_t			 life;
@@ -357,14 +357,14 @@ job_route(job *jobp)
 void
 queue_route(pbs_queue *pque)
 {
-	job *nxjb;
-	job *pjob;
+	svrjob_t *nxjb;
+	svrjob_t *pjob;
 	int  rc;
 
 
-	pjob = (job *)GET_NEXT(pque->qu_jobs);
+	pjob = (svrjob_t *)GET_NEXT(pque->qu_jobs);
 	while (pjob) {
-		nxjb = (job *)GET_NEXT(pjob->ji_jobque);
+		nxjb = (svrjob_t *)GET_NEXT(pjob->ji_jobque);
 		if (pjob->ji_qs.ji_un.ji_routet.ji_rteretry <= time_now) {
 			if ((rc = job_route(pjob)) == PBSE_ROUTEREJ)
 				job_abt(pjob, msg_routebad);

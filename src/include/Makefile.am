@@ -76,6 +76,7 @@ noinst_HEADERS = \
 	mom_hook_func.h \
 	mom_server.h \
 	mom_vnode.h \
+	momjob.h \
 	net_connect.h \
 	pbs_array_list.h \
 	pbs_assert.h \
@@ -126,6 +127,7 @@ noinst_HEADERS = \
 	site_svr_attr_def.h \
 	site_svr_attr_enum.h \
 	svrfunc.h \
+	svrjob.h \
 	ticket.h \
 	tracking.h \
 	user.h \

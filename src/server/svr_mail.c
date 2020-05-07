@@ -42,7 +42,7 @@
  *
  * @brief
  * 		svr_mail.c - send mail to mail list or owner of job on
- *		job begin, job end, and/or job abort
+ *		job begin, svrjob_t end, and/or job abort
  *
  * 	Included public functions are:
  *		create_socket_and_connect()
@@ -110,7 +110,7 @@ extern char *msg_job_stageinfail;
  * @return	none
  */
 void
-svr_mailowner_id(char *jid, job *pjob, int mailpoint, int force, char *text)
+svr_mailowner_id(char *jid, svrjob_t *pjob, int mailpoint, int force, char *text)
 {
 	int	 addmailhost;
 	int	 i;
@@ -350,7 +350,7 @@ svr_mailowner_id(char *jid, job *pjob, int mailpoint, int force, char *text)
  * @param[in]	text	-	additional message text
  */
 void
-svr_mailowner(job *pjob, int mailpoint, int force, char *text)
+svr_mailowner(svrjob_t *pjob, int mailpoint, int force, char *text)
 {
 	svr_mailowner_id(NULL, pjob, mailpoint, force, text);
 }

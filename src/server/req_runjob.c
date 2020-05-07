@@ -103,17 +103,18 @@
 #include "provision.h"
 #include "pbs_share.h"
 #include "pbs_sched.h"
+#include "svrjob.h"
 
 
 /* External Functions Called: */
 
-extern struct batch_request *cpy_stage(struct batch_request *, job *,
+extern struct batch_request *cpy_stage(struct batch_request *, svrjob_t *,
 	enum job_atr, int);
-extern struct batch_request *cpy_stage(struct batch_request *, job *, enum job_atr, int);
+extern struct batch_request *cpy_stage(struct batch_request *, svrjob_t *, enum job_atr, int);
 
 /* Public Functions in this file */
 
-int  svr_startjob(job *, struct batch_request *);
+int  svr_startjob(svrjob_t *, struct batch_request *);
 extern char *msg_daemonname;
 extern	char	*path_hooks_workdir;
 extern char	*msg_hook_reject_deletejob;
@@ -121,12 +122,12 @@ extern char	*msg_hook_reject_deletejob;
 /* Private Function local to this file */
 
 void post_sendmom(struct work_task *);
-static int  svr_stagein(job *, struct batch_request *, int, int);
-static int  svr_strtjob2(job *, struct batch_request *);
-static job *chk_job_torun(struct batch_request *preq, job *);
-static void req_runjob2(struct batch_request *preq, job *pjob);
-static job *where_to_runjob(struct batch_request *preq, job *);
-static void convert_job_to_resv(job *pjob);
+static int  svr_stagein(svrjob_t *, struct batch_request *, int, int);
+static int  svr_strtjob2(svrjob_t *, struct batch_request *);
+static svrjob_t *chk_job_torun(struct batch_request *preq, svrjob_t *);
+static void req_runjob2(struct batch_request *preq, svrjob_t *pjob);
+static svrjob_t *where_to_runjob(struct batch_request *preq, svrjob_t *);
+static void convert_job_to_resv(svrjob_t *pjob);
 /* Global Data Items: */
 
 extern int       license_expired;
@@ -143,8 +144,8 @@ extern char *msg_job_abort;
 extern pbs_list_head svr_deferred_req;
 extern time_t time_now;
 extern int   svr_totnodes;	/* non-zero if using nodes */
-extern job  *chk_job_request(char *, struct batch_request *, int *, int *);
-extern int send_cred(job *pjob);
+extern svrjob_t  *chk_job_request(char *, struct batch_request *, int *, int *);
+extern int send_cred(svrjob_t *pjob);
 
 
 /* private data */
@@ -176,7 +177,7 @@ extern int send_cred(job *pjob);
  *
  */
 static int
-check_and_provision_job(struct batch_request *preq, job *pjob, int *need_prov)
+check_and_provision_job(struct batch_request *preq, svrjob_t *pjob, int *need_prov)
 {
 	int rc=0;
 
@@ -295,21 +296,21 @@ call_to_process_hooks(struct batch_request *preq, char *hook_msg, size_t msg_len
 void
 req_runjob(struct batch_request *preq)
 {
-	int		  anygood;
-	int		  i;
-	int		  j;
-	char		 *jid;
-	int		  jt;		/* job type */
-	int		  offset = -1;
-	char		 *pc;
-	job		 *pjob = NULL;
-	job		 *pjobsub = NULL;
-	job		 *parent  = NULL;
-	char		 *range;
-	int		  x, y, z;
+	int anygood;
+	int i;
+	int j;
+	char *jid;
+	int jt;		/* job type */
+	int offset = -1;
+	char *pc;
+	svrjob_t *pjob = NULL;
+	svrjob_t *pjobsub = NULL;
+	svrjob_t *parent = NULL;
+	char *range;
+	int x, y, z;
 	struct deferred_request *pdefr;
-	char		  hook_msg[HOOK_MSG_SIZE];
-	pbs_sched	  *psched;
+	char hook_msg[HOOK_MSG_SIZE];
+	pbs_sched *psched;
 
 	if (license_expired) {
 		req_reject(PBSE_LICENSEINV, 0, preq);
@@ -523,7 +524,7 @@ req_runjob(struct batch_request *preq)
 			if (pjobsub->ji_wattr[JOB_ATR_resource].at_flags & ATR_VFLAG_SET) {
 				job_attr_def[JOB_ATR_resource].at_set(&sub_prev_res, &pjobsub->ji_wattr[JOB_ATR_resource], SET);
 			}
-			job_purge(pjobsub);
+			job_purge_generic(pjobsub);
 		}
 
 		if ((pjobsub = create_subjob(parent, jid, &j)) == NULL) {
@@ -596,7 +597,7 @@ req_runjob(struct batch_request *preq)
 				if ((pjobsub = parent->ji_ajtrk->tkm_tbl[i].trk_psubjob) != NULL) {
 					sub_runcount = pjobsub->ji_wattr[JOB_ATR_runcount];
 					sub_run_version = pjobsub->ji_wattr[JOB_ATR_run_version];
-					job_purge(pjobsub);
+					job_purge_generic(pjobsub);
 				}
 
 				if ((pjobsub = create_subjob(parent, jid, &j)) == NULL) {
@@ -644,7 +645,7 @@ req_runjob(struct batch_request *preq)
  * @param[in,out]	pjob	-	job pointer
  */
 static void
-req_runjob2(struct batch_request *preq, job *pjob)
+req_runjob2(struct batch_request *preq, svrjob_t *pjob)
 {
 	int		  rc;
 	int 		  prov_rc=0;
@@ -741,7 +742,7 @@ req_runjob2(struct batch_request *preq, job *pjob)
  * @par MT-safe: yes
  */
 void
-clear_exec_on_run_fail(job *jobp)
+clear_exec_on_run_fail(svrjob_t *jobp)
 {
 	if ((jobp->ji_qs.ji_svrflags &
 		(JOB_SVFLG_CHKPT | JOB_SVFLG_StagedIn)) == 0) {
@@ -784,17 +785,17 @@ req_stagein(struct batch_request *preq)
 static void
 post_stagein(struct work_task *pwt)
 {
-	int		      code;
-	int		      newstate;
-	int		      newsub;
-	job		     *paltjob;
-	job		     *pjob;
+	int code;
+	int newstate;
+	int newsub;
+	svrjob_t *paltjob;
+	svrjob_t *pjob;
 	struct batch_request *preq;
-	attribute	     *pwait;
+	attribute *pwait;
 
 	preq = pwt->wt_parm1;
 	code = preq->rq_reply.brp_code;
-	pjob = find_job(preq->rq_extra);
+	pjob = find_svrjob(preq->rq_extra);
 	free(preq->rq_extra);
 
 	if (pjob != NULL) {
@@ -864,7 +865,7 @@ post_stagein(struct work_task *pwt)
  */
 
 static int
-svr_stagein(job *pjob, struct batch_request *preq, int state, int substate)
+svr_stagein(svrjob_t *pjob, struct batch_request *preq, int state, int substate)
 {
 	struct batch_request *momreq = 0;
 	int		      rc;
@@ -952,7 +953,7 @@ form_attr_comment(const char *template, const char *execvnode)
  * @retval	non-zero	- error code
  */
 int
-svr_startjob(job *pjob, struct batch_request *preq)
+svr_startjob(svrjob_t *pjob, struct batch_request *preq)
 {
 	int   f;
 	int   rc;
@@ -1076,7 +1077,7 @@ svr_startjob(job *pjob, struct batch_request *preq)
  * @retval	!0	:  error in trying to send to Mom
  */
 static int
-svr_strtjob2(job *pjob, struct batch_request *preq)
+svr_strtjob2(svrjob_t *pjob, struct batch_request *preq)
 {
 	int	old_state;
 	int	old_subst;
@@ -1120,7 +1121,7 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
 		 * in
 		 */
 		if (preq == NULL || (preq->rq_type == PBS_BATCH_AsyrunJob)) {
-			job *base_job = NULL;
+			svrjob_t *base_job = NULL;
 			if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN){
 				set_resc_assigned((void *)pjob, 0, INCR);
 				/* Just update dependencies for the first subjob that runs */
@@ -1173,9 +1174,9 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
  */
 
 void
-complete_running(job *jobp)
+complete_running(svrjob_t *jobp)
 {
-	job    *parent;
+	svrjob_t    *parent;
 	time_t	wall;
 
 	if (jobp->ji_qs.ji_stime != 0)
@@ -1322,7 +1323,7 @@ parse_hook_rejectmsg(char *reject_msg, char *hook_name, int hook_name_size)
  * @return	void
  */
 void
-check_failed_attempts(job *jobp)
+check_failed_attempts(svrjob_t *jobp)
 {
 	if (jobp->ji_wattr[(int)JOB_ATR_runcount].at_val.at_long >
 #ifdef NAS /* localmod 083 */
@@ -1379,7 +1380,7 @@ post_sendmom(struct work_task *pwt)
 	int 	r;
 	char	*reject_msg = NULL;
 	int 	wstat = pwt->wt_aux;
-	job 	*jobp = (job *) pwt->wt_parm2;
+	svrjob_t 	*jobp = (svrjob_t *) pwt->wt_parm2;
 	struct 	batch_request *preq = (struct batch_request *) pwt->wt_parm1;
 	int 	prot = pwt->wt_aux2;
 	struct	batch_reply *reply = (struct batch_reply *) pwt->wt_parm3;
@@ -1712,8 +1713,8 @@ post_sendmom(struct work_task *pwt)
  * @retval	null	: fail
  */
 
-static job *
-chk_job_torun(struct batch_request *preq, job *pjob)
+static svrjob_t *
+chk_job_torun(struct batch_request *preq, svrjob_t *pjob)
 {
 
 	if (pjob == NULL)
@@ -1747,8 +1748,8 @@ chk_job_torun(struct batch_request *preq, job *pjob)
  * @return	Pointer to job
  * @retval	null	: fail
  */
-static job *
-where_to_runjob(struct batch_request *preq, job *pjob)
+static svrjob_t *
+where_to_runjob(struct batch_request *preq, svrjob_t *pjob)
 {
 	char		 *nspec;
 	struct rq_runjob *prun = &preq->rq_ind.rq_run;
@@ -1842,7 +1843,7 @@ where_to_runjob(struct batch_request *preq, job *pjob)
  */
 
 int
-assign_hosts(job  *pjob, char *given, int set_exec_vnode)
+assign_hosts(svrjob_t  *pjob, char *given, int set_exec_vnode)
 {
 	char		*hoststr;
 	char            *hoststr2;
@@ -1997,7 +1998,7 @@ req_defschedreply(struct batch_request *preq)
  */
 
 void
-convert_job_to_resv(job *pjob)
+convert_job_to_resv(svrjob_t *pjob)
 {
 	svrattrl *psatl;
 	unsigned int len;

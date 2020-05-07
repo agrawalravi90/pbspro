@@ -76,6 +76,7 @@
 #include "server.h"
 #include "svrfunc.h"
 #include "libutil.h"
+#include "svrjob.h"
 
 /* Local Data */
 
@@ -154,7 +155,7 @@ grow_acct_buf(char **pb, int *avail, int need)
  */
 
 static void
-sum_resc_alloc(const job *pjob, pbs_list_head *list)
+sum_resc_alloc(const svrjob_t*pjob, pbs_list_head *list)
 {
 	char	  *chunk;
 	char	  *exechost;
@@ -316,61 +317,11 @@ cpy_quote_value(char *pb, char *value)
 
 /**
  * @brief
- * Get the resources_used job attribute
- *
- * @param[in]	pjob	- pointer to job structure
- * @param[in]	resc_used - pointer to resources used string
- * @param[in]	resc_used_size - size of resources used string
- *
- * @return	int
- * @retval	0 upon success
- * @retval	-1	if error encountered.
- *
- */
-static int
-get_resc_used(job *pjob, char **resc_used, int *resc_used_size)
-{
-	struct svrattrl *patlist = NULL;
-	pbs_list_head temp_head;
-	CLEAR_HEAD(temp_head);
-
-	if (pjob->ji_wattr[ JOB_ATR_resc_used].at_user_encoded != NULL)
-		patlist = pjob->ji_wattr[ JOB_ATR_resc_used].at_user_encoded;
-	else if (pjob->ji_wattr[ JOB_ATR_resc_used].at_priv_encoded != NULL)
-		patlist = pjob->ji_wattr[ JOB_ATR_resc_used].at_priv_encoded;
-	else
-		encode_resc(&pjob->ji_wattr[ JOB_ATR_resc_used],
-		&temp_head, job_attr_def[ JOB_ATR_resc_used].at_name,
-		NULL, ATR_ENCODE_CLIENT, &patlist);
-	/*
-	 * NOTE:
-	 * Following code for constructing resources used information is same as job_obit()
-	 * with minor different that to traverse patlist in this code
-	 * we have to use patlist->al_sister since it is encoded information in job struct
-	 * where in job_obit() we are using GET_NEXT(patlist->al_link) which is part of batch
-	 * request.
-	 * ji_acctrec is lost on server restart.  Recreate it here if needed.
-	 */
-	while (patlist) {
-		/* log to accounting_logs only if there's a value */
-		if (strlen(patlist->al_value) > 0) {
-			if (concat_rescused_to_buffer(resc_used, resc_used_size, patlist, " ", NULL) != 0) {
-				return -1;
-			}
-		}
-		patlist = patlist->al_sister;
-	}
-	free_attrlist(&temp_head);
-	return 0;
-}
-
-/**
- * @brief
  *	Get the value of "walltime" resource for the job's given
  *	resource index 'res'.
  *
  *
- * @param[in]	pjob	- pointer to job structure
+ * @param[in]	pjob	- pointer to svrjob_t structure
  * @param[in]	res	- resource entity index (e.g. JOB_ATR_resource)
  *
  * @return	long
@@ -379,7 +330,7 @@ get_resc_used(job *pjob, char **resc_used, int *resc_used_size)
  *
  */
 long
-get_walltime(const job *jp, int res)
+get_walltime(const svrjob_t*jp, int res)
 {
 	resource_def	*rscdef;
 	resource	*pres;
@@ -416,7 +367,7 @@ get_walltime(const job *jp, int res)
  *
  */
 static char *
-acct_job(const job *pjob, int type, char *buf, int len)
+acct_job(const svrjob_t*pjob, int type, char *buf, int len)
 {
 	pbs_list_head attrlist;
 	int	  i, k;
@@ -1040,7 +991,7 @@ write_account_record(int acctype, const char *id, char *text)
  * @return	void
  */
 void
-account_record(int acctype, const job *pjob, char *text)
+account_record(int acctype, const svrjob_t *pjob, char *text)
 {
 	write_account_record(acctype, pjob->ji_qs.ji_jobid, text);
 }
@@ -1085,7 +1036,7 @@ account_recordResv(int acctype, resc_resv *presv, char *text)
  * @par	MT-safe: No - uses a global buffer, "acct_buf".
  */
 void
-account_jobstr(const job *pjob, int type)
+account_jobstr(const svrjob_t *pjob, int type)
 {
 	pbs_list_head attrlist;
 	int nd;
@@ -1184,13 +1135,11 @@ account_resvstart(resc_resv *presv)
  *
  */
 void
-account_jobend(job *pjob, char *used, int type)
+account_jobend(const svrjob_t *pjob, char *used, int type)
 {
 	int i = 0;
 	int len = 0;
 	char *pb = NULL;
-	char *resc_used;
-	int resc_used_size = 0;
 
 	/* pack in general information about the job */
 
@@ -1217,8 +1166,7 @@ account_jobend(job *pjob, char *used, int type)
 	if (i > len)
 		if (grow_acct_buf(&pb, &len, i) == -1)
 			goto writeit;
-	(void)sprintf(pb, "session=%ld",
-		pjob->ji_wattr[JOB_ATR_session_id].at_val.at_long);
+	sprintf(pb, "session=%ld", pjob->ji_wattr[JOB_ATR_session_id].at_val.at_long);
 	i = strlen(pb);
 	pb  += i;
 	len -= i;
@@ -1244,48 +1192,18 @@ account_jobend(job *pjob, char *used, int type)
 	if (i > len)
 		if (grow_acct_buf(&pb, &len, i) == -1)
 			goto writeit;
-	(void)sprintf(pb, " end=%ld", (long)time_now);
+	sprintf(pb, " end=%ld", (long)time_now);
 	i = strlen(pb);
 	pb  += i;
 	len -= i;
-
-	/* finally add on resources used from req_jobobit() */
-	if (type == PBS_ACCT_END || type == PBS_ACCT_RERUN) {
-		if ((used == NULL && pjob->ji_acctrec == NULL) || (used != NULL && strstr(used, "resources_used") == NULL)) {
-			/* If pbs_server is restarted during the end of job processing then used maybe NULL.
-			 * So we try to derive the resource usage information from resources_used attribute of
-			 * the job and then reconstruct the resources usage information into resc_used buffer.
-			 */
-
-			/* Allocate initial space for resc_used.  Future space will be allocated by pbs_strcat(). */
-			resc_used = malloc(RESC_USED_BUF_SIZE);
-			if (resc_used == NULL)
-				goto writeit;
-			resc_used_size = RESC_USED_BUF_SIZE;
-
-
-			/* strlen(msg_job_end_stat) == 12 characters plus a number.  This should be plenty big */
-			(void) snprintf(resc_used, resc_used_size, msg_job_end_stat,
-					pjob->ji_qs.ji_un.ji_exect.ji_exitstat);
-
-			if (get_resc_used(pjob, &resc_used, &resc_used_size) == -1) {
-				free(resc_used);
-				goto writeit;
-			}
-
-			used = resc_used;
-			free(pjob->ji_acctrec);
-			pjob->ji_acctrec = used;
-		}
-	}
 
 	if (used != NULL) {
 		i = strlen(used) + 1;
 		if (i > len)
 			if (grow_acct_buf(&pb, &len, i) == -1)
 				goto writeit;
-		(void)strcat(pb, " ");
-		(void)strcat(pb, used);
+		strcat(pb, " ");
+		strcat(pb, used);
 		i = strlen(pb);
 		pb  += i;
 		len -= i;
@@ -1300,7 +1218,7 @@ account_jobend(job *pjob, char *used, int type)
 				goto writeit;
 
 		convert_duration_to_str(pjob->ji_wattr[JOB_ATR_eligible_time].at_val.at_long, timebuf, TIMEBUF_SIZE);
-		(void)sprintf(pb, " eligible_time=%s", timebuf);
+		sprintf(pb, " eligible_time=%s", timebuf);
 		i = strlen(pb);
 		pb  += i;
 		len -= i;
@@ -1370,7 +1288,7 @@ log_licenses(struct license_used *pu)
  *
  */
 static char *
-common_acct_job(job *pjob, char *buf, int len)
+common_acct_job(const svrjob_t*pjob, char *buf, int len)
 {
 	int  i;
 	int  nd;
@@ -1384,7 +1302,7 @@ common_acct_job(job *pjob, char *buf, int len)
 		if (grow_acct_buf(&pb, &len, nd) == -1)
 			return (pb);
 
-	(void)sprintf(pb, "user=%s ",
+	sprintf(pb, "user=%s ",
 		pjob->ji_wattr[JOB_ATR_euser].at_val.at_str);
 
 	i = strlen(pb);
@@ -1397,7 +1315,7 @@ common_acct_job(job *pjob, char *buf, int len)
 		if (grow_acct_buf(&pb, &len, nd) == -1)
 			return (pb);
 
-	(void)sprintf(pb, "group=%s ",
+	sprintf(pb, "group=%s ",
 		pjob->ji_wattr[JOB_ATR_egroup].at_val.at_str);
 
 	i = strlen(pb);
@@ -1409,7 +1327,7 @@ common_acct_job(job *pjob, char *buf, int len)
 	if (nd > len)
 		if (grow_acct_buf(&pb, &len, nd) == -1)
 			return (pb);
-	(void)sprintf(pb, "jobname=%s ",
+	sprintf(pb, "jobname=%s ",
 		pjob->ji_wattr[JOB_ATR_jobname].at_val.at_str);
 	i = strlen(pb);
 	pb  += i;
@@ -1420,7 +1338,7 @@ common_acct_job(job *pjob, char *buf, int len)
 	if (nd > len)
 		if (grow_acct_buf(&pb, &len, nd) == -1)
 			return (pb);
-	(void)sprintf(pb, "queue=%s ", pjob->ji_qhdr->qu_qs.qu_name);
+	sprintf(pb, "queue=%s ", pjob->ji_qhdr->qu_qs.qu_name);
 
 	return (pb);
 }
@@ -1448,7 +1366,7 @@ common_acct_job(job *pjob, char *buf, int len)
  *
  */
 void
-set_job_ProvAcctRcd(job *pjob, long time_se, int type)
+set_job_ProvAcctRcd(const svrjob_t *pjob, long time_se, int type)
 {
 	int	  nd;
 	int 	  len;
@@ -1457,7 +1375,7 @@ set_job_ProvAcctRcd(job *pjob, long time_se, int type)
 
 	/* pack in general information about the job */
 
-	(void)common_acct_job(pjob, acct_buf, acct_bufsize);
+	common_acct_job(pjob, acct_buf, acct_bufsize);
 	acct_buf[acct_bufsize-1] = '\0';
 
 	nd  = strlen(acct_buf);
@@ -1468,7 +1386,7 @@ set_job_ProvAcctRcd(job *pjob, long time_se, int type)
 #ifdef NAS /* localmod 136 */
 	if (pjob->ji_wattr[JOB_ATR_prov_vnode].at_val.at_str == NULL) {
 		char  logmsg[1024];
-		(void)sprintf(logmsg, "prov_vnode is NULL for job %s", pjob->ji_wattr[JOB_ATR_hashname].at_val.at_str);
+		sprintf(logmsg, "prov_vnode is NULL for job %s", pjob->ji_wattr[JOB_ATR_hashname].at_val.at_str);
 		log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_INFO, "Bug", logmsg);
 
 		return;
@@ -1478,7 +1396,7 @@ set_job_ProvAcctRcd(job *pjob, long time_se, int type)
 	if (nd > len)
 		if (grow_acct_buf(&pb, &len, nd) == -1)
 			return;
-	(void)sprintf(pb, "provision_vnode=%s ",
+	sprintf(pb, "provision_vnode=%s ",
 		pjob->ji_wattr[JOB_ATR_prov_vnode].at_val.at_str);
 	i = strlen(pb);
 	pb  += i;
@@ -1530,7 +1448,7 @@ set_job_ProvAcctRcd(job *pjob, long time_se, int type)
  *
  */
 static char *
-build_common_data_for_job_update(const job *pjob, int type, char *buf, int len)
+build_common_data_for_job_update(const svrjob_t*pjob, int type, char *buf, int len)
 {
 	pbs_list_head attrlist;
 	int	  ct;
@@ -1915,7 +1833,7 @@ build_common_data_for_job_update(const job *pjob, int type, char *buf, int len)
  *
  */
 void
-account_job_update(job *pjob, int type)
+account_job_update(const svrjob_t *pjob, int type)
 {
 	int i = 0;
 	int len = 0;
@@ -2088,23 +2006,15 @@ account_job_update(job *pjob, int type)
 	}
 	free_attrlist(&attrlist);
 
-	if (resc_used != NULL) {
-		i = strlen(resc_used) + 1;
-		if (i > len)
-			if (grow_acct_buf(&pb, &len, i) == -1)
-				goto writeit;
-		(void)strcat(pb, " ");
-		(void)strcat(pb, resc_used);
-		i = strlen(pb);
-		pb  += i;
-		len -= i;
-
-		if ((pjob->ji_wattr[JOB_ATR_resc_used_acct].at_flags & ATR_VFLAG_SET) != 0) {
-			job_attr_def[JOB_ATR_resc_used_acct].at_free(&pjob->ji_wattr[JOB_ATR_resc_used_acct]);
-			pjob->ji_wattr[JOB_ATR_resc_used_acct].at_flags &= ~ATR_VFLAG_SET;
-		}
-		job_attr_def[JOB_ATR_resc_used_acct].at_set( &pjob->ji_wattr[JOB_ATR_resc_used_acct], &pjob->ji_wattr[JOB_ATR_resc_used], INCR);
-	}
+	i = strlen(resc_used) + 1;
+	if (i > len)
+		if (grow_acct_buf(&pb, &len, i) == -1)
+			goto writeit;
+	(void)strcat(pb, " ");
+	(void)strcat(pb, resc_used);
+	i = strlen(pb);
+	pb  += i;
+	len -= i;
 
 writeit:
 	acct_buf[acct_bufsize-1] = '\0';
@@ -2126,7 +2036,9 @@ writeit:
  *
  * @returns void
  */
-void log_alter_records_for_attrs(job *pjob, svrattrl *plist) {
+void
+log_alter_records_for_attrs(const svrjob_t *pjob, svrattrl *plist)
+{
 	svrattrl *cur_svr;
 	pbs_list_head phead;
 	svrattrl *cur_plist;
@@ -2209,7 +2121,6 @@ void log_alter_records_for_attrs(job *pjob, svrattrl *plist) {
 		account_record(PBS_ACCT_ALTER, pjob, entire_record);
 }
 
-
 /**
  * @brief
  * Common function to log a suspend/resume record
@@ -2221,7 +2132,7 @@ void log_alter_records_for_attrs(job *pjob, svrattrl *plist) {
  * @returns void
  */
 void
-log_suspend_resume_record(job *pjob, int acct_type)
+log_suspend_resume_record(const svrjob_t *pjob, int acct_type)
 {
 	if (acct_type == PBS_ACCT_SUSPEND) {
 		char *resc_buf;
@@ -2234,7 +2145,7 @@ log_suspend_resume_record(job *pjob, int acct_type)
 
 		resc_buf[0] = '\0';
 
-		if (get_resc_used(pjob, &resc_buf, &resc_buf_size) == -1) {
+		if (create_acct_resc_used(pjob, &resc_buf, &resc_buf_size) == -1) {
 			write_account_record(acct_type, pjob->ji_qs.ji_jobid, NULL);
 			free(resc_buf);
 			return;

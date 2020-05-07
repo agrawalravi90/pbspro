@@ -45,6 +45,8 @@ extern "C" {
 
 #include "list_link.h"
 #include "attribute.h"
+#include "tm.h"
+
 /*
  * job.h - structure definations for job objects
  *
@@ -60,6 +62,9 @@ extern "C" {
 #include "server_limits.h"
 #endif
 #include "work_task.h"
+
+typedef struct svrjob svrjob_t;
+
 /*
  * Dependent Job Structures
  *
@@ -378,7 +383,7 @@ typedef	struct	hnodent {
 
 typedef struct vmpiprocs {
 	tm_node_id	vn_node;	/* user's vnode identifier */
-	hnodent	       *vn_host;	/* parent (host) nodeent entry */
+	struct hnodent	       *vn_host;	/* parent (host) nodeent entry */
 	char	       *vn_hname;	/* host name for MPI, if null value */
 	/* use vn_host->hn_host             */
 	/* host name for MPI */
@@ -445,7 +450,7 @@ struct ajtrk {
 	int trk_substate; /* sub state    */
 	int trk_stgout; /* stageout status  */
 	int trk_discarding; /* indicate job is discarding */
-	struct job *trk_psubjob; /* pointer to instantiated subjob */
+	struct svrjob *trk_psubjob; /* pointer to instantiated subjob */
 };
 
 /* subjob index table */
@@ -530,6 +535,161 @@ enum bg_hook_request {
 	BG_CHECKPOINT_ABORT
 };
 
+/*
+ * fixed size internal data - maintained via "quick save"
+ * some of the items are copies of attributes, if so this
+ * internal version takes precendent
+ *
+ * This area CANNOT contain any pointers!
+ */
+struct jobfix {
+	int ji_jsversion;   /* job structure version - JSVERSION */
+	int ji_state;	    /* internal copy of state */
+	int ji_substate;    /* job sub-state */
+	int ji_svrflags;    /* server flags */
+	int ji_numattr;	    /* not used */
+	int ji_ordering;    /* special scheduling ordering */
+	int ji_priority;    /* internal priority */
+	time_t ji_stime;    /* time job started execution */
+	time_t ji_endtBdry; /* estimate upper bound on end time */
+
+	char ji_jobid[PBS_MAXSVRJOBID + 1];   /* job identifier */
+	char ji_fileprefix[PBS_JOBBASE + 1];  /* no longer used */
+	char ji_queue[PBS_MAXQUEUENAME + 1];  /* name of current queue */
+	char ji_destin[PBS_MAXROUTEDEST + 1]; /* dest from qmove/route */
+	/* MomS for execution    */
+
+	int ji_un_type;				 /* type of ji_un union */
+	union {					 /* depends on type of queue currently in */
+		struct {			 /* if in execution queue .. */
+			pbs_net_t ji_momaddr;	 /* host addr of Server */
+			unsigned int ji_momport; /* port # */
+			int ji_exitstat;	 /* job exit status from MOM */
+		} ji_exect;
+		struct {
+			time_t ji_quetime;  /* time entered queue */
+			time_t ji_rteretry; /* route retry time */
+		} ji_routet;
+		struct {
+			int ji_fromsock;	  /* socket job coming over */
+			pbs_net_t ji_fromaddr;	  /* host job coming from   */
+			unsigned int ji_scriptsz; /* script size */
+		} ji_newt;
+		struct {
+			pbs_net_t ji_svraddr; /* host addr of Server */
+			int ji_exitstat;      /* job exit status from MOM */
+			uid_t ji_exuid;	      /* execution uid */
+			gid_t ji_exgid;	      /* execution gid */
+		} ji_momt;
+	} ji_un;
+};
+
+/*
+ * Extended job save area
+ *
+ * This area CANNOT contain any pointers!
+ */
+union jobextend {
+	char fill[256];	/* fill to keep same size */
+	struct {
+#if defined(__sgi)
+		jid_t	ji_jid;
+		ash_t	ji_ash;
+#else
+		char	ji_4jid[8];
+		char	ji_4ash[8];
+#endif 	/* sgi */
+		int	   ji_credtype;
+#ifdef PBS_MOM
+		tm_host_id ji_nodeidx;	/* my node id */
+		tm_task_id ji_taskidx;	/* generate task id's for job */
+#if	MOM_ALPS
+		long			ji_reservation;
+		/* ALPS reservation identifier */
+		unsigned long long	ji_pagg;
+		/* ALPS process aggregate ID */
+#endif	/* MOM_ALPS */
+#endif /* PBS_MOM */
+	} ji_ext;
+};
+
+struct svrjob {
+	/*
+	 * Note: these members, upto ji_qs, are not saved to disk
+	 * IMPORTANT: if adding to this are, see create_subjob()
+	 * in array_func.c; add the copy of the required elements
+	 */
+
+	pbs_list_link ji_alljobs; /* links to all jobs in server */
+	pbs_list_link ji_jobque;  /* SVR: links to jobs in same queue */
+	/* MOM: links to polled jobs */
+	pbs_list_link ji_unlicjobs;	     /* links to unlicensed jobs */
+	int ji_modified;		     /* struct changed, needs to be saved */
+	int ji_momhandle;		     /* open connection handle to MOM */
+	int ji_mom_prot;		     /* PROT_TCP or PROT_TPP */
+	struct batch_request *ji_rerun_preq; /* outstanding rerun request */
+	struct batch_request *ji_pmt_preq;   /* outstanding preempt job request for deleting jobs */
+	int ji_discarding;		     /* discarding job */
+	struct batch_request *ji_prunreq;    /* outstanding runjob request */
+	pbs_list_head ji_svrtask;	     /* links to svr work_task list */
+	struct pbs_queue *ji_qhdr;	     /* current queue header */
+	struct resc_resv *ji_myResv;	     /* !=0 job belongs to a reservation */
+	/* see also, attribute JOB_ATR_myResv */
+
+	int ji_lastdest;	     /* last destin tried by route */
+	int ji_retryok;		     /* ok to retry, some reject was temp */
+	int ji_terminated;	     /* job terminated by deljob batch req */
+	int ji_deletehistory;	     /* job history should not be saved */
+	pbs_list_head ji_rejectdest; /* list of rejected destinations */
+	struct svrjob *ji_parentaj;     /* subjob:   parent Array Job */
+	struct ajtrkhd *ji_ajtrk;    /* ArrayJob: index tracking table */
+	int ji_subjindx;	     /* subjob:   its index into the table */
+	struct jbdscrd *ji_discard;  /* see discard_job() */
+	int ji_jdcd_waiting;	     /* set if waiting on a mom for a response to discard job request */
+	char *ji_acctrec;	     /* holder for accounting info */
+	char *ji_clterrmsg;	     /* error message to return to client */
+
+	/*
+	 *	The flag ji_newjob is used to ensure that calls to svr_setjobstate
+	 *	etc dont attempt to save the job to the database even before the
+	 *	the job is committed to the database for the first time. We can't
+	 *	use the ji_un flag from ji_qs here since that gets modified earlier
+	 *	by the eval_jobstate function. This flag is cleared in job_alloc
+	 *	function when a new job structure is created. It is set in req_quejob
+	 *	to indicate that this is a newly queued job and does not exist in
+	 *	the database yet. This is again reset to 0 when the job is first
+	 *	saved to database in req_commit.
+	 */
+	int ji_newjob;
+
+	/*
+	 *	This variable is used to temporarily hold the script for a new job
+	 *	in memory instead of immediately saving it to the database in the
+	 *	req_jobscript function. The script is eventually saved into the
+	 *	database along with saving the job structure as part of req_commit
+	 *	under one single transaction. After this the memory is freed.
+	 */
+	char *ji_script;
+
+	/*
+	 * This flag is to indicate if queued entity limit attribute usage
+	 * is decremented when the job is run*/
+	int ji_etlimit_decr_queued;
+
+	struct preempt_ordering *preempt_order;
+	int preempt_order_index;
+
+	struct jobfix ji_qs;
+
+	union jobextend ji_extended;
+
+	/*
+	 * The following array holds the decode	 format of the attributes.
+	 * Its presence is for rapid acces to the attributes.
+	 */
+	attribute ji_wattr[JOB_ATR_LAST]; /* decoded attributes  */
+};
+
 struct job {
 
 	/*
@@ -546,10 +706,6 @@ struct job {
 	int		ji_momhandle;	/* open connection handle to MOM */
 	int		ji_mom_prot;	/* PROT_TCP or PROT_TPP */
 	struct batch_request *ji_rerun_preq;	/* outstanding rerun request */
-#ifndef PBS_MOM
-	struct batch_request *ji_pmt_preq;		/* outstanding preempt job request for deleting jobs */
-#endif /* PBS_MOM */
-#ifdef	PBS_MOM				/* MOM ONLY */
 	struct batch_request *ji_preq;	/* outstanding request */
 	struct grpcache *ji_grpcache;	/* cache of user's groups */
 	enum PBS_Chkpt_By ji_chkpttype; /* checkpoint type  */
@@ -584,10 +740,10 @@ struct job {
 	int		ji_numvnod;	/* number of virtual nodes */
 	int		ji_num_assn_vnodes;	/* number of virtual nodes (full count) */
 	tm_event_t	ji_obit;	/* event for end-of-job */
-	hnodent	       *ji_hosts;	/* ptr to job host management stuff */
-	vmpiprocs      *ji_vnods;	/* ptr to job vnode management stuff */
-	noderes	       *ji_resources;	/* ptr to array of node resources */
-	vmpiprocs      *ji_assn_vnodes;	/* ptr to actual assigned vnodes (for hooks) */
+	struct hnodent	       *ji_hosts;	/* ptr to job host management stuff */
+	struct vmpiprocs      *ji_vnods;	/* ptr to job vnode management stuff */
+	struct noderes	       *ji_resources;	/* ptr to array of node resources */
+	struct vmpiprocs      *ji_assn_vnodes;	/* ptr to actual assigned vnodes (for hooks) */
 	pbs_list_head   ji_tasks;	/* list of task structs */
 	pbs_list_head	ji_failed_node_list;
 					/* list of mom nodes which fail to join job
@@ -609,136 +765,10 @@ struct job {
 	int		ji_stderr;	/* socket for stderr */
 	int		ji_ports[2];	/* ports for stdout/err */
 	enum	bg_hook_request	ji_hook_running_bg_on; /* set when hook starts in the background*/
-#else					/* END Mom ONLY -  start Server ONLY */
-	int		ji_discarding;	/* discarding job */
-	struct batch_request *ji_prunreq; /* outstanding runjob request */
-	pbs_list_head	ji_svrtask;	/* links to svr work_task list */
-	struct pbs_queue  *ji_qhdr;	/* current queue header */
-	struct resc_resv  *ji_myResv;	/* !=0 job belongs to a reservation */
-	/* see also, attribute JOB_ATR_myResv */
 
-	int		ji_lastdest;	/* last destin tried by route */
-	int		ji_retryok;	/* ok to retry, some reject was temp */
-	int		ji_terminated;	/* job terminated by deljob batch req */
-	int		ji_deletehistory; /* job history should not be saved */
-	pbs_list_head	ji_rejectdest;	/* list of rejected destinations */
-	struct job     *ji_parentaj;	/* subjob:   parent Array Job */
-	struct ajtrkhd *ji_ajtrk;	/* ArrayJob: index tracking table */
-	int		ji_subjindx;	/* subjob:   its index into the table */
-	struct jbdscrd *ji_discard;	/* see discard_job() */
-	int		ji_jdcd_waiting;/* set if waiting on a mom for a response to discard job request */
-	char	       *ji_acctrec;	/* holder for accounting info */
-	char	       *ji_clterrmsg;	/* error message to return to client */
+	struct jobfix ji_qs;
 
-	/*
-	 *	The flag ji_newjob is used to ensure that calls to svr_setjobstate
-	 *	etc dont attempt to save the job to the database even before the
-	 *	the job is committed to the database for the first time. We can't
-	 *	use the ji_un flag from ji_qs here since that gets modified earlier
-	 *	by the eval_jobstate function. This flag is cleared in job_alloc
-	 *	function when a new job structure is created. It is set in req_quejob
-	 *	to indicate that this is a newly queued job and does not exist in
-	 *	the database yet. This is again reset to 0 when the job is first
-	 *	saved to database in req_commit.
-	 */
-	int             ji_newjob;
-
-	/*
-	 *	This variable is used to temporarily hold the script for a new job
-	 *	in memory instead of immediately saving it to the database in the
-	 *	req_jobscript function. The script is eventually saved into the
-	 *	database along with saving the job structure as part of req_commit
-	 *	under one single transaction. After this the memory is freed.
-	 */
-	char           *ji_script;
-
-	/*
-	 * This flag is to indicate if queued entity limit attribute usage
-	 * is decremented when the job is run*/
-	int             ji_etlimit_decr_queued;
-
-	struct preempt_ordering	*preempt_order;
-	int preempt_order_index;
-
-#endif					/* END SERVER ONLY */
-
-	/*
-	 * fixed size internal data - maintained via "quick save"
-	 * some of the items are copies of attributes, if so this
-	 * internal version takes precendent
-	 *
-	 * This area CANNOT contain any pointers!
-	 */
-
-	struct jobfix {
-		int	    ji_jsversion;	/* job structure version - JSVERSION */
-		int	    ji_state;		/* internal copy of state */
-		int	    ji_substate;	/* job sub-state */
-		int	    ji_svrflags;	/* server flags */
-		int	    ji_numattr;		/* not used */
-		int	    ji_ordering;	/* special scheduling ordering */
-		int	    ji_priority;	/* internal priority */
-		time_t  ji_stime;		/* time job started execution */
-		time_t  ji_endtBdry;	/* estimate upper bound on end time */
-
-		char    ji_jobid[PBS_MAXSVRJOBID+1];   /* job identifier */
-		char    ji_fileprefix[PBS_JOBBASE+1];  /* no longer used */
-		char    ji_queue[PBS_MAXQUEUENAME+1];  /* name of current queue */
-		char    ji_destin[PBS_MAXROUTEDEST+1]; /* dest from qmove/route */
-		/* MomS for execution    */
-
-		int	    ji_un_type;		/* type of ji_un union */
-		union {	/* depends on type of queue currently in */
-			struct {	/* if in execution queue .. */
-				pbs_net_t ji_momaddr;  /* host addr of Server */
-				unsigned int ji_momport;       /* port # */
-				int	      ji_exitstat; /* job exit status from MOM */
-			} ji_exect;
-			struct {
-				time_t  ji_quetime;		      /* time entered queue */
-				time_t  ji_rteretry;	      /* route retry time */
-			} ji_routet;
-			struct {
-				int	       ji_fromsock;	/* socket job coming over */
-				pbs_net_t  ji_fromaddr;	/* host job coming from   */
-				unsigned int	       ji_scriptsz;	/* script size */
-			} ji_newt;
-			struct {
-				pbs_net_t ji_svraddr;  /* host addr of Server */
-				int	      ji_exitstat; /* job exit status from MOM */
-				uid_t     ji_exuid;	   /* execution uid */
-				gid_t     ji_exgid;	   /* execution gid */
-			} ji_momt;
-		} ji_un;
-	} ji_qs;
-	/*
-	 * Extended job save area
-	 *
-	 * This area CANNOT contain any pointers!
-	 */
-	union jobextend {
-		char fill[256];	/* fill to keep same size */
-		struct {
-#if defined(__sgi)
-			jid_t	ji_jid;
-			ash_t	ji_ash;
-#else
-			char	ji_4jid[8];
-			char	ji_4ash[8];
-#endif 	/* sgi */
-			int	   ji_credtype;
-#ifdef PBS_MOM
-			tm_host_id ji_nodeidx;	/* my node id */
-			tm_task_id ji_taskidx;	/* generate task id's for job */
-#if	MOM_ALPS
-			long			ji_reservation;
-			/* ALPS reservation identifier */
-			unsigned long long	ji_pagg;
-			/* ALPS process aggregate ID */
-#endif	/* MOM_ALPS */
-#endif /* PBS_MOM */
-		} ji_ext;
-	} ji_extended;
+	union jobextend ji_extended;
 
 	/*
 	 * The following array holds the decode	 format of the attributes.
@@ -1104,50 +1134,49 @@ task_find	(job		*pjob,
 /* The default project assigned to jobs when project attribute is unset */
 #define PBS_DEFAULT_PROJECT	"_pbs_project_default"
 
-extern void  add_dest(job *);
-extern int   depend_on_que(attribute *, void *, int);
-extern int   depend_on_exec(job *);
-extern int   depend_runone_remove_dependency(job *);
-extern int   depend_runone_hold_all(job *);
-extern int   depend_runone_release_all(job *);
-extern int   depend_on_term(job *);
-extern struct depend *find_depend(int type, attribute *pattr);
-extern struct depend_job *find_dependjob(struct depend *pdep, char *name);
-extern int send_depend_req(job *pjob, struct depend_job *pparent, int type, int op, int schedhint, void (*postfunc)(struct work_task *));
-extern void post_runone(struct work_task *pwt);
-extern job  *find_job(char *);
-extern char *get_variable(job *, char *);
-extern void  check_block(job *, char *);
+extern time_t time_now;
+extern pbs_list_head svr_allconns;
+extern pbs_db_conn_t *svr_db_conn;
+extern pbs_list_head svr_alljobs;
+extern pbs_list_head svr_newjobs;
+extern char *path_jobs;
+extern char *path_resvs;
+extern char *pbs_server_name;
+
+extern void add_dest(svrjob_t *);
+extern char *get_variable(svrjob_t *, char *);
+extern void  check_block(svrjob_t *, char *);
 extern char *lookup_variable(void *, int, char *);
-extern void  issue_track(job *);
-extern void  issue_delete(job *);
-extern int   job_abt(job *, char *);
-extern job  *job_alloc(void);
-extern void  job_free(job *);
-extern int   modify_job_attr(job *, svrattrl *, int, int *);
-extern char *prefix_std_file(job *, int);
-extern void  cat_default_std(job *, int, char *, char **);
+extern void  issue_track(svrjob_t*);
+extern void  issue_delete(svrjob_t*);
+extern int   job_abt(svrjob_t*, char *);
+extern void svrjob_free(svrjob_t *);
+extern void  job_free(job*);
+extern int   modify_job_attr(svrjob_t*, svrattrl *, int, int *);
+extern char *prefix_std_file(svrjob_t*, int);
+extern void  cat_default_std(svrjob_t*, int, char *, char **);
 extern int   set_objexid(void *, int, attribute *);
 #if 0
-extern int   site_check_user_map(job *, char *);
+extern int   site_check_user_map(svrjob_t*, char *);
 #endif
 extern int   site_check_user_map(void *, int, char *);
 extern int   site_allow_u(char *user, char *host);
-extern void  svr_dequejob(job *);
-extern int   svr_enquejob(job *);
-extern void  svr_evaljobstate(job *, int *, int *, int);
-extern void  set_statechar(job *);
-extern int   svr_setjobstate(job *, int, int);
+extern void  svr_dequejob(svrjob_t*);
+extern int   svr_enquejob(svrjob_t*);
+extern void  svr_evaljobstate(svrjob_t*, int *, int *, int);
+extern void  set_statechar(svrjob_t*);
+extern int   svr_setjobstate(svrjob_t*, int, int);
 extern int   state_char2int(char);
 extern int   uniq_nameANDfile(char*, char*, char*);
-extern long  determine_accruetype(job *);
-extern int   update_eligible_time(long, job *);
+extern long  determine_accruetype(svrjob_t*);
+extern int   update_eligible_time(long, svrjob_t*);
 
 #define	TOLERATE_NODE_FAILURES_ALL	"all"
 #define	TOLERATE_NODE_FAILURES_JOB_START	"job_start"
 #define	TOLERATE_NODE_FAILURES_NONE	"none"
 extern int   do_tolerate_node_failures(job *);
 
+void job_init_wattr(void *);
 /*
  *	The filesystem related recovery/save routines are renamed
  *	with the suffix "_fs", and the database versions of them
@@ -1161,20 +1190,23 @@ extern int   do_tolerate_node_failures(job *);
  */
 #ifdef PBS_MOM
 
-extern job  *job_recov_fs(char *);
-extern int   job_save_fs(job *, int);
+extern void  *job_recov_fs(char *);
+extern int   job_save_fs(void *, int);
 extern int   job_or_resv_save_fs(void *, int, int);
 void*	job_or_resv_recov_fs(char *, int);
 #define job_recov job_recov_fs
 #define job_save job_save_fs
 #define job_or_resv_save job_or_resv_save_fs
 #define job_or_resv_recov job_or_resv_recov_fs
+job *find_job(char *);
+job *job_alloc(void);
 
 #else
-
-extern job  *job_recov_db(char *);
+svrjob_t *svrjob_alloc(void);
+svrjob_t *find_svrjob(char *);
+extern svrjob_t  *job_recov_db(char *);
 extern void *job_or_resv_recov_db(char *, int);
-extern int  job_save_db(job *, int);
+extern int  job_save_db(svrjob_t*, int);
 extern int   job_or_resv_save_db(void *, int, int);
 #define job_recov job_recov_db
 #define job_save job_save_db
@@ -1189,11 +1221,11 @@ extern char *get_job_credid(char *jobid);
 
 
 #ifdef	_BATCH_REQUEST_H
-extern job  *chk_job_request(char *, struct batch_request *, int *, int *);
-extern int   net_move(job *, struct batch_request *);
-extern int   svr_chk_owner(struct batch_request *, job *);
-extern int   svr_movejob(job *, char *, struct batch_request *);
-extern struct batch_request *cpy_stage(struct batch_request *, job *, enum job_atr, int);
+extern svrjob_t *chk_job_request(char *, struct batch_request *, int *, int *);
+extern int   net_move(svrjob_t*, struct batch_request *);
+extern int   svr_chk_owner(struct batch_request *, svrjob_t*);
+extern int   svr_movejob(svrjob_t*, char *, struct batch_request *);
+extern struct batch_request *cpy_stage(struct batch_request *, svrjob_t*, enum job_atr, int);
 
 #ifdef	_RESERVATION_H
 extern int   svr_chk_ownerResv(struct batch_request *, resc_resv *);
@@ -1201,34 +1233,41 @@ extern int   svr_chk_ownerResv(struct batch_request *, resc_resv *);
 #endif	/* _BATCH_REQUEST_H */
 
 #ifdef	_QUEUE_H
-extern int   svr_chkque(job *, pbs_queue *, char *, int mtype);
-extern int   default_router(job *, pbs_queue *, long);
-extern int   site_alt_router(job *, pbs_queue *, long);
-extern int   site_acl_check(job *, pbs_queue *);
+extern int   svr_chkque(svrjob_t*, pbs_queue *, char *, int mtype);
+extern int   default_router(svrjob_t*, pbs_queue *, long);
+extern int   site_alt_router(svrjob_t*, pbs_queue *, long);
+extern int   site_acl_check(svrjob_t*, pbs_queue *);
 #endif	/* _QUEUE_H */
 
 #ifdef	_WORK_TASK_H
-extern int   issue_signal(job *, char *, void(*)(struct work_task *), void *);
+extern int   issue_signal(svrjob_t*, char *, void(*)(struct work_task *), void *);
 extern void   on_job_exit(struct work_task *);
 #endif	/* _WORK_TASK_H */
 
 #ifdef _PBS_IFL_H
-extern int   update_resources_list(job *, char *, int, char *, enum batch_op op, int, int);
+extern int   update_resources_list(void*, char *, int, char *, enum batch_op op, int, int);
 #endif
 
 extern int   Mystart_end_dur_wall(void*, int);
-extern int   get_wall(job*);
-extern int   get_softwall(job*);
-extern int   get_used_wall(job*);
-extern int   get_used_cput(job*);
-extern int   get_cput(job*);
+extern int   get_wall(svrjob_t*);
+extern int   get_softwall(svrjob_t*);
+extern int   get_used_wall(svrjob_t*);
+extern int   get_used_cput(svrjob_t*);
+extern int   get_cput(svrjob_t*);
 extern void  remove_deleted_resvs(void);
 
-extern void del_job_related_file(job *pjob, char *fsuffix);
+extern void del_job_related_file(void *pjob, char *fsuffix);
+void *locate_new_job(struct batch_request *preq, char *jobid);
 #ifdef PBS_MOM
+extern int direct_write_requested(job *);
 extern void del_job_dirs(job *pjob);
 extern void del_chkpt_files(job *pjob);
 #endif
+
+void *job_alloc_generic(void);
+void job_free_generic(void *pj);
+void job_purge_generic(void *pj);
+void *find_job_generic(char *jid);
 
 #ifdef	__cplusplus
 }

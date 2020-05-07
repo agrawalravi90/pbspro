@@ -72,7 +72,7 @@ extern char   server_name[];
 extern char   *pbs_server_name;
 
 /* External functions */
-extern int svr_chk_histjob(job *);
+extern int svr_chk_histjob(svrjob_t *);
 extern int is_job_array(char *);
 
 /**
@@ -89,12 +89,12 @@ req_locatejob(struct batch_request *preq)
 {
 	char 		 *at;
 	int		  i;
-	job		 *pjob;
+	svrjob_t		 *pjob;
 	char		 *location = NULL;
 
 	if ((at = strchr(preq->rq_ind.rq_locate, (int)'@')) != NULL)
 		*at = '\0';			/* strip off @server_name */
-	pjob = find_job(preq->rq_ind.rq_locate);
+	pjob = find_svrjob(preq->rq_ind.rq_locate);
 
 	/*
 	 * Reject request for history jobs:

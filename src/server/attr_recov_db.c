@@ -329,7 +329,7 @@ decode_attr_db(
 
 			/*
 			 * There are two ways this could happen:
-			 * 1. if the (job) attribute is in the "unknown" list -
+			 * 1. if the svrjob_t) attribute is in the "unknown" list -
 			 *    keep it there;
 			 * 2. if the server was rebuilt and an attribute was
 			 *    deleted, -  the fact is logged and the attribute

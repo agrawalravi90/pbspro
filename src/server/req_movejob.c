@@ -91,7 +91,7 @@ void
 req_movejob(struct batch_request *req)
 {
 	int      jt;            /* job type */
-	job	*jobp;
+	svrjob_t *jobp;
 	char	hook_msg[HOOK_MSG_SIZE];
 
 	switch (process_hooks(req, hook_msg, sizeof(hook_msg),
@@ -190,9 +190,9 @@ void
 req_orderjob(struct batch_request *req)
 {
 	int      jt1, jt2;            /* job type */
-	job	*pjob;
-	job	*pjob1;
-	job	*pjob2;
+	svrjob_t	*pjob;
+	svrjob_t *pjob1;
+	svrjob_t *pjob2;
 	long	 rank;
 	int	 rc;
 	char	 tmpqn[PBS_MAXQUEUENAME + 1];

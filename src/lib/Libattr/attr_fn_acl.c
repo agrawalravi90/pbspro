@@ -179,7 +179,7 @@ set_hostacl(struct attribute *attr, struct attribute *new, enum batch_op op)
 	return (set_allacl(attr, new, op, host_order));
 }
 
-
+#ifndef PBS_MOM
 /**
  * @brief
  * 	acl_check - check a name:
@@ -269,7 +269,7 @@ acl_check(attribute *pattr, char *name, int type)
 	}
 	return (default_rtn);
 }
-
+#endif
 
 /**
  * @brief

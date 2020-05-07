@@ -129,6 +129,7 @@
 #include "libsec.h"
 #include "pbs_license.h"
 #include "pbs_reliable.h"
+#include "svrjob.h"
 #ifndef WIN32
 #include <sys/wait.h>
 #endif
@@ -143,7 +144,7 @@ char statechars[] = "TQHWREXBMF";
 
 /* Private Functions */
 
-static void default_std(job *, int key, char * to);
+static void default_std(svrjob_t *, int key, char * to);
 static void Time4reply(struct work_task  *);
 static void Time4resv(struct work_task*);
 static void Time4resv1(struct work_task*);
@@ -156,7 +157,7 @@ static void running_jobs_count(struct work_task *);
 
 
 /** For faster job lookup through AVL tree */
-static void svr_avljob_oper(job *pjob, int delkey);
+static void svr_avljob_oper(svrjob_t *pjob, int delkey);
 
 /* Global Data Items: */
 extern char *msg_noloopbackif;
@@ -189,7 +190,7 @@ extern void resv_retry_handler(struct work_task *);
 
 /* external functions */
 #ifndef PBS_MOM
-extern void free_job_work_tasks(job *);
+extern void free_job_work_tasks(svrjob_t *);
 #endif
 
 /* Private Functions */
@@ -205,7 +206,7 @@ static void correct_ct(pbs_queue *);
  * @param[in]	pjob	-	The job to be enqueued.
  */
 static void
-clear_default_resc(job *pjob)
+clear_default_resc(svrjob_t *pjob)
 {
 	attribute *pattr;
 	resource  *presc;
@@ -255,11 +256,11 @@ tickle_for_reply(void)
  *		Updated default attributes and resources specific to job type.
  */
 int
-svr_enquejob(job *pjob)
+svr_enquejob(svrjob_t *pjob)
 {
 	attribute *pattrjb;
 	attribute_def *pdef;
-	job *pjcur;
+	svrjob_t *pjcur;
 	pbs_queue *pque;
 	int rc;
 	pbs_sched *psched;
@@ -281,7 +282,7 @@ svr_enquejob(job *pjob)
 			if (is_linked(&svr_alljobs, &pjob->ji_alljobs) == 0) {
 				append_link(&svr_alljobs, &pjob->ji_alljobs, pjob);
 				/**
-				 * Add to AVL tree so that find_job() can return
+				 * Add to AVL tree so that find_svrjob() can return
 				 * faster compared to linked list traverse.
 				 */
 				svr_avljob_oper(pjob, 0);
@@ -313,14 +314,14 @@ svr_enquejob(job *pjob)
 		pjob->ji_qs.ji_jobid, log_buffer);
 #endif	/* NDEBUG */
 
-	pjcur = (job *)GET_PRIOR(svr_alljobs);
+	pjcur = (svrjob_t *)GET_PRIOR(svr_alljobs);
 	while (pjcur) {
 		if ((unsigned long)pjob->ji_wattr[(int)JOB_ATR_qrank].
 			at_val.at_long >=
 			(unsigned long)pjcur->ji_wattr[(int)JOB_ATR_qrank].
 			at_val.at_long)
 			break;
-		pjcur = (job *)GET_PRIOR(pjcur->ji_alljobs);
+		pjcur = (svrjob_t *)GET_PRIOR(pjcur->ji_alljobs);
 	}
 	if (pjcur == 0) {
 		/* link first in server's list */
@@ -333,7 +334,7 @@ svr_enquejob(job *pjob)
 	}
 
 	/**
-	 * Add to AVL tree so that find_job() can return
+	 * Add to AVL tree so that find_svrjob() can return
 	 * faster compared to linked list traverse.
 	 */
 	svr_avljob_oper(pjob, 0);
@@ -345,14 +346,14 @@ svr_enquejob(job *pjob)
 
 	pjob->ji_qhdr = pque;
 
-	pjcur = (job *)GET_PRIOR(pque->qu_jobs);
+	pjcur = (svrjob_t *)GET_PRIOR(pque->qu_jobs);
 	while (pjcur) {
 		if ((unsigned long)pjob->ji_wattr[(int)JOB_ATR_qrank].
 			at_val.at_long >=
 			(unsigned long)pjcur->ji_wattr[(int)JOB_ATR_qrank].
 			at_val.at_long)
 			break;
-		pjcur = (job *)GET_PRIOR(pjcur->ji_jobque);
+		pjcur = (svrjob_t *)GET_PRIOR(pjcur->ji_jobque);
 	}
 	if (pjcur == 0) {
 		/* link first in list */
@@ -519,7 +520,7 @@ svr_enquejob(job *pjob)
  */
 
 void
-svr_dequejob(job *pjob)
+svr_dequejob(svrjob_t *pjob)
 {
 	int	   bad_ct = 0;
 	pbs_queue *pque;
@@ -532,7 +533,7 @@ svr_dequejob(job *pjob)
 
 		/**
 		 * Remove the key from the AVL tree which was
-		 * added for faster job search i.e. find_job().
+		 * added for faster job search i.e. find_svrjob().
 		 */
 		svr_avljob_oper(pjob, 1);
 
@@ -591,7 +592,7 @@ svr_dequejob(job *pjob)
  */
 
 int
-svr_setjobstate(job *pjob, int newstate, int newsubstate)
+svr_setjobstate(svrjob_t *pjob, int newstate, int newsubstate)
 {
 	int    changed = 0;
 	pbs_queue *pque = pjob->ji_qhdr;
@@ -729,7 +730,7 @@ svr_setjobstate(job *pjob, int newstate, int newsubstate)
  * @return	void
  */
 void
-svr_evaljobstate(job *pjob, int *newstate, int *newsub, int forceeval)
+svr_evaljobstate(svrjob_t *pjob, int *newstate, int *newsub, int forceeval)
 {
 	/*
 	 * A value MUST be assigned to newstate and newsub because
@@ -825,7 +826,7 @@ svr_evaljobstate(job *pjob, int *newstate, int *newsub, int forceeval)
  */
 
 char *
-get_variable(job *pjob, char *variable)
+get_variable(svrjob_t *pjob, char *variable)
 {
 	char *pc;
 
@@ -860,7 +861,7 @@ lookup_variable(void *pobj, int objtype, char *variable)
 
 	if (objtype == JOB_OBJECT) {
 		idx_var = (int)JOB_ATR_variables;
-		objattrs = ((job *)pobj)->ji_wattr;
+		objattrs = ((svrjob_t *)pobj)->ji_wattr;
 	} else {
 		idx_var = (int)RESV_ATR_variables;
 		objattrs = ((resc_resv *)pobj)->ri_wattr;
@@ -1149,12 +1150,12 @@ chk_resc_limits(attribute *pattr, pbs_queue *pque)
  * @param[in]	mtype	-	MOVE_TYPE_* type;  see server_limits.h
  *
  * @return	int
- * @retval	0	: all ok, job can enter queue
+ * @retval	0	: all ok, svrjob_t can enter queue
  * @retval	PBSE Number	: error code
  */
 
 int
-svr_chkque(job *pjob, pbs_queue *pque, char *hostname, int mtype)
+svr_chkque(svrjob_t *pjob, pbs_queue *pque, char *hostname, int mtype)
 {
 	int i;
 
@@ -1495,7 +1496,7 @@ end:
  * @param[in]	message	-	message needs to be send to the port.
  */
 void
-check_block(job *pjob, char *message)
+check_block(svrjob_t *pjob, char *message)
 {
 	int			port;
 	char			*phost;
@@ -1569,9 +1570,9 @@ job_wait_over(struct work_task *pwt)
 {
 	int	 newstate;
 	int	 newsub;
-	job     *pjob;
+	svrjob_t     *pjob;
 
-	pjob = (job *)pwt->wt_parm1;
+	pjob = (svrjob_t *)pwt->wt_parm1;
 
 	/* If history job, just return from here */
 	if ((pjob->ji_qs.ji_state == JOB_STATE_MOVED) ||
@@ -1581,12 +1582,12 @@ job_wait_over(struct work_task *pwt)
 #ifndef NDEBUG
 	{
 		time_t now = time(NULL);
-		time_t when = ((job *)pjob)->ji_wattr[(int)JOB_ATR_exectime].
+		time_t when = ((svrjob_t *)pjob)->ji_wattr[(int)JOB_ATR_exectime].
 			at_val.at_long;
 		struct work_task *ptask;
 
 		if (when > now) {
-			sprintf(log_buffer, msg_badwait, ((job *)pjob)->ji_qs.ji_jobid);
+			sprintf(log_buffer, msg_badwait, ((svrjob_t *)pjob)->ji_qs.ji_jobid);
 			log_err(-1, "job_wait_over", log_buffer);
 
 			/* recreate the work task entry */
@@ -1623,11 +1624,11 @@ job_wait_over(struct work_task *pwt)
  * @par
  *		This is called as the at_action (see attribute.h) function associated
  *		with the execution-time job attribute.
- * 		parameter pjob is a job * cast to a void *
+ * 		parameter pjob is a svrjob_t * cast to a void *
  * 		parameter mode is unused;  do it for all action modes
  *
  * @param[in]	pattr	-	execution-time job attribute.
- * @param[in]	pjob	-	pjob is a job * cast to a void *
+ * @param[in]	pjob	-	pjob is a svrjob_t * cast to a void *
  * @param[in]	pattr	-	mode is unused;  do it for all action modes
  */
 
@@ -1638,18 +1639,18 @@ job_set_wait(attribute *pattr, void *pjob, int mode)
 	long		  when;
 
 	/* Return 0 if it is history job */
-	if ((((job *)pjob)->ji_qs.ji_state == JOB_STATE_MOVED) ||
-		(((job *)pjob)->ji_qs.ji_state == JOB_STATE_FINISHED))
+	if ((((svrjob_t *)pjob)->ji_qs.ji_state == JOB_STATE_MOVED) ||
+		(((svrjob_t *)pjob)->ji_qs.ji_state == JOB_STATE_FINISHED))
 		return (0);
 
 	if ((pattr->at_flags & ATR_VFLAG_SET) == 0)
 		return (0);
 	when  = pattr->at_val.at_long;
-	ptask = (struct work_task *)GET_NEXT(((job *)pjob)->ji_svrtask);
+	ptask = (struct work_task *)GET_NEXT(((svrjob_t *)pjob)->ji_svrtask);
 
 	/* Is there already an entry for this job?  Then reuse it */
 
-	if (((job *)pjob)->ji_qs.ji_svrflags & JOB_SVFLG_HASWAIT) {
+	if (((svrjob_t *)pjob)->ji_qs.ji_svrflags & JOB_SVFLG_HASWAIT) {
 		while (ptask) {
 			if ((ptask->wt_event == WORK_Timed) &&
 				(ptask->wt_func == job_wait_over) &&
@@ -1664,11 +1665,11 @@ job_set_wait(attribute *pattr, void *pjob, int mode)
 	ptask = set_task(WORK_Timed, when, job_wait_over, pjob);
 	if (ptask == NULL)
 		return (-1);
-	append_link(&((job *)pjob)->ji_svrtask, &ptask->wt_linkobj, ptask);
+	append_link(&((svrjob_t *)pjob)->ji_svrtask, &ptask->wt_linkobj, ptask);
 
 	/* set JOB_SVFLG_HASWAIT to show job has work task entry */
 
-	((job *)pjob)->ji_qs.ji_svrflags |= JOB_SVFLG_HASWAIT;
+	((svrjob_t *)pjob)->ji_qs.ji_svrflags |= JOB_SVFLG_HASWAIT;
 	return (0);
 }
 
@@ -1689,7 +1690,7 @@ job_set_wait(attribute *pattr, void *pjob, int mode)
  */
 
 static void
-default_std(job *pjob, int key, char *to)
+default_std(svrjob_t *pjob, int key, char *to)
 {
 	int   len;
 	char *pd;
@@ -1731,7 +1732,7 @@ default_std(job *pjob, int key, char *to)
  * @retval	!NULL	-	Pointer to the prefix string
  */
 char *
-prefix_std_file(job *pjob, int key)
+prefix_std_file(svrjob_t *pjob, int key)
 {
 	char	*name = NULL;
 	char	*outputhost;
@@ -1799,7 +1800,7 @@ prefix_std_file(job *pjob, int key)
  * @param[in]	out	-	Space for the newly created string.
  */
 void
-cat_default_std(job *pjob, int key, char *in, char **out)
+cat_default_std(svrjob_t *pjob, int key, char *in, char **out)
 {
 	char *result;
 	int  len;
@@ -2307,18 +2308,18 @@ set_deflt_resc(attribute *jb, attribute *dflt, int selflg)
 int
 set_resc_deflt(void *pobj, int objtype, pbs_queue *pque)
 {
-	static resc_resv  *presv;
-	job	   *pjob;
-	attribute  *pdest = NULL;
-	attribute  *psched = NULL;
-	resource   *presc;
+	static resc_resv *presv;
+	svrjob_t *pjob;
+	attribute *pdest = NULL;
+	attribute *psched = NULL;
+	resource *presc;
 	resource_def *prdefsl;
 	resource_def *prdefpc;
 	int           rc;
 
 	switch (objtype) {
 		case	JOB_OBJECT:
-			pjob = (job *)pobj;
+			pjob = (svrjob_t *)pobj;
 			assert(pjob != NULL);
 			if (pque == NULL)
 				pque = pjob->ji_qhdr;
@@ -2402,7 +2403,7 @@ set_resc_deflt(void *pobj, int objtype, pbs_queue *pque)
  */
 
 void
-set_statechar(job *pjob)
+set_statechar(svrjob_t *pjob)
 {
 	if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING) {
 		static char suspend = 'S';
@@ -2497,9 +2498,9 @@ eval_chkpnt(attribute *jobckp, attribute *queckp)
 static void
 correct_ct(pbs_queue *pqj)
 {
-	int	   i;
-	char	  *pc;
-	job	  *pjob;
+	int i;
+	char *pc;
+	svrjob_t *pjob;
 	pbs_queue *pque;
 
 
@@ -2530,8 +2531,8 @@ correct_ct(pbs_queue *pqj)
 			pque->qu_njstate[i] = 0;
 	}
 
-	for (pjob = (job *)GET_NEXT(svr_alljobs); pjob;
-		pjob = (job *)GET_NEXT(pjob->ji_alljobs)) {
+	for (pjob = (svrjob_t *)GET_NEXT(svr_alljobs); pjob;
+		pjob = (svrjob_t *)GET_NEXT(pjob->ji_alljobs)) {
 		server.sv_qs.sv_numjobs++;
 		server.sv_jobstates[pjob->ji_qs.ji_state]++;
 		if (pjob->ji_qhdr) {
@@ -2558,7 +2559,7 @@ correct_ct(pbs_queue *pqj)
  * 		Assumption: input jp is a valid job pointer
  */
 int
-get_wall(job *jp)
+get_wall(svrjob_t *jp)
 {
 	resource_def	*rscdef;
 	resource	*pres;
@@ -2592,7 +2593,7 @@ get_wall(job *jp)
  *
  */
 int
-get_used_wall(job *jp)
+get_used_wall(svrjob_t *jp)
 {
 	resource_def	*rscdef;
 	resource	*pres;
@@ -2623,7 +2624,7 @@ get_used_wall(job *jp)
  * 		Assumption: input jp is a valid job pointer
  */
 int
-get_softwall(job *jp)
+get_softwall(svrjob_t *jp)
 {
 	resource_def	*rscdef;
 	resource	*pres;
@@ -2654,7 +2655,7 @@ get_softwall(job *jp)
  * 		Assumption: input jp is a valid job pointer
  */
 int
-get_cput(job *jp)
+get_cput(svrjob_t *jp)
 {
 	resource_def	*rscdef;
 	resource	*pres;
@@ -2688,7 +2689,7 @@ get_cput(job *jp)
  *
  */
 int
-get_used_cput(job *jp)
+get_used_cput(svrjob_t *jp)
 {
 	resource_def	*rscdef;
 	resource	*pres;
@@ -3290,15 +3291,15 @@ running_jobs_count(struct work_task *ptask)
 static void
 delete_occurrence_jobs(resc_resv *presv)
 {
-	job *pjob, *pnxj;
+	svrjob_t *pjob, *pnxj;
 	struct work_task *ptask;
 
-	pjob = (job *)GET_NEXT(presv->ri_qp->qu_jobs);
+	pjob = (svrjob_t *)GET_NEXT(presv->ri_qp->qu_jobs);
 	while (pjob != NULL) {
 		/* Get the next job from the queue before the job is unlinked as a result
 		 * of job_abt
 		 */
-		pnxj = (job *)GET_NEXT(pjob->ji_jobque);
+		pnxj = (svrjob_t *)GET_NEXT(pjob->ji_jobque);
 		if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING && pjob->ji_qs.ji_substate != JOB_SUBSTATE_ABORT)
 			(void) job_abt(pjob, "Deleting running job at end of reservation occurrence");
 
@@ -4547,7 +4548,7 @@ convert_long_to_time(long l)
  * @retval	-1	-	when this function is not able to determine accruetype
  */
 long
-determine_accruetype(job* pjob)
+determine_accruetype(svrjob_t* pjob)
 {
 	struct pbs_queue *pque;
 	long	temphold;
@@ -4637,7 +4638,7 @@ determine_accruetype(job* pjob)
  */
 
 int
-update_eligible_time(long newaccruetype, job *pjob)
+update_eligible_time(long newaccruetype, svrjob_t *pjob)
 {
 	static char *msg[] = { "initial_time", "ineligible_time", "eligible_time", "run_time", "exiting" };
 	char *strtime;
@@ -4726,7 +4727,7 @@ alter_eligibletime(attribute *pattr, void *pobject, int actmode)
 {
 	static char errtime[] = "00:00:00";
 	long timestamp = (long)time_now; /* accrual begins from here */
-	job * pjob = (job*)pobject;
+	svrjob_t * pjob = (svrjob_t*)pobject;
 	long oldaccruetype = pjob->ji_wattr[(int)JOB_ATR_accrue_type].at_val.at_long;
 	long newaccruetype = oldaccruetype; /* We are not changing accrue type */
 
@@ -4776,14 +4777,14 @@ alter_eligibletime(attribute *pattr, void *pobject, int actmode)
  *		Check if the history of the  finished job needs to be saved or purged .
  *		If it needs to be saved and history management is ON then call svr_setjob_histinfo() to
  *		store the data in the server's history . Else if the history management is OFF or the
- *		request is to not store the jobs history then call job_purge()
+ *		request is to not store the jobs history then call job_purge_generic()
  *
  * @param[in]	pjob	-	Pointer to the job structure
  *
  *
  */
 void
-svr_saveorpurge_finjobhist(job *pjob)
+svr_saveorpurge_finjobhist(svrjob_t *pjob)
 {
 	int flag = 0;
 	resc_resv *presv;
@@ -4819,7 +4820,7 @@ svr_saveorpurge_finjobhist(job *pjob)
 					pjob->ji_qs.ji_substate = JOB_SUBSTATE_FINISHED;
 			}
 		}
-		job_purge(pjob);
+		job_purge_generic(pjob);
 	}
 	set_idle_delete_task(presv);
 }
@@ -4838,8 +4839,8 @@ svr_saveorpurge_finjobhist(job *pjob)
 void
 svr_clean_job_history(struct work_task *pwt)
 {
-	job 	*pjob;
-	job 	*nxpjob = NULL;
+	svrjob_t 	*pjob;
+	svrjob_t 	*nxpjob = NULL;
 	int 	walltime_used = 0;
 
 	/*
@@ -4865,11 +4866,11 @@ svr_clean_job_history(struct work_task *pwt)
 	 * which exceed the configured job_history_duration value and
 	 * purge them immediately.
 	 */
-	pjob = (job *)GET_NEXT(svr_alljobs);
+	pjob = (svrjob_t *)GET_NEXT(svr_alljobs);
 
 	while (pjob != NULL) {
 		/* save the next job */
-		nxpjob = (job *)GET_NEXT(pjob->ji_alljobs);
+		nxpjob = (svrjob_t *)GET_NEXT(pjob->ji_alljobs);
 
 		if ((pjob->ji_qs.ji_state == JOB_STATE_MOVED && pjob->ji_qs.ji_substate == JOB_SUBSTATE_FINISHED) ||
 			(pjob->ji_qs.ji_state == JOB_STATE_FINISHED) ||
@@ -4897,7 +4898,7 @@ svr_clean_job_history(struct work_task *pwt)
 
 			if (time_now >= (pjob->ji_wattr[(int) JOB_ATR_history_timestamp].at_val.at_long
 				+ svr_history_duration)) {
-				job_purge(pjob);
+				job_purge_generic(pjob);
 				pjob = NULL;
 			}
 		}
@@ -4979,7 +4980,7 @@ svr_clean_job_history(struct work_task *pwt)
  * @return	Nothing
  */
 void
-svr_histjob_update(job * pjob, int newstate, int newsubstate)
+svr_histjob_update(svrjob_t * pjob, int newstate, int newsubstate)
 {
 	int oldstate = pjob->ji_qs.ji_state;
 	pbs_queue *pque = pjob->ji_qhdr;
@@ -5010,7 +5011,7 @@ svr_histjob_update(job * pjob, int newstate, int newsubstate)
 		if (ptbl) {
 			/* update the subjob state table */
 			for (indx = 0; indx < ptbl->tkm_ct; ++indx) {
-				job *psubj = ptbl->tkm_tbl[indx].trk_psubjob;
+				svrjob_t *psubj = ptbl->tkm_tbl[indx].trk_psubjob;
 				if (psubj)
 					svr_histjob_update(psubj, newstate, newsubstate);
 				else
@@ -5053,7 +5054,7 @@ svr_chk_history_conf()
  *
  */
 void
-update_job_finish_comment(job *pjob, int newsubstate, char *user)
+update_job_finish_comment(svrjob_t *pjob, int newsubstate, char *user)
 {
 	char buffer[LOG_BUF_SIZE + 1] = {'\0'};
 	if ((pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags & ATR_VFLAG_SET) == 0) {
@@ -5108,7 +5109,7 @@ update_job_finish_comment(job *pjob, int newsubstate, char *user)
  */
 
 void
-svr_setjob_histinfo(job *pjob, histjob_type type)
+svr_setjob_histinfo(svrjob_t *pjob, histjob_type type)
 {
 	int newstate = 0;
 	int newsubstate = 0;
@@ -5293,7 +5294,7 @@ svr_setjob_histinfo(job *pjob, histjob_type type)
  */
 
 int
-svr_chk_histjob(job *pjob)
+svr_chk_histjob(svrjob_t *pjob)
 {
 	int rc = PBSE_NONE;
 
@@ -5334,7 +5335,7 @@ svr_chk_histjob(job *pjob)
  * @see
  * 		svr_enquejob()
  *		svr_dequejob()
- *		find_job()
+ *		find_svrjob()
  *
  * @return	Pointer to AVL_IX_REC record for success.
  * @retval	NULL	: failure.
@@ -5393,7 +5394,7 @@ svr_avlkey_create(const char *keystr)
  *
  */
 static void
-svr_avljob_oper(job *pjob, int delkey)
+svr_avljob_oper(svrjob_t *pjob, int delkey)
 {
 	int rc = AVL_IX_OK;
 	AVL_IX_REC *pkey;
@@ -5515,7 +5516,7 @@ post_send_job_exec_update_req(struct work_task *pwt)
  */
 
 int
-send_job_exec_update_to_mom(job *pjob, char *err_msg, int err_msg_sz,
+send_job_exec_update_to_mom(svrjob_t *pjob, char *err_msg, int err_msg_sz,
 				struct batch_request *reply_req)
 {
 	struct batch_request *newreq;
@@ -5780,7 +5781,7 @@ get_ms_select_chunk(char *select_str)
  * @reval 1	for error
 */
 int
-recreate_exec_vnode(job *pjob, char *vnodelist, char *keep_select, char *err_msg,
+recreate_exec_vnode(svrjob_t *pjob, char *vnodelist, char *keep_select, char *err_msg,
 						int err_msg_sz)
 {
 	char	*exec_vnode = NULL;

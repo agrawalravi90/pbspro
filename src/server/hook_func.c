@@ -2517,7 +2517,7 @@ req_stat_hook(struct batch_request *preq)
  * @retval	!= 0	otherwise.
  */
 static int
-set_exec_time(job *pjob, char *new_exec_time_str, char *msg,
+set_exec_time(svrjob_t *pjob, char *new_exec_time_str, char *msg,
 	int msg_len, char *hook_name)
 {
 
@@ -2630,7 +2630,7 @@ set_exec_time(job *pjob, char *new_exec_time_str, char *msg,
  * @retval	!= 0	otherwise.
  */
 static int
-set_hold_types(job *pjob, char *new_hold_types_str,
+set_hold_types(svrjob_t *pjob, char *new_hold_types_str,
 	char *opval, char *delval, char *msg, int msg_len, char *hook_name)
 {
 	long	  old_hold;
@@ -2738,7 +2738,7 @@ set_hold_types(job *pjob, char *new_hold_types_str,
  * @retval	!= 0	otherwise.
  */
 static int
-set_attribute(job *pjob, int attr_index,
+set_attribute(svrjob_t *pjob, int attr_index,
 	char *new_str, char *msg, int msg_len, char *hook_name)
 {
 
@@ -2883,7 +2883,7 @@ set_attribute(job *pjob, int attr_index,
  * @retval	1	- for error occurred setting job's Variable_List
  */
 static int
-set_job_varlist(job *pjob, char *hook_name, char *msg, int msg_len)
+set_job_varlist(svrjob_t *pjob, char *hook_name, char *msg, int msg_len)
 {
 	char	*orig_env_str = NULL;
 	int	i;
@@ -3009,7 +3009,7 @@ enum hook_result {
  * @retval	1	- for error occurred setting job's Variable_List
  */
 static int
-set_job_reslist(job *pjob, char *hook_name, char *msg, int msg_len,
+set_job_reslist(svrjob_t *pjob, char *hook_name, char *msg, int msg_len,
 	enum hook_result hook_mode)
 {
 	char	*val_str_dup = NULL;
@@ -3178,7 +3178,7 @@ struct attribute_jobmap {
  * @return void
  */
 static void
-attribute_jobmap_init(job *pjob, struct attribute_jobmap *a_map)
+attribute_jobmap_init(svrjob_t *pjob, struct attribute_jobmap *a_map)
 {
 	int index, a_index;
 
@@ -3248,7 +3248,7 @@ attribute_jobmap_clear(struct attribute_jobmap *a_map)
  * @return void
  */
 static void
-attribute_jobmap_restore(job *pjob, struct attribute_jobmap *a_map)
+attribute_jobmap_restore(svrjob_t *pjob, struct attribute_jobmap *a_map)
 {
 	int 		index, a_index;
 	char		*attr_name = NULL;
@@ -3355,7 +3355,7 @@ struct attribute_jobmap runjob_accept_attrlist[] = {
  * @retval	1	- for error, with 'msg' buffer filled.
  */
 static int
-do_runjob_accept_actions(job *pjob, char *hook_name, char *msg, int msg_len)
+do_runjob_accept_actions(svrjob_t *pjob, char *hook_name, char *msg, int msg_len)
 {
 	int	index, aindex;
 	char	*attr_name = NULL;
@@ -3452,7 +3452,7 @@ struct attribute_jobmap runjob_reject_attrlist[] = {
  * @retval 1	- fail
  */
 static int
-do_runjob_reject_actions(job *pjob, char *hook_name)
+do_runjob_reject_actions(svrjob_t *pjob, char *hook_name)
 {
 	int	index, aindex;
 	int	rc = 0;
@@ -3806,7 +3806,7 @@ process_hooks(struct batch_request *preq, char *hook_msg, size_t msg_len,
 	unsigned int		hook_event;
 	hook_input_param_t	req_ptr;
 	pbs_list_head		*head_ptr;
-	job			*pjob = NULL;
+	svrjob_t			*pjob = NULL;
 	int			t;
 	char			*jobid = NULL;
 	int			num_run = 0;
@@ -3848,7 +3848,7 @@ process_hooks(struct batch_request *preq, char *hook_msg, size_t msg_len,
 		jobid = ((struct rq_runjob *)(req_ptr.rq_run))->rq_jid;
 		t = is_job_array(jobid);
 		if ((t == IS_ARRAY_Single) || (t == IS_ARRAY_NO)) {
-			pjob = find_job(jobid); /* regular job and single subjob */
+			pjob = find_svrjob(jobid); /* regular job and single subjob */
 		}
 
 		/* an array job or range of subjobs will fall through with pjob set to NULL */
@@ -3969,7 +3969,7 @@ process_hooks(struct batch_request *preq, char *hook_msg, size_t msg_len,
  * @par MT-safe: No
  */
 int server_process_hooks(int rq_type, char *rq_user, char *rq_host, hook *phook,
-				int hook_event, job *pjob, hook_input_param_t *req_ptr,
+				int hook_event, svrjob_t *pjob, hook_input_param_t *req_ptr,
 				char *hook_msg, int msg_len, void (*pyinter_func)(void),
 				int *num_run, int *event_initialized)
 {
@@ -6287,7 +6287,7 @@ get_hook_rescdef_checksum(void)
  */
 int
 get_server_hook_results(char *input_file, int *accept_flag, int *reject_flag, char *reject_msg,
-	int reject_msg_size, job *pjob, hook *phook, hook_output_param_t *hook_output)  {
+	int reject_msg_size, svrjob_t *pjob, hook *phook, hook_output_param_t *hook_output)  {
 
 	char	*name_str;
 	char	*resc_str;

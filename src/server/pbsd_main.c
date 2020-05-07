@@ -576,10 +576,10 @@ pbs_close_stdfiles(void)
 static void
 clear_exec_vnode()
 {
-	job *pjob;
+	svrjob_t *pjob;
 
-	for (pjob = (job *)GET_NEXT(svr_alljobs); pjob;
-		pjob = (job *)GET_NEXT(pjob->ji_alljobs)) {
+	for (pjob = (svrjob_t *)GET_NEXT(svr_alljobs); pjob;
+		pjob = (svrjob_t *)GET_NEXT(pjob->ji_alljobs)) {
 		if ((pjob->ji_qs.ji_state != JOB_STATE_RUNNING) &&
 			(pjob->ji_qs.ji_state != JOB_STATE_FINISHED) &&
 			(pjob->ji_qs.ji_state != JOB_STATE_MOVED) &&
@@ -747,7 +747,7 @@ main(int argc, char **argv)
 	char			lockfile[MAXPATHLEN+1];
 	char			**origevp;
 	char			*pc;
-	job			*pjob;
+	svrjob_t			*pjob;
 	resc_resv		*presv;
 	pbs_queue		*pque;
 	char			*servicename;
@@ -1833,9 +1833,9 @@ try_db_again:
 	track_save(NULL);	/* save tracking data	     */
 
 	/* save any jobs that need saving */
-	for (pjob = (job *)GET_NEXT(svr_alljobs);
+	for (pjob = (svrjob_t *)GET_NEXT(svr_alljobs);
 		pjob;
-		pjob = (job *)GET_NEXT(pjob->ji_alljobs)) {
+		pjob = (svrjob_t *)GET_NEXT(pjob->ji_alljobs)) {
 		if (pjob->ji_modified)
 			(void)job_save(pjob, SAVEJOB_FULLFORCE);
 	}
@@ -2049,9 +2049,9 @@ start_hot_jobs()
 	int  	     ct = 0;
 	char        *nodename;
 
-	job *pjob;
+	svrjob_t *pjob;
 
-	pjob = (job *)GET_NEXT(svr_alljobs);
+	pjob = (svrjob_t *)GET_NEXT(svr_alljobs);
 	while (pjob) {
 		if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_QUEUED) &&
 			(pjob->ji_qs.ji_svrflags & JOB_SVFLG_HOTSTART)) {
@@ -2074,7 +2074,7 @@ start_hot_jobs()
 				pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_HOTSTART;
 			}
 		}
-		pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+		pjob = (svrjob_t *)GET_NEXT(pjob->ji_alljobs);
 	}
 	return (ct);
 }

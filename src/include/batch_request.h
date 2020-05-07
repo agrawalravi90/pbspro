@@ -332,7 +332,11 @@ extern void req_stat_job(struct batch_request *);
 extern void req_stat_resv(struct batch_request *);
 extern void req_stat_resc(struct batch_request *);
 extern void req_rerunjob(struct batch_request *);
-extern void arrayfree(char **);
+extern void req_authenticate(conn_t *conn, struct batch_request *request);
+extern int read_carray(int stream, char ***arrloc);
+extern void freebr_cpyfile_cred(struct rq_cpyfile_cred *pcfc);
+extern void freebr_cpyfile(struct rq_cpyfile *pcf);
+void freebr_manage(struct rq_manage *pmgr);
 
 #ifdef PBS_NET_H
 extern int authenticate_user(struct batch_request *, conn_t *);
@@ -345,7 +349,7 @@ extern void req_defschedreply(struct batch_request *);
 extern void req_locatejob(struct batch_request *);
 extern void req_manager(struct batch_request *);
 extern void req_movejob(struct batch_request *);
-extern void req_register(struct batch_request *);
+extern void req_register_dep(struct batch_request *);
 extern void req_releasejob(struct batch_request *);
 extern void req_rescq(struct batch_request *);
 extern void req_runjob(struct batch_request *);
@@ -357,7 +361,7 @@ extern void req_trackjob(struct batch_request *);
 extern void req_stat_rsc(struct batch_request *);
 extern void req_preemptjobs(struct batch_request *);
 #else
-extern void req_cpyfile(struct batch_request *);
+    extern void req_cpyfile(struct batch_request *);
 extern void req_delfile(struct batch_request *);
 extern void req_copy_hookfile(struct batch_request *);
 extern void req_del_hookfile(struct batch_request *);

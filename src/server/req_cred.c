@@ -63,7 +63,7 @@
 
 extern struct server server;
 extern void release_req(struct work_task *);
-extern int relay_to_mom(job *, struct batch_request *, void (*)(struct work_task *));
+extern int relay_to_mom(svrjob_t *, struct batch_request *, void (*)(struct work_task *));
 extern time_t time_now;
 pbs_list_head svr_creds_cache;	/* all credentials cached and available to send */
 extern long svr_cred_renew_cache_period;
@@ -93,7 +93,7 @@ typedef struct cred_cache cred_cache;
  * @retval	NULL otherwise
  */
 static struct cred_cache *
-get_cached_cred(job  *pjob)
+get_cached_cred(svrjob_t  *pjob)
 {
 #if defined(PBS_SECURITY) && (PBS_SECURITY == KRB5)
 	cred_cache *cred = NULL;
@@ -220,7 +220,7 @@ get_cached_cred(job  *pjob)
  * @retval	structure with batch request
  */
 static struct batch_request *
-setup_cred(struct batch_request *preq, job  *pjob)
+setup_cred(struct batch_request *preq, svrjob_t  *pjob)
 {
 	cred_cache *cred;
 
@@ -264,12 +264,12 @@ static void
 post_cred(struct work_task *pwt)
 {
 	int code;
-	job *pjob;
+	svrjob_t *pjob;
 	struct batch_request *preq;
 
 	preq = pwt->wt_parm1;
 	code = preq->rq_reply.brp_code;
-	pjob = find_job(preq->rq_ind.rq_cred.rq_jobid);
+	pjob = find_svrjob(preq->rq_ind.rq_cred.rq_jobid);
 
 	if (pjob != NULL) {
 
@@ -306,7 +306,7 @@ post_cred(struct work_task *pwt)
  * @retval	!= 0 on error
  */
 int
-send_cred(job *pjob)
+send_cred(svrjob_t *pjob)
 {
 	struct batch_request *credreq = NULL;
 	int rc;
