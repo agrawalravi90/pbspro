@@ -285,13 +285,15 @@ query_nodes(int pbs_sd, server_info *sinfo)
 	int j;
 	int nidx = 0;
 	static struct attrl *attrib = NULL;
-	int chunk_size;
+	int chunk_size = mt_node_chunk_min_size;
+	static int min_mt_work = -1;
 	th_data_query_ninfo *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks;
 	int th_err = 0;
 	node_info ***ninfo_arrs_tasks = NULL;
 	int tid;
+	int mt = 1;	/* Usr multi-threading? */
 	char *nodeattrs[] = {
 			ATTR_NODE_state,
 			ATTR_NODE_Mom,
@@ -322,6 +324,9 @@ query_nodes(int pbs_sd, server_info *sinfo)
 			NULL
 	};
 
+	if (min_mt_work == -1)
+		min_mt_work = 2 * chunk_size;
+
 	if (attrib == NULL) {
 		for (i = 0; nodeattrs[i] != NULL; i++) {
 			struct attrl *temp_attrl = NULL;
@@ -348,8 +353,10 @@ query_nodes(int pbs_sd, server_info *sinfo)
 	}
 
 	tid = *((int *) pthread_getspecific(th_id_key));
-	if (tid != 0 || num_threads <= 1) {
-		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
+	if (num_nodes < min_mt_work || tid != 0 || num_threads <= 1)
+		mt = 0;
+
+	if (!mt) {
 		tdata = alloc_tdata_nd_query(nodes, sinfo, 0, num_nodes - 1);
 		if (tdata == NULL) {
 			pbs_statfree(nodes);
@@ -363,15 +370,13 @@ query_nodes(int pbs_sd, server_info *sinfo)
 			ninfo_arr[nidx]->rank = get_sched_rank();
 
 		ninfo_arr[nidx] = NULL;
-	} else {
+	} else { /* Use multi-threading */
 		if ((ninfo_arr = (node_info **) malloc((num_nodes + 1) * sizeof(node_info *))) == NULL) {
 			log_err(errno, __func__, MEM_ERR_MSG);
 			pbs_statfree(nodes);
 			return NULL;
 		}
 		ninfo_arr[0] = NULL;
-		chunk_size = num_nodes / num_threads;
-		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
 		for (j = 0, num_tasks = 0; num_nodes > 0;
 				j += chunk_size, num_tasks++, num_nodes -= chunk_size) {
 			tdata = alloc_tdata_nd_query(nodes, sinfo, j, j + chunk_size - 1);
@@ -836,21 +841,28 @@ void
 free_nodes(node_info **ninfo_arr)
 {
 	int i;
-	int chunk_size;
+	int chunk_size = mt_node_chunk_min_size;
+	static int min_mt_work = -1;
 	th_data_free_ninfo *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks;
 	int num_nodes;
 	int tid;
+	int mt = 1;	/* Use multi-threading? */
 
 	if (ninfo_arr == NULL)
 		return;
 
+	if (min_mt_work == -1)
+		min_mt_work = 2 * chunk_size;
+
 	num_nodes = count_array((void **) ninfo_arr);
 
 	tid = *((int *) pthread_getspecific(th_id_key));
-	if (tid != 0 || num_threads <= 1) {
-		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
+	if (num_nodes < min_mt_work || tid != 0 || num_threads <= 1)
+		mt = 0;
+
+	if (!mt) {
 		tdata = alloc_tdata_free_nodes(ninfo_arr, 0, num_nodes - 1);
 		if (tdata == NULL)
 			return;
@@ -860,8 +872,7 @@ free_nodes(node_info **ninfo_arr)
 		free(ninfo_arr);
 		return;
 	}
-	chunk_size = num_nodes / num_threads;
-	chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
+	/* Use multi-threading */
 	for (i = 0, num_tasks = 0; num_nodes > 0;
 			num_tasks++, i += chunk_size, num_nodes -= chunk_size) {
 		tdata = alloc_tdata_free_nodes(ninfo_arr, i, i + chunk_size - 1);
@@ -1507,15 +1518,20 @@ dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
 	schd_resource *tres = NULL;
 	node_info *ninfo = NULL;
 	char namebuf[1024];
-	int chunk_size;
+	int chunk_size = mt_node_chunk_min_size;
+	static int min_mt_work = -1;
 	th_data_dup_nd_info *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks;
 	int th_err = 0;
 	int tid;
+	int mt = 1;	/* Use multi-threading? */
 
 	if (onodes == NULL || nsinfo == NULL)
 		return NULL;
+
+	if (min_mt_work == -1)
+		min_mt_work = 2 * chunk_size;
 
 	num_nodes = thread_node_ct_left = count_array((void **) onodes);
 
@@ -1524,9 +1540,12 @@ dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
 		return NULL;
 	}
 
+	/* Don't use multi-threading if there's not enough work or threads or if this is a worker thread */
 	tid = *((int *) pthread_getspecific(th_id_key));
-	if (tid != 0 || num_threads <= 1) {
-		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
+	if (num_nodes < min_mt_work || tid != 0 || num_threads <= 1)
+		mt = 0;
+
+	if (!mt) {
 		tdata = alloc_tdata_dup_nodes(flags, nsinfo, onodes, nnodes, 0, num_nodes - 1);
 		if (tdata == NULL) {
 			free_nodes(nnodes);
@@ -1537,10 +1556,9 @@ dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
 		dup_node_info_chunk(tdata);
 		th_err = tdata->error;
 		free(tdata);
-	} else { /* We are multithreading */
+	} else { /* Use multithreading */
 		j = 0;
-		chunk_size = num_nodes / num_threads;
-		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
+
 		for (j = 0, num_tasks = 0; thread_node_ct_left > 0;
 				num_tasks++, j+= chunk_size, thread_node_ct_left -= chunk_size) {
 			tdata = alloc_tdata_dup_nodes(flags, nsinfo, onodes, nnodes, j, j + chunk_size - 1);
@@ -6241,19 +6259,26 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 	int i, j;
 	th_data_nd_eligible *tdata = NULL;
 	th_task_info *task = NULL;
-	int chunk_size;
+	int chunk_size = mt_node_chunk_min_size;
+	static int min_mt_work = -1;
 	int num_tasks;
 	int tid;
+	int mt = 1;	/* Use multi-threading? */
 
 	if (ninfo_arr == NULL || resresv == NULL || pl == NULL || err == NULL)
 		return;
+
+	if (min_mt_work == -1)
+		min_mt_work = 2 * chunk_size;
 
 	if (num_nodes == -1)
 		num_nodes = count_array((void **) ninfo_arr);
 
 	tid = *((int *) pthread_getspecific(th_id_key));
-	if (tid != 0 || num_threads <= 1) {
-		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
+	if (num_nodes < min_mt_work || tid != 0 || num_threads <= 1)
+		mt = 0;
+
+	if (!mt) {
 		tdata = alloc_tdata_nd_eligible(pl, resresv, ninfo_arr, 0, num_nodes - 1);
 		if (tdata == NULL)
 			return;
@@ -6261,9 +6286,7 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 		copy_schd_error(err, tdata->err);
 		free_schd_error(tdata->err);
 		free(tdata);
-	} else {	 /* We are multithreading */
-		chunk_size = num_nodes / num_threads;
-		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
+	} else { /* Use multithreading */
 		for (j = 0, num_tasks = 0; num_nodes > 0;
 				num_tasks++, j += chunk_size, num_nodes -= chunk_size) {
 			tdata = alloc_tdata_nd_eligible(pl, resresv, ninfo_arr, j, j + chunk_size - 1);

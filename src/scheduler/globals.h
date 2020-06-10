@@ -88,6 +88,8 @@ extern int threads_die;
 extern int num_threads;
 extern pthread_key_t th_id_key;
 extern pthread_once_t key_once;
+extern long mt_job_chunk_min_size;
+extern long mt_node_chunk_min_size;
 
 extern resdef **allres;
 extern resdef **consres;

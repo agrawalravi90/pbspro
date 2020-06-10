@@ -928,8 +928,6 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	/* used for pbs_geterrmsg() */
 	char *errmsg;
 
-	/* for multi-threading */
-	int chunk_size;
 	int j;
 	int jidx;
 	th_data_query_jinfo *tdata = NULL;
@@ -938,7 +936,9 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	int th_err = 0;
 	resource_resv ***jinfo_arrs_tasks;
 	int tid;
-
+	int mt = 1;	/* Use multi-threading? */
+	const int chunk_size = mt_job_chunk_min_size;
+	static int min_mt_work = -1;
 	char *jobattrs[] = {
 			ATTR_p,
 			ATTR_qtime,
@@ -978,6 +978,9 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 
 	if (policy == NULL || qinfo == NULL || queue_name == NULL)
 		return pjobs;
+
+	if (min_mt_work == -1)
+		min_mt_work = 2 * chunk_size;
 
 	opl.value = queue_name;
 
@@ -1032,8 +1035,10 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	resresv_arr[num_prev_jobs] = NULL;
 
 	tid = *((int *) pthread_getspecific(th_id_key));
-	if (tid != 0 || num_threads <= 1) {
-		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
+	if (num_new_jobs < min_mt_work || tid != 0 || num_threads <= 1)
+		mt = 0;
+
+	if (!mt) {
 		tdata = alloc_tdata_jquery(policy, pbs_sd, jobs, qinfo, 0, num_new_jobs - 1);
 		if (tdata == NULL) {
 			pbs_statfree(jobs);
@@ -1052,10 +1057,7 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 		free(tdata->oarr);
 		free(tdata);
 		resresv_arr[jidx] = NULL;
-	} else {
-		chunk_size = num_new_jobs / num_threads;
-		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
-		chunk_size = (chunk_size < MT_CHUNK_SIZE_MAX) ? chunk_size : MT_CHUNK_SIZE_MAX;
+	} else { /* Use multithreading */
 		for (j = 0, num_tasks = 0; num_new_jobs > 0;
 				num_tasks++, j += chunk_size, num_new_jobs -= chunk_size) {
 			tdata = alloc_tdata_jquery(policy, pbs_sd, jobs, qinfo, j, j + chunk_size - 1);

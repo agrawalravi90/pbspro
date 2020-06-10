@@ -1006,6 +1006,14 @@ query_sched_obj(status *policy, struct batch_status *sched, server_info *sinfo)
 					"Job sorting formula and job_sort_key are incompatible.  "
 					"The job sorting formula will be used.");
 
+		} else if (!strcmp(attrp->name, ATTR_sched_mt_job_min_chunk_size)) {
+			num = strtol(attrp->value, &endp, 10);
+			if (*endp == '\0')
+				mt_job_chunk_min_size = num;
+		} else if (!strcmp(attrp->name, ATTR_sched_mt_node_min_chunk_size)) {
+			num = strtol(attrp->value, &endp, 10);
+			if (*endp == '\0')
+				mt_node_chunk_min_size = num;
 		}
 		attrp = attrp->next;
 	}

@@ -266,21 +266,28 @@ void
 free_resource_resv_array(resource_resv **resresv_arr)
 {
 	int i;
-	int chunk_size;
+	int chunk_size = mt_job_chunk_min_size;
+	static int min_mt_work = -1;
 	th_data_free_resresv *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks;
 	int num_jobs;
 	int tid;
+	int mt = 1;	/* Use multi-threading? */
 
 	if (resresv_arr == NULL)
 		return;
 
+	if (min_mt_work == -1)
+		min_mt_work = 2 * chunk_size;
+
 	num_jobs = count_array((void **) resresv_arr);
 
 	tid = *((int *) pthread_getspecific(th_id_key));
-	if (tid != 0 || num_threads <= 1) {
-		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
+	if (num_jobs < min_mt_work || tid != 0 || num_threads <= 1)
+		mt = 0;
+
+	if (!mt) {
 		tdata = alloc_tdata_free_rr_arr(resresv_arr, 0, num_jobs - 1);
 		if (tdata == NULL)
 			return;
@@ -291,9 +298,7 @@ free_resource_resv_array(resource_resv **resresv_arr)
 		return;
 	}
 
-	chunk_size = num_jobs / num_threads;
-	chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
-	chunk_size = (chunk_size < MT_CHUNK_SIZE_MAX) ? chunk_size : MT_CHUNK_SIZE_MAX;
+	/* Use multi-threading */
 	for (i = 0, num_tasks = 0; num_jobs > 0;
 			num_tasks++, i += chunk_size, num_jobs -= chunk_size) {
 		tdata = alloc_tdata_free_rr_arr(resresv_arr, i, i + chunk_size - 1);
@@ -502,7 +507,8 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 {
 	resource_resv **nresresv_arr;
 	int i, j;
-	int chunk_size;
+	int chunk_size = mt_job_chunk_min_size;
+	static int min_mt_work = -1;
 	th_data_dup_resresv *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks;
@@ -510,9 +516,13 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 	int thread_job_ct_left;
 	int th_err = 0;
 	int tid;
+	int mt = 1;	/* Use Multi-threading? */
 
 	if (oresresv_arr == NULL || nsinfo == NULL)
 		return NULL;
+
+	if (min_mt_work == -1)
+		min_mt_work = 2 * chunk_size;
 
 	num_resresv = thread_job_ct_left = count_array((void **) oresresv_arr);
 
@@ -523,8 +533,10 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 	nresresv_arr[0] = NULL;
 
 	tid = *((int *) pthread_getspecific(th_id_key));
-	if (tid != 0 || num_threads <= 1) {
-		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
+	if (num_resresv < min_mt_work || tid != 0 || num_threads <= 1)
+		mt = 0;
+
+	if (!mt) {
 		tdata = alloc_tdata_dup_nodes(oresresv_arr, nresresv_arr, nsinfo, nqinfo, 0, num_resresv - 1);
 		if (tdata == NULL)
 			th_err = 1;
@@ -533,10 +545,7 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 			th_err = tdata->error;
 			free(tdata);
 		}
-	} else { /* We are multithreading */
-		chunk_size = num_resresv / num_threads;
-		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN)? chunk_size: MT_CHUNK_SIZE_MIN;
-		chunk_size = (chunk_size < MT_CHUNK_SIZE_MAX)? chunk_size: MT_CHUNK_SIZE_MAX;
+	} else { /* Use multithreading */
 		for (j = 0, num_tasks = 0; thread_job_ct_left > 0;
 				num_tasks++, j += chunk_size, thread_job_ct_left -= chunk_size) {
 			tdata = alloc_tdata_dup_nodes(oresresv_arr, nresresv_arr, nsinfo, nqinfo, j, j + chunk_size - 1);

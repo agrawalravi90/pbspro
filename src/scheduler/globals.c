@@ -45,6 +45,7 @@
 #include "constant.h"
 #include "sort.h"
 #include "limits.h"
+#include "multi_threading.h"
 
 
 
@@ -183,3 +184,5 @@ char *logfile = NULL;
 char path_log[_POSIX_PATH_MAX];
 int dflt_sched = 0;
 int server_dyn_res_alarm = 0;
+long mt_job_chunk_min_size = MT_CHUNK_SIZE_MIN_JOB;
+long mt_node_chunk_min_size = MT_CHUNK_SIZE_MIN_NODE;

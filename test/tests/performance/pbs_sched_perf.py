@@ -46,7 +46,7 @@ class TestSchedPerf(TestPerformance):
     Test the performance of scheduler features
     """
 
-    def setUp(self):
+    def setUp1(self):
         TestPerformance.setUp(self)
         self.server.manager(MGR_CMD_CREATE, RSC,
                             {'type': 'string', 'flag': 'h'}, id='color')
@@ -55,10 +55,10 @@ class TestSchedPerf(TestPerformance):
         a = {'resources_available.ncpus': 1, 'resources_available.mem': '8gb'}
         # 10010 nodes since it divides into 7 evenly.
         # Each node bucket will have 1430 nodes in it
-        self.server.create_vnodes('vnode', a, 10010, self.mom,
+        self.server.create_vnodes('vnode', a, 3500, self.mom,
                                   sharednode=False,
                                   attrfunc=self.cust_attr_func, expect=False)
-        self.server.expect(NODE, {'state=free': (GE, 10010)})
+        self.server.expect(NODE, {'state=free': (GE, 3500)})
         self.scheduler.add_resource('color')
 
     def cust_attr_func(self, name, totalnodes, numnode, attribs):
@@ -73,9 +73,6 @@ class TestSchedPerf(TestPerformance):
         Submit num jobs each in their individual equiv class
         """
         jids = []
-
-        self.server.manager(MGR_CMD_SET, MGR_OBJ_SERVER,
-                            {'scheduling': 'False'})
 
         for i in range(num):
             job_wt = wt_start + (i * step)
@@ -151,6 +148,7 @@ class TestSchedPerf(TestPerformance):
         place=excl to use node buckets.
         This test uses place=scatter.  Scatter placement is quicker than free
         """
+        self.setUp1()
         num_jobs = 3000
         self.compare_normal_path_to_buckets('scatter', num_jobs)
 
@@ -162,6 +160,7 @@ class TestSchedPerf(TestPerformance):
         place=excl to use node buckets.
         This test uses free placement.  Free placement is slower than scatter
         """
+        self.setUp1()
         num_jobs = 3000
         self.compare_normal_path_to_buckets('free', num_jobs)
 
@@ -170,6 +169,7 @@ class TestSchedPerf(TestPerformance):
         """
         Submit many normal path jobs and time the cycle that runs all of them.
         """
+        self.setUp1()
         num_jobs = 10000
         a = {'Resource_List.select': '1:ncpus=1'}
         jids = self.submit_jobs(a, num_jobs, wt_start=num_jobs)
@@ -187,6 +187,7 @@ class TestSchedPerf(TestPerformance):
         """
         Submit many bucket path jobs and time the cycle that runs all of them.
         """
+        self.setUp1()
         num_jobs = 10000
         a = {'Resource_List.select': '1:ncpus=1',
              'Resource_List.place': 'excl'}
@@ -207,6 +208,7 @@ class TestSchedPerf(TestPerformance):
         """
         Test opt_backfill_fuzzy with placement sets.
         """
+        self.setUp1()
 
         a = {'strict_ordering': 'True'}
         self.scheduler.set_sched_config(a)
@@ -255,6 +257,7 @@ class TestSchedPerf(TestPerformance):
 
     @timeout(1200)
     def test_many_chunks(self):
+        self.setUp1()
         num_jobs = 1000
         num_cycles = 3
         # Submit jobs with a large number of chunks that can't run
@@ -279,6 +282,21 @@ class TestSchedPerf(TestPerformance):
         """
         Performance test for when there are many jobs and calendaring is on
         """
+        # Create 10k vnodes with 1 ncpu each, capable of running 10k jobs
+        a = {"resources_available.ncpus": 1}
+        self.server.create_vnodes(
+            'vnode', a, 10000, self.mom, sharednode=False, expect=False)
+        self.server.expect(NODE, {'state=free': (GE, 10000)})
+
+        # Start pbs_mom in mock run mode
+        self.mom.stop()
+        mompath = os.path.join(self.server.pbs_conf["PBS_EXEC"], "sbin",
+                               "pbs_mom")
+        cmd = [mompath, "-m"]
+        self.du.run_cmd(cmd=cmd, sudo=True)
+        self.assertTrue(self.mom.isUp())
+        self.server.expect(NODE, {'resources_available.ncpus=1': (GE, 10000)})
+
         # Turn strict ordering on and backfill_depth=20
         a = {'strict_ordering': 'True'}
         self.server.manager(MGR_CMD_SET, MGR_OBJ_SERVER,
@@ -288,26 +306,40 @@ class TestSchedPerf(TestPerformance):
                             {'scheduling': 'False'})
         jids = []
 
-        # Submit around 10k jobs
-        chunk_size = 100
-        total_jobs = 10000
-        while total_jobs > 0:
-            for i in range(1, chunk_size + 1):
-                a = {'Resource_List.select':
-                     str(i) + ":ncpus=1:color=" + self.colors[i % 7]}
-                njobs = int(chunk_size / i)
-                _jids = self.submit_jobs(a, njobs, wt_start=1000)
-                jids.extend(_jids)
-                total_jobs -= njobs
-                if total_jobs <= 0:
-                    break
+        # Submit 30k jobs
+        total_jobs = 30000
+        a = {"Resource_List.walltime": "00:00:10"}
+        for i in range(10000):
+            num_chunks = i % 99 + 1
+            a['Resource_List.select'] = str(num_chunks) + ":ncpus=1"
+            j = Job(attrs=a)
+            j.set_sleep_time(10)
+            self.server.submit(j)
 
+        # Turn scheduling on and wait until 100 cycles have been run
         t1 = time.time()
-        for _ in range(100):
-            self.scheduler.run_scheduling_cycle()
-        t2 = time.time()
+        self.server.manager(MGR_CMD_SET, MGR_OBJ_SERVER,
+                            {'scheduling': 'True'})
 
-        self.logger.info("Time taken by 100 sched cycles: " + str(t2 - t1))
+        numcycles = 0
+        while numcycles < 100:
+            logs = self.scheduler.log_match("Leaving Scheduling", regexp=True,
+            starttime=t1, allmatch=True, max_attempts=100)
+            numcycles = len(logs)
+
+        self.server.manager(MGR_CMD_SET, MGR_OBJ_SERVER,
+                            {'scheduling': 'False'})
+
+        if numcycles < 100:
+            self.fail("Couldnt run 100 cycles")
+
+        cycles = self.scheduler.cycles(lastN=100)
+        self.assertEqual(len(cycles), 100)
+        t = 0
+        for cycle in cycles:
+            t += (cycle.end - cycle.start)
+
+        self.logger.info("Time taken by 100 sched cycles: " + str(t))
 
         # Delete all jobs
         self.server.cleanup_jobs()

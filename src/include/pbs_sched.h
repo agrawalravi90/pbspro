@@ -100,9 +100,11 @@ enum sched_atr {
 	SCHED_ATR_log_events,
 	SCHED_ATR_job_sort_formula,
 	SCHED_ATR_server_dyn_res_alarm,
+	SCHED_ATR_mt_job_min_chunk_size,
+	SCHED_ATR_mt_node_min_chunk_size,
 #include "site_sched_attr_enum.h"
-	/* This must be last */
-	SCHED_ATR_LAST
+	    /* This must be last */
+	    SCHED_ATR_LAST
 };
 extern attribute_def sched_attr_def[];
 

@@ -43,8 +43,8 @@
 
 #include "data_types.h"
 
-#define MT_CHUNK_SIZE_MIN 1024
-#define MT_CHUNK_SIZE_MAX 8192
+#define MT_CHUNK_SIZE_MIN_JOB 2000
+#define MT_CHUNK_SIZE_MIN_NODE 1000
 
 int init_multi_threading(int nthreads);
 void kill_threads(void);

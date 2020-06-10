@@ -362,6 +362,8 @@ extern "C" {
 #define ATTR_sched_preempt_sort  "preempt_sort"
 #define ATTR_sched_server_dyn_res_alarm "server_dyn_res_alarm"
 #define ATTR_job_run_wait "job_run_wait"
+#define ATTR_sched_mt_job_min_chunk_size "mt_job_min_chunk_size"
+#define ATTR_sched_mt_node_min_chunk_size "mt_node_min_chunk_size"
 
 /* additional node "attributes" names */
 
