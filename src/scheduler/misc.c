@@ -1664,3 +1664,22 @@ free_ptr_array(void *inp)
 		free(arr[i]);
 	free(arr);
 }
+
+/**
+ * @brief	Helper function to get diff between 2 timeval timestamps
+ *
+ * @param[in]	t1 - time 1
+ * @param[in]	t2 - time 2
+ *
+ * @return double
+ * @retval time difference between the two values
+ */
+double
+get_time_diff(struct timeval t1, struct timeval t2)
+{
+	double tt;
+
+	tt = (t2.tv_sec * 1000000 + t2.tv_usec - (t1.tv_sec * 1000000 + t1.tv_usec)) / 1000000;
+
+	return tt;
+}

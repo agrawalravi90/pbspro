@@ -936,9 +936,15 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	int th_err = 0;
 	resource_resv ***jinfo_arrs_tasks;
 	int tid;
+
 	int mt = 1;	/* Use multi-threading? */
 	const int chunk_size = mt_job_chunk_min_size;
 	static int min_mt_work = -1;
+
+    struct timeval t1, t2;
+    double tt;
+
+
 	char *jobattrs[] = {
 			ATTR_p,
 			ATTR_qtime,
@@ -1122,6 +1128,10 @@ query_jobs(status *policy, int pbs_sd, queue_info *qinfo, resource_resv **pjobs,
 	}
 
 	pbs_statfree(jobs);
+
+	gettimeofday(&t2, NULL);
+	tt = get_time_diff(t1, t2);
+	query_jobs_time += tt;
 
 	return resresv_arr;
 }

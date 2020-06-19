@@ -186,3 +186,11 @@ int dflt_sched = 0;
 int server_dyn_res_alarm = 0;
 long mt_job_chunk_min_size = MT_CHUNK_SIZE_MIN_JOB;
 long mt_node_chunk_min_size = MT_CHUNK_SIZE_MIN_NODE;
+
+double dup_nodes_time = 0;
+double dup_jobs_time = 0;
+double query_nodes_time = 0;
+double query_jobs_time = 0;
+double free_nodes_time = 0;
+double free_jobs_time = 0;
+double check_node_arr_elig_time = 0;

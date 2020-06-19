@@ -289,6 +289,12 @@ add_str_to_unique_array(char ***str_arr, char *str);
  */
 void free_ptr_array (void *inp);
 
+/*
+ * Helper function to get diff between 2 timeval timestamps
+ */
+double
+get_time_diff(struct timeval t1, struct timeval t2);
+
 #ifdef	__cplusplus
 }
 #endif

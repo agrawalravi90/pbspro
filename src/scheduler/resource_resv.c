@@ -273,7 +273,11 @@ free_resource_resv_array(resource_resv **resresv_arr)
 	int num_tasks;
 	int num_jobs;
 	int tid;
+
 	int mt = 1;	/* Use multi-threading? */
+    struct timeval t1, t2;
+    double tt;
+
 
 	if (resresv_arr == NULL)
 		return;
@@ -295,6 +299,9 @@ free_resource_resv_array(resource_resv **resresv_arr)
 		free_resource_resv_array_chunk(tdata);
 		free(tdata);
 		free(resresv_arr);
+		gettimeofday(&t2, NULL);
+		tt = get_time_diff(t1, t2);
+		free_jobs_time += tt;
 		return;
 	}
 
@@ -328,6 +335,10 @@ free_resource_resv_array(resource_resv **resresv_arr)
 	}
 
 	free(resresv_arr);
+
+	gettimeofday(&t2, NULL);
+	tt = get_time_diff(t1, t2);
+	free_jobs_time += tt;
 }
 
 /**
@@ -516,7 +527,12 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 	int thread_job_ct_left;
 	int th_err = 0;
 	int tid;
+
 	int mt = 1;	/* Use Multi-threading? */
+
+    struct timeval t1, t2;
+    double tt;
+
 
 	if (oresresv_arr == NULL || nsinfo == NULL)
 		return NULL;
@@ -585,6 +601,9 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 	}
 	nresresv_arr[num_resresv] = NULL;
 
+	gettimeofday(&t2, NULL);
+	tt = get_time_diff(t1, t2);
+	dup_jobs_time += tt;
 	return nresresv_arr;
 }
 

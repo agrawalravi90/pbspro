@@ -293,36 +293,40 @@ query_nodes(int pbs_sd, server_info *sinfo)
 	int th_err = 0;
 	node_info ***ninfo_arrs_tasks = NULL;
 	int tid;
+
 	int mt = 1;	/* Usr multi-threading? */
+
+    struct timeval t1, t2;
+    double tt;
+
 	char *nodeattrs[] = {
-			ATTR_NODE_state,
-			ATTR_NODE_Mom,
-			ATTR_NODE_Port,
-			ATTR_partition,
-			ATTR_NODE_jobs,
-			ATTR_NODE_ntype,
-			ATTR_maxrun,
-			ATTR_maxuserrun,
-			ATTR_maxgrprun,
-			ATTR_queue,
-			ATTR_NODE_pcpus,
-			ATTR_p,
-			ATTR_NODE_Sharing,
-			ATTR_NODE_License,
-			ATTR_rescavail,
-			ATTR_rescassn,
-			ATTR_NODE_NoMultiNode,
-			ATTR_ResvEnable,
-			ATTR_NODE_ProvisionEnable,
-			ATTR_NODE_current_aoe,
-			ATTR_NODE_power_provisioning,
-			ATTR_NODE_current_eoe,
-			ATTR_NODE_in_multivnode_host,
-			ATTR_NODE_last_state_change_time,
-			ATTR_NODE_last_used_time,
-			ATTR_NODE_resvs,
-			NULL
-	};
+	    ATTR_NODE_state,
+	    ATTR_NODE_Mom,
+	    ATTR_NODE_Port,
+	    ATTR_partition,
+	    ATTR_NODE_jobs,
+	    ATTR_NODE_ntype,
+	    ATTR_maxrun,
+	    ATTR_maxuserrun,
+	    ATTR_maxgrprun,
+	    ATTR_queue,
+	    ATTR_NODE_pcpus,
+	    ATTR_p,
+	    ATTR_NODE_Sharing,
+	    ATTR_NODE_License,
+	    ATTR_rescavail,
+	    ATTR_rescassn,
+	    ATTR_NODE_NoMultiNode,
+	    ATTR_ResvEnable,
+	    ATTR_NODE_ProvisionEnable,
+	    ATTR_NODE_current_aoe,
+	    ATTR_NODE_power_provisioning,
+	    ATTR_NODE_current_eoe,
+	    ATTR_NODE_in_multivnode_host,
+	    ATTR_NODE_last_state_change_time,
+	    ATTR_NODE_last_used_time,
+	    ATTR_NODE_resvs,
+	    NULL};
 
 	if (min_mt_work == -1)
 		min_mt_work = 2 * chunk_size;
@@ -460,6 +464,10 @@ query_nodes(int pbs_sd, server_info *sinfo)
 	resolve_indirect_resources(ninfo_arr);
 	sinfo->num_nodes = nidx;
 	pbs_statfree(nodes);
+
+	gettimeofday(&t2, NULL);
+	tt = get_time_diff(t1, t2);
+	query_nodes_time += tt;
 	return ninfo_arr;
 }
 
@@ -848,7 +856,12 @@ free_nodes(node_info **ninfo_arr)
 	int num_tasks;
 	int num_nodes;
 	int tid;
+
 	int mt = 1;	/* Use multi-threading? */
+
+    struct timeval t1, t2;
+    double tt;
+
 
 	if (ninfo_arr == NULL)
 		return;
@@ -870,6 +883,10 @@ free_nodes(node_info **ninfo_arr)
 		free_node_info_chunk(tdata);
 		free(tdata);
 		free(ninfo_arr);
+
+		gettimeofday(&t2, NULL);
+		tt = get_time_diff(t1, t2);
+		free_nodes_time += tt;
 		return;
 	}
 	/* Use multi-threading */
@@ -906,6 +923,10 @@ free_nodes(node_info **ninfo_arr)
 		pthread_mutex_unlock(&result_lock);
 	}
 	free(ninfo_arr);
+
+	gettimeofday(&t2, NULL);
+	tt = get_time_diff(t1, t2);
+	free_nodes_time += tt;
 }
 
 /**
@@ -1525,7 +1546,12 @@ dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
 	int num_tasks;
 	int th_err = 0;
 	int tid;
+
 	int mt = 1;	/* Use multi-threading? */
+
+	struct timeval t1, t2;
+	double tt;
+	gettimeofday(&t1, NULL);
 
 	if (onodes == NULL || nsinfo == NULL)
 		return NULL;
@@ -1655,6 +1681,10 @@ dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
 		free_nodes(nnodes);
 		return NULL;
 	}
+	gettimeofday(&t2, NULL);
+	tt = get_time_diff(t1, t2);
+	dup_nodes_time += tt;
+
 	return nnodes;
 }
 
@@ -6263,7 +6293,12 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 	static int min_mt_work = -1;
 	int num_tasks;
 	int tid;
+
 	int mt = 1;	/* Use multi-threading? */
+
+    struct timeval t1, t2;
+    double tt;
+
 
 	if (ninfo_arr == NULL || resresv == NULL || pl == NULL || err == NULL)
 		return;
@@ -6324,6 +6359,10 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 			pthread_mutex_unlock(&result_lock);
 		}
 	}
+
+	gettimeofday(&t2, NULL);
+	tt = get_time_diff(t1, t2);
+	check_node_arr_elig_time += tt;
 }
 
 /**

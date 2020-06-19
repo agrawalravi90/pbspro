@@ -655,6 +655,8 @@ scheduling_cycle(int sd, char *jobid)
 	int error = 0;			/* error happened, don't run main loop */
 	status *policy;			/* policy structure used for cycle */
 	schd_error *err = NULL;
+	struct timeval t1, t2;
+	double tt;
 
 	log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
 		  "", "Starting Scheduling Cycle");
@@ -665,6 +667,7 @@ scheduling_cycle(int sd, char *jobid)
 	do_soft_cycle_interrupt = 0;
 	do_hard_cycle_interrupt = 0;
 #endif /* localmod 030 */
+	gettimeofday(&t1, NULL);
 	/* create the server / queue / job / node structures */
 	if ((sinfo = query_server(&cstat, sd)) == NULL) {
 		log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_NOTICE,
@@ -673,7 +676,10 @@ scheduling_cycle(int sd, char *jobid)
 		return 0;
 	}
 	policy = sinfo->policy;
-
+	gettimeofday(&t2, NULL);
+	tt = get_time_diff(t1, t2);
+	log_eventf(PBSEVENT_PERF, PBS_EVENTCLASS_SCHED, LOG_INFO, "",
+		   "Time taken to query universe: %.5g", tt);
 
 	/* don't confirm reservations if we're handling a qrun request */
 	if (jobid == NULL) {
@@ -731,8 +737,14 @@ scheduling_cycle(int sd, char *jobid)
 	}
 
 	/* run loop run */
-	if (error == 0)
+	if (error == 0) {
+		gettimeofday(&t1, NULL);
 		rc = main_sched_loop(policy, sd, sinfo, &err);
+		gettimeofday(&t2, NULL);
+		tt = get_time_diff(t1, t2);
+		log_eventf(PBSEVENT_PERF, PBS_EVENTCLASS_SCHED, LOG_INFO, "",
+			   "Time taken by main_sched_loop: %.5g", tt);
+	}
 
 	if (jobid != NULL) {
 		int def_rc = -1;
@@ -773,6 +785,29 @@ scheduling_cycle(int sd, char *jobid)
 				jobid, "Max deferred reply count reached; giving up.");
 		}
 	}
+
+	log_eventf(PBSEVENT_PERF, PBS_EVENTCLASS_SCHED, LOG_INFO, "",
+		   "Time taken by dup_nodes: %.5g", dup_nodes_time);
+	log_eventf(PBSEVENT_PERF, PBS_EVENTCLASS_SCHED, LOG_INFO, "",
+		   "Time taken by dup_resource_resv_array: %.5g", dup_jobs_time);
+	log_eventf(PBSEVENT_PERF, PBS_EVENTCLASS_SCHED, LOG_INFO, "",
+		   "Time taken by query_nodes: %.5g", query_nodes_time);
+	log_eventf(PBSEVENT_PERF, PBS_EVENTCLASS_SCHED, LOG_INFO, "",
+		   "Time taken by query_jobs: %.5g", query_jobs_time);
+	log_eventf(PBSEVENT_PERF, PBS_EVENTCLASS_SCHED, LOG_INFO, "",
+		   "Time taken by free_nodes: %.5g", free_nodes_time);
+	log_eventf(PBSEVENT_PERF, PBS_EVENTCLASS_SCHED, LOG_INFO, "",
+		   "Time taken by free_resource_resv_array: %.5g", free_jobs_time);
+	log_eventf(PBSEVENT_PERF, PBS_EVENTCLASS_SCHED, LOG_INFO, "",
+		   "Time taken by check_node_array_eligibility: %.5g", check_node_arr_elig_time);
+
+	dup_nodes_time = 0;
+	dup_jobs_time = 0;
+	query_nodes_time = 0;
+	query_jobs_time = 0;
+	free_nodes_time = 0;
+	free_jobs_time = 0;
+	check_node_arr_elig_time = 0;
 
 #ifdef NAS
 	/* localmod 064 */

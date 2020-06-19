@@ -103,6 +103,14 @@ extern char path_log[_POSIX_PATH_MAX];
 extern int dflt_sched;
 extern int server_dyn_res_alarm;
 
+extern double dup_nodes_time;
+extern double dup_jobs_time;
+extern double query_nodes_time;
+extern double query_jobs_time;
+extern double free_nodes_time;
+extern double free_jobs_time;
+extern double check_node_arr_elig_time;
+
 /**
  * @brief
  * It is used as a placeholder to store aoe name. This aoe name will be
