@@ -46,6 +46,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <signal.h>
+#include <malloc.h>
 
 #include "log.h"
 #include "avltree.h"
@@ -133,27 +134,15 @@ kill_threads(void)
 	log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
 				"", "Killing worker threads");
 
-	threads_die = 1;
-	pthread_mutex_lock(&work_lock);
-	pthread_cond_broadcast(&work_cond);
-	pthread_mutex_unlock(&work_lock);
-
 	/* Wait until all threads to finish */
 	for (i = 0; i < num_threads; i++) {
 		pthread_join(threads[i], NULL);
 	}
-	pthread_mutex_destroy(&work_lock);
-	pthread_cond_destroy(&work_cond);
-	pthread_mutex_destroy(&result_lock);
-	pthread_cond_destroy(&result_cond);
+
 	pthread_mutex_destroy(&general_lock);
 	free(threads);
-	free_ds_queue(work_queue);
-	free_ds_queue(result_queue);
 	threads = NULL;
 	num_threads = 0;
-	work_queue = NULL;
-	result_queue = NULL;
 }
 
 /**
@@ -176,24 +165,9 @@ init_multi_threading(int nthreads)
 	if (num_threads > 1)
 		kill_threads();
 
-	threads_die = 0;
-	if (pthread_cond_init(&work_cond, NULL) != 0) {
-		log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
-				"pthread_cond_init failed");
-		return 0;
-	}
-	if (pthread_cond_init(&result_cond, NULL) != 0) {
-		log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
-				"pthread_cond_init failed");
-		return 0;
-	}
-
-
 	if (init_mutex_attr_recursive(&attr) == 0)
 		return 0;
 
-	pthread_mutex_init(&work_lock, &attr);
-	pthread_mutex_init(&result_lock, &attr);
 	pthread_mutex_init(&general_lock, &attr);
 
 	num_cores = sysconf(_SC_NPROCESSORS_ONLN);
@@ -208,144 +182,15 @@ init_multi_threading(int nthreads)
 		return 1; /* main thread will act as the only worker thread */
 	}
 
-	log_eventf(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
-			"", "Launching %d worker threads", num_threads);
-
 	threads = malloc(num_threads * sizeof(pthread_t));
 	if (threads == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
 		return 0;
 	}
 
-	/* Create task and result queues */
-	work_queue = new_ds_queue();
-	if (work_queue == NULL) {
-		free(threads);
-		return 0;
-	}
-	result_queue = new_ds_queue();
-	if (result_queue == NULL) {
-		free(threads);
-		free_ds_queue(work_queue);
-		work_queue = NULL;
-		return 0;
-	}
-
 	pthread_once(&key_once, create_id_key);
-	for (i = 0; i < num_threads; i++) {
-		int *thid;
-
-		thid = malloc(sizeof(int));
-		if (thid == NULL) {
-			free(threads);
-			free_ds_queue(work_queue);
-			free_ds_queue(result_queue);
-			work_queue = NULL;
-			result_queue = NULL;
-			log_err(errno, __func__, MEM_ERR_MSG);
-			return 0;
-		}
-		*thid = i + 1;
-		pthread_create(&(threads[i]), NULL, &worker, (void *) thid);
-	}
 
 	return 1;
-}
-
-/**
- * @brief	Main pthread routine for worker threads
- *
- * @param[in]	tid  - thread id of the thread
- *
- * @return void
- */
-void *
-worker(void *tid)
-{
-	th_task_info *work = NULL;
-	void *ts = NULL;
-	sigset_t set;
-	int ntid;
-	char buf[1024];
-
-	pthread_setspecific(th_id_key, tid);
-	ntid = *(int *)tid;
-
-	/* Block HUPs, if we ever unblock this, we'll need to modify 'restart()' to handle MT */
-	sigemptyset(&set);
-	sigaddset(&set, SIGHUP);
-
-	if (pthread_sigmask(SIG_BLOCK, &set, NULL) != 0) {
-		log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
-				"pthread_sigmask failed");
-		pthread_exit(NULL);
-	}
-
-	while (!threads_die) {
-		/* Get the next work task from work queue */
-		pthread_mutex_lock(&work_lock);
-		while (ds_queue_is_empty(work_queue) && !threads_die) {
-			pthread_cond_wait(&work_cond, &work_lock);
-		}
-		work = ds_dequeue(work_queue);
-		pthread_mutex_unlock(&work_lock);
-
-		/* find out what task we need to do */
-		if (work != NULL) {
-			switch (work->task_type) {
-			case TS_IS_ND_ELIGIBLE:
-				snprintf(buf, sizeof(buf), "Thread %d calling check_node_eligibility_chunk()", ntid);
-				log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				check_node_eligibility_chunk((th_data_nd_eligible *) work->thread_data);
-				break;
-			case TS_DUP_ND_INFO:
-				snprintf(buf, sizeof(buf), "Thread %d calling dup_node_info_chunk()", ntid);
-				log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				dup_node_info_chunk((th_data_dup_nd_info *) work->thread_data);
-				break;
-			case TS_QUERY_ND_INFO:
-				snprintf(buf, sizeof(buf), "Thread %d calling query_node_info_chunk()", ntid);
-				log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				query_node_info_chunk((th_data_query_ninfo *) work->thread_data);
-				break;
-			case TS_FREE_ND_INFO:
-				snprintf(buf, sizeof(buf), "Thread %d calling free_node_info_chunk()", ntid);
-				log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				free_node_info_chunk((th_data_free_ninfo *) work->thread_data);
-				break;
-			case TS_DUP_RESRESV:
-				snprintf(buf, sizeof(buf), "Thread %d calling dup_resource_resv_array_chunk()", ntid);
-				log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				dup_resource_resv_array_chunk((th_data_dup_resresv *) work->thread_data);
-				break;
-			case TS_QUERY_JOB_INFO:
-				snprintf(buf, sizeof(buf), "Thread %d calling query_jobs_chunk()", ntid);
-				log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				query_jobs_chunk((th_data_query_jinfo *) work->thread_data);
-				break;
-			case TS_FREE_RESRESV:
-				snprintf(buf, sizeof(buf), "Thread %d calling free_resource_resv_array_chunk()", ntid);
-				log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, __func__, buf);
-				free_resource_resv_array_chunk((th_data_free_resresv *) work->thread_data);
-				break;
-			default:
-				log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
-						"Invalid task type passed to worker thread");
-			}
-
-			/* Post results */
-			pthread_mutex_lock(&result_lock);
-			ds_enqueue(result_queue, (void *) work);
-			pthread_cond_signal(&result_cond);
-			pthread_mutex_unlock(&result_lock);
-		}
-	}
-
-	ts = get_avl_tls();
-	if (ts != NULL)
-		free(ts);
-
-	pthread_exit(NULL);
 }
 
 /**

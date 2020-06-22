@@ -135,6 +135,7 @@
 #include <grunt.h>
 #include <libutil.h>
 #include <pbs_internal.h>
+#include <sys/time.h>
 #include "attribute.h"
 #include "node_info.h"
 #include "server_info.h"
@@ -165,8 +166,8 @@ static char last_node_name[PBS_MAXSVRJOBID];
 
 int first_talk_with_mom = 1;
 
-void
-query_node_info_chunk(th_data_query_ninfo *data)
+static void
+query_node_info_chunk_2(th_data_query_ninfo *data)
 {
 	struct batch_status *nodes;
 	struct batch_status *cur_node;
@@ -231,6 +232,26 @@ query_node_info_chunk(th_data_query_ninfo *data)
 	data->oarr = ninfo_arr;
 }
 
+static void *
+query_node_info_chunk(void *tdata)
+{
+	th_task_info *task = tdata;
+	th_data_query_ninfo *data = task->thread_data;
+	int *tid;
+
+	tid = malloc(sizeof(int));
+	if (tid == NULL) {
+		data->error = 1;
+		return NULL;
+	}
+	*tid = task->task_id;
+	pthread_setspecific(th_id_key, tid);
+
+	query_node_info_chunk_2(data);
+
+	return task;
+}
+
 /**
  * @brief	Allocates th_data_query_ninfo for multi-threading of query_nodes
  *
@@ -285,7 +306,7 @@ query_nodes(int pbs_sd, server_info *sinfo)
 	int j;
 	int nidx = 0;
 	static struct attrl *attrib = NULL;
-	int chunk_size = mt_node_chunk_min_size;
+	long chunk_size;
 	static int min_mt_work = -1;
 	th_data_query_ninfo *tdata = NULL;
 	th_task_info *task = NULL;
@@ -328,8 +349,10 @@ query_nodes(int pbs_sd, server_info *sinfo)
 	    ATTR_NODE_resvs,
 	    NULL};
 
+	gettimeofday(&t1, NULL);
+
 	if (min_mt_work == -1)
-		min_mt_work = 2 * chunk_size;
+		min_mt_work = 2 * mt_node_chunk_min_size;
 
 	if (attrib == NULL) {
 		for (i = 0; nodeattrs[i] != NULL; i++) {
@@ -366,7 +389,7 @@ query_nodes(int pbs_sd, server_info *sinfo)
 			pbs_statfree(nodes);
 			return NULL;
 		}
-		query_node_info_chunk(tdata);
+		query_node_info_chunk_2(tdata);
 		ninfo_arr = tdata->oarr;
 		free(tdata);
 
@@ -375,14 +398,28 @@ query_nodes(int pbs_sd, server_info *sinfo)
 
 		ninfo_arr[nidx] = NULL;
 	} else { /* Use multi-threading */
+		int remainder;
+		int num_tasks;
+
 		if ((ninfo_arr = (node_info **) malloc((num_nodes + 1) * sizeof(node_info *))) == NULL) {
 			log_err(errno, __func__, MEM_ERR_MSG);
 			pbs_statfree(nodes);
 			return NULL;
 		}
 		ninfo_arr[0] = NULL;
-		for (j = 0, num_tasks = 0; num_nodes > 0;
-				j += chunk_size, num_tasks++, num_nodes -= chunk_size) {
+
+		srand(time(NULL));
+
+		chunk_size = num_nodes / num_threads;
+		if (chunk_size < mt_node_chunk_min_size)
+			chunk_size = mt_node_chunk_min_size;
+		remainder = num_nodes % chunk_size;
+
+		for (j = 0, num_tasks = 0; j < num_nodes; j += chunk_size, num_tasks++) {
+			/* Last thread also takes the remainder work */
+			if (num_tasks == (num_threads - 1))
+				chunk_size += remainder;
+
 			tdata = alloc_tdata_nd_query(nodes, sinfo, j, j + chunk_size - 1);
 			if (tdata == NULL) {
 				th_err = 1;
@@ -399,30 +436,28 @@ query_nodes(int pbs_sd, server_info *sinfo)
 			task->task_type = TS_QUERY_ND_INFO;
 			task->thread_data = (void *) tdata;
 
-			queue_work_for_threads(task);
+			pthread_create(&(threads[num_tasks]), NULL, &query_node_info_chunk, task);
 		}
 		ninfo_arrs_tasks = malloc(num_tasks * sizeof(node_info **));
 		if (ninfo_arrs_tasks == NULL) {
 			log_err(errno, __func__, MEM_ERR_MSG);
 			th_err = 1;
 		}
-		/* Get results from worker threads */
-		for (i = 0; i < num_tasks;) {
-			pthread_mutex_lock(&result_lock);
-			while (ds_queue_is_empty(result_queue))
-				pthread_cond_wait(&result_cond, &result_lock);
-			while (!ds_queue_is_empty(result_queue)) {
-				task = (th_task_info *) ds_dequeue(result_queue);
-				tdata = (th_data_query_ninfo *) task->thread_data;
+		/* Join worker threads */
+		for (i = 0; i < num_tasks; i++) {
+			pthread_join(threads[i], (void **) &task);
+			if (task != NULL) {
+				tdata = task->thread_data;
 				if (tdata->error)
 					th_err = 1;
-				ninfo_arrs_tasks[task->task_id] = tdata->oarr;
+				else
+					ninfo_arrs_tasks[task->task_id] = tdata->oarr;
+
 				free(tdata);
 				free(task);
-				i++;
 			}
-			pthread_mutex_unlock(&result_lock);
 		}
+
 		if (th_err) {
 			pbs_statfree(nodes);
 			free_nodes(ninfo_arr);
@@ -783,15 +818,8 @@ new_node_info()
 	return new;
 }
 
-/**
- * @brief	pthread routine for freeing up a node_info array
- *
- * @param[in,out]	data - th_data_free_ninfo wrapper for the ninfo array
- *
- * @return void
- */
 void
-free_node_info_chunk(th_data_free_ninfo *data)
+free_node_info_chunk_2(th_data_free_ninfo *data)
 {
 	node_info **ninfo_arr;
 	int start;
@@ -805,6 +833,32 @@ free_node_info_chunk(th_data_free_ninfo *data)
 	for (i = start; i <= end && ninfo_arr[i] != NULL; i++) {
 		free_node_info(ninfo_arr[i]);
 	}
+}
+
+/**
+ * @brief	pthread routine for freeing up a node_info array
+ *
+ * @param[in,out]	data - th_data_free_ninfo wrapper for the ninfo array
+ *
+ * @return void
+ */
+void *
+free_node_info_chunk(void *tdata)
+{
+	th_task_info *task = tdata;
+	th_data_free_ninfo *data = task->thread_data;
+	int *tid;
+
+	tid = malloc(sizeof(int));
+	if (tid == NULL) {
+		return NULL;
+	}
+	*tid = task->task_id;
+	pthread_setspecific(th_id_key, tid);
+
+	free_node_info_chunk_2(data);
+
+	return task;
 }
 
 /**
@@ -849,25 +903,27 @@ void
 free_nodes(node_info **ninfo_arr)
 {
 	int i;
-	int chunk_size = mt_node_chunk_min_size;
+	long chunk_size;
 	static int min_mt_work = -1;
 	th_data_free_ninfo *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks;
 	int num_nodes;
 	int tid;
+	int remainder;
 
 	int mt = 1;	/* Use multi-threading? */
 
     struct timeval t1, t2;
     double tt;
 
+    gettimeofday(&t1, NULL);
 
 	if (ninfo_arr == NULL)
 		return;
 
 	if (min_mt_work == -1)
-		min_mt_work = 2 * chunk_size;
+		min_mt_work = 2 * mt_node_chunk_min_size;
 
 	num_nodes = count_array((void **) ninfo_arr);
 
@@ -880,7 +936,7 @@ free_nodes(node_info **ninfo_arr)
 		if (tdata == NULL)
 			return;
 
-		free_node_info_chunk(tdata);
+		free_node_info_chunk_2(tdata);
 		free(tdata);
 		free(ninfo_arr);
 
@@ -890,8 +946,19 @@ free_nodes(node_info **ninfo_arr)
 		return;
 	}
 	/* Use multi-threading */
-	for (i = 0, num_tasks = 0; num_nodes > 0;
-			num_tasks++, i += chunk_size, num_nodes -= chunk_size) {
+
+	srand(time(NULL));
+
+	chunk_size = num_nodes / num_threads;
+	if (chunk_size < mt_node_chunk_min_size)
+		chunk_size = mt_node_chunk_min_size;
+	remainder = num_nodes % chunk_size;
+
+	for (i = 0, num_tasks = 0; i < num_nodes; num_tasks++, i += chunk_size) {
+		/* Last thread also takes the remainder work */
+		if (num_tasks == (num_threads - 1))
+			chunk_size += remainder;
+
 		tdata = alloc_tdata_free_nodes(ninfo_arr, i, i + chunk_size - 1);
 		if (tdata == NULL)
 			break;
@@ -905,23 +972,14 @@ free_nodes(node_info **ninfo_arr)
 		task->task_type = TS_FREE_ND_INFO;
 		task->thread_data = (void *) tdata;
 
-		queue_work_for_threads(task);
+		pthread_create(&(threads[num_tasks]), NULL, &free_node_info_chunk, task);
 	}
 
-	/* Get results from worker threads */
-	for (i = 0; i < num_tasks;) {
-		pthread_mutex_lock(&result_lock);
-		while (ds_queue_is_empty(result_queue))
-			pthread_cond_wait(&result_cond, &result_lock);
-		while (!ds_queue_is_empty(result_queue)) {
-			task = (th_task_info *) ds_dequeue(result_queue);
-			tdata = task->thread_data;
-			free(tdata);
-			free(task);
-			i++;
-		}
-		pthread_mutex_unlock(&result_lock);
+	/* Join worker threads */
+	for (i = 0; i < num_tasks; i++) {
+		pthread_join(threads[i], NULL);
 	}
+
 	free(ninfo_arr);
 
 	gettimeofday(&t2, NULL);
@@ -1444,15 +1502,8 @@ find_node_by_host(node_info **ninfo_arr, char *host)
 	return ninfo_arr[i];
 }
 
-/**
- * @brief	pthread routine to dup a chunk of nodes
- *
- * @param[in,out]	data - data associated with duping of the nodes
- *
- * @return void
- */
-void
-dup_node_info_chunk(th_data_dup_nd_info *data)
+static void
+dup_node_info_chunk_2(th_data_dup_nd_info *data)
 {
 	int i;
 	int start;
@@ -1476,7 +1527,33 @@ dup_node_info_chunk(th_data_dup_nd_info *data)
 			return;
 		}
 	}
+}
 
+/**
+ * @brief	pthread routine to dup a chunk of nodes
+ *
+ * @param[in,out]	data - data associated with duping of the nodes
+ *
+ * @return void
+ */
+static void *
+dup_node_info_chunk(void *tdata)
+{
+	th_task_info *task = tdata;
+	th_data_dup_nd_info *data = task->thread_data;
+	int *tid;
+
+	tid = malloc(sizeof(int));
+	if (tid == NULL) {
+		data->error = 1;
+		return NULL;
+	}
+	*tid = task->task_id;
+	pthread_setspecific(th_id_key, tid);
+
+	dup_node_info_chunk_2(data);
+
+	return task;
 }
 
 /**
@@ -1532,14 +1609,13 @@ dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
 {
 	node_info **nnodes;
 	int num_nodes;
-	int thread_node_ct_left;
 	int i, j;
 	schd_resource *nres = NULL;
 	schd_resource *ores = NULL;
 	schd_resource *tres = NULL;
 	node_info *ninfo = NULL;
 	char namebuf[1024];
-	int chunk_size = mt_node_chunk_min_size;
+	long chunk_size = mt_node_chunk_min_size;
 	static int min_mt_work = -1;
 	th_data_dup_nd_info *tdata = NULL;
 	th_task_info *task = NULL;
@@ -1551,15 +1627,16 @@ dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
 
 	struct timeval t1, t2;
 	double tt;
+
 	gettimeofday(&t1, NULL);
 
 	if (onodes == NULL || nsinfo == NULL)
 		return NULL;
 
 	if (min_mt_work == -1)
-		min_mt_work = 2 * chunk_size;
+		min_mt_work = 2 * mt_node_chunk_min_size;
 
-	num_nodes = thread_node_ct_left = count_array((void **) onodes);
+	num_nodes = count_array((void **) onodes);
 
 	if ((nnodes = (node_info **) malloc((num_nodes + 1) * sizeof(node_info *))) == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
@@ -1579,14 +1656,25 @@ dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
 			return NULL;
 		}
 
-		dup_node_info_chunk(tdata);
+		dup_node_info_chunk_2(tdata);
 		th_err = tdata->error;
 		free(tdata);
 	} else { /* Use multithreading */
 		j = 0;
+		int remainder;
+		int num_tasks;
 
-		for (j = 0, num_tasks = 0; thread_node_ct_left > 0;
-				num_tasks++, j+= chunk_size, thread_node_ct_left -= chunk_size) {
+		srand(time(NULL));
+
+		chunk_size = num_nodes / num_threads;
+		if (chunk_size < mt_node_chunk_min_size)
+			chunk_size = mt_node_chunk_min_size;
+		remainder = num_nodes % chunk_size;
+		for (j = 0, num_tasks = 0; j < num_nodes; num_tasks++, j+= chunk_size) {
+			/* Last thread also takes the remainder work */
+			if (num_tasks == (num_threads - 1))
+				chunk_size += remainder;
+
 			tdata = alloc_tdata_dup_nodes(flags, nsinfo, onodes, nnodes, j, j + chunk_size - 1);
 			if (tdata == NULL) {
 				th_err = 1;
@@ -1603,24 +1691,17 @@ dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
 			task->task_type = TS_DUP_ND_INFO;
 			task->thread_data = (void *) tdata;
 
-			queue_work_for_threads(task);
+			pthread_create(&(threads[num_tasks]), NULL, &dup_node_info_chunk, task);
 		}
 
-		/* Get results from worker threads */
-		for (i = 0; i < num_tasks;) {
-			pthread_mutex_lock(&result_lock);
-			while (ds_queue_is_empty(result_queue))
-				pthread_cond_wait(&result_cond, &result_lock);
-			while (!ds_queue_is_empty(result_queue)) {
-				task = (th_task_info *) ds_dequeue(result_queue);
-				tdata = (th_data_dup_nd_info *) task->thread_data;
+		/* Join worker threads */
+		for (i = 0; i < num_tasks; i++) {
+			pthread_join(threads[i], (void **) &task);
+			if (task != NULL) {
+				tdata = task->thread_data;
 				if (tdata->error)
 					th_err = 1;
-				free(tdata);
-				free(task);
-				i++;
 			}
-			pthread_mutex_unlock(&result_lock);
 		}
 	}
 
@@ -6158,15 +6239,8 @@ is_exclhost(place *placespec, enum vnode_sharing sharing)
 	return 0;
 }
 
-/**
- * @brief	pthread routing to check eligibility for a chunk of nodes
- *
- * @param[in,out]	data - th_data_nd_eligible object
- *
- * @return void
- */
-void
-check_node_eligibility_chunk(th_data_nd_eligible *data)
+static void
+check_node_eligibility_chunk_2(th_data_nd_eligible *data)
 {
 	int i;
 	int start, end;
@@ -6233,6 +6307,32 @@ check_node_eligibility_chunk(th_data_nd_eligible *data)
 }
 
 /**
+ * @brief	pthread routing to check eligibility for a chunk of nodes
+ *
+ * @param[in,out]	data - th_data_nd_eligible object
+ *
+ * @return void
+ */
+static void *
+check_node_eligibility_chunk(void *tdata)
+{
+	th_task_info *task = tdata;
+	th_data_nd_eligible *data = task->thread_data;
+	int *tid;
+
+	tid = malloc(sizeof(int));
+	if (tid == NULL)
+		return NULL;
+
+	*tid = task->task_id;
+	pthread_setspecific(th_id_key, tid);
+
+	check_node_eligibility_chunk_2(data);
+
+	return task;
+}
+
+/**
  * @brief	 Allocates th_data_nd_eligible for multi-threading of check_node_array_eligibility
  *
  * @param[in]	pl	-	the placement object
@@ -6289,7 +6389,7 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 	int i, j;
 	th_data_nd_eligible *tdata = NULL;
 	th_task_info *task = NULL;
-	int chunk_size = mt_node_chunk_min_size;
+	long chunk_size;
 	static int min_mt_work = -1;
 	int num_tasks;
 	int tid;
@@ -6299,12 +6399,13 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
     struct timeval t1, t2;
     double tt;
 
+    gettimeofday(&t1, NULL);
 
 	if (ninfo_arr == NULL || resresv == NULL || pl == NULL || err == NULL)
 		return;
 
 	if (min_mt_work == -1)
-		min_mt_work = 2 * chunk_size;
+		min_mt_work = 20 * mt_node_chunk_min_size;
 
 	if (num_nodes == -1)
 		num_nodes = count_array((void **) ninfo_arr);
@@ -6317,13 +6418,25 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 		tdata = alloc_tdata_nd_eligible(pl, resresv, ninfo_arr, 0, num_nodes - 1);
 		if (tdata == NULL)
 			return;
-		check_node_eligibility_chunk(tdata);
+		check_node_eligibility_chunk_2(tdata);
 		copy_schd_error(err, tdata->err);
 		free_schd_error(tdata->err);
 		free(tdata);
 	} else { /* Use multithreading */
-		for (j = 0, num_tasks = 0; num_nodes > 0;
-				num_tasks++, j += chunk_size, num_nodes -= chunk_size) {
+		int remainder;
+
+		srand(time(NULL));
+
+		chunk_size = num_nodes / num_threads;
+		if (chunk_size < 10 * mt_node_chunk_min_size)
+			chunk_size = 10 * mt_node_chunk_min_size;
+		remainder = num_nodes % chunk_size;
+
+		for (j = 0, num_tasks = 0; j < num_nodes; num_tasks++, j += chunk_size) {
+			/* Last thread also takes the remainder work */
+			if (num_tasks == (num_threads - 1))
+				chunk_size += remainder;
+
 			tdata = alloc_tdata_nd_eligible(pl, resresv, ninfo_arr, j, j + chunk_size - 1);
 			if (tdata == NULL)
 				break;
@@ -6337,26 +6450,12 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 			task->task_type = TS_IS_ND_ELIGIBLE;
 			task->thread_data = (void *) tdata;
 
-			queue_work_for_threads(task);
+			pthread_create(&(threads[num_tasks]), NULL, &check_node_eligibility_chunk, task);
 		}
 
-		/* Get results from worker threads */
-		for (i = 0; i < num_tasks;) {
-			pthread_mutex_lock(&result_lock);
-			while (ds_queue_is_empty(result_queue))
-				pthread_cond_wait(&result_cond, &result_lock);
-			while (!ds_queue_is_empty(result_queue)) {
-				task = (th_task_info *) ds_dequeue(result_queue);
-				tdata = (th_data_nd_eligible *) task->thread_data;
-				if (err->status_code == SCHD_UNKWN && tdata->err->status_code != SCHD_UNKWN)
-					copy_schd_error(err, tdata->err);
-
-				free_schd_error(tdata->err);
-				free(tdata);
-				free(task);
-				i++;
-			}
-			pthread_mutex_unlock(&result_lock);
+		/* Join worker threads */
+		for (i = 0; i < num_tasks; i++) {
+			pthread_join(threads[i], NULL);
 		}
 	}
 

@@ -110,6 +110,7 @@ extern double query_jobs_time;
 extern double free_nodes_time;
 extern double free_jobs_time;
 extern double check_node_arr_elig_time;
+extern double is_ok_to_run_time;
 
 /**
  * @brief

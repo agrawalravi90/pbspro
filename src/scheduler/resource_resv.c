@@ -102,6 +102,7 @@
 #include <log.h>
 #include <pthread.h>
 #include <libutil.h>
+#include <time.h>
 #include "pbs_config.h"
 #include "data_types.h"
 #include "resource_resv.h"
@@ -200,15 +201,8 @@ new_resource_resv()
 	return resresv;
 }
 
-/**
- * @brief	pthread routine to free resource_resv array chunk
- *
- * @param[in,out]	data - th_data_free_resresv wrapper for resource_resv array
- *
- * @return void
- */
-void
-free_resource_resv_array_chunk(th_data_free_resresv *data)
+static void
+free_resource_resv_array_chunk_2(th_data_free_resresv *data)
 {
 	resource_resv **resresv_arr;
 	int start;
@@ -222,6 +216,32 @@ free_resource_resv_array_chunk(th_data_free_resresv *data)
 	for (i = start; i <= end && resresv_arr[i] != NULL; i++) {
 		free_resource_resv(resresv_arr[i]);
 	}
+}
+
+/**
+ * @brief	pthread routine to free resource_resv array chunk
+ *
+ * @param[in,out]	data - th_data_free_resresv wrapper for resource_resv array
+ *
+ * @return void
+ */
+static void *
+free_resource_resv_array_chunk(void *tdata)
+{
+	th_task_info *task = tdata;
+	th_data_free_resresv *data = task->thread_data;
+	int *tid;
+
+	tid = malloc(sizeof(int));
+	if (tid == NULL) {
+		return NULL;
+	}
+	*tid = task->task_id;
+	pthread_setspecific(th_id_key, tid);
+
+	free_resource_resv_array_chunk_2(data);
+
+	return task;
 }
 
 /**
@@ -266,24 +286,25 @@ void
 free_resource_resv_array(resource_resv **resresv_arr)
 {
 	int i;
-	int chunk_size = mt_job_chunk_min_size;
+	long chunk_size;
 	static int min_mt_work = -1;
 	th_data_free_resresv *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks;
 	int num_jobs;
 	int tid;
-
+	int remainder;
 	int mt = 1;	/* Use multi-threading? */
     struct timeval t1, t2;
     double tt;
 
+    gettimeofday(&t1, NULL);
 
 	if (resresv_arr == NULL)
 		return;
 
 	if (min_mt_work == -1)
-		min_mt_work = 2 * chunk_size;
+		min_mt_work = 2 * mt_job_chunk_min_size;
 
 	num_jobs = count_array((void **) resresv_arr);
 
@@ -296,7 +317,7 @@ free_resource_resv_array(resource_resv **resresv_arr)
 		if (tdata == NULL)
 			return;
 
-		free_resource_resv_array_chunk(tdata);
+		free_resource_resv_array_chunk_2(tdata);
 		free(tdata);
 		free(resresv_arr);
 		gettimeofday(&t2, NULL);
@@ -305,33 +326,38 @@ free_resource_resv_array(resource_resv **resresv_arr)
 		return;
 	}
 
+	srand(time(NULL));
+
+	chunk_size = num_jobs / num_threads;
+	if (chunk_size < mt_job_chunk_min_size)
+		chunk_size = mt_job_chunk_min_size;
+	remainder = num_jobs % chunk_size;
+
 	/* Use multi-threading */
-	for (i = 0, num_tasks = 0; num_jobs > 0;
-			num_tasks++, i += chunk_size, num_jobs -= chunk_size) {
+	for (i = 0, num_tasks = 0; i < num_jobs; num_tasks++, i += chunk_size) {
+		/* Last thread also takes the remainder work */
+		if (num_tasks == (num_threads - 1))
+			chunk_size += remainder;
+
 		tdata = alloc_tdata_free_rr_arr(resresv_arr, i, i + chunk_size - 1);
 		if (tdata == NULL)
 			break;
 
 		task = malloc(sizeof(th_task_info));
+		if (task == NULL) {
+			free(tdata);
+			log_err(errno, __func__, MEM_ERR_MSG);
+			break;
+		}
 		task->task_type = TS_FREE_RESRESV;
 		task->thread_data = (void *) tdata;
 
-		queue_work_for_threads(task);
+		pthread_create(&(threads[num_tasks]), NULL, &free_resource_resv_array_chunk, task);
 	}
 
-	/* Get results from worker threads */
-	for (i = 0; i < num_tasks;) {
-		pthread_mutex_lock(&result_lock);
-		while (ds_queue_is_empty(result_queue))
-			pthread_cond_wait(&result_cond, &result_lock);
-		while (!ds_queue_is_empty(result_queue)) {
-			task = (th_task_info *) ds_dequeue(result_queue);
-			tdata = task->thread_data;
-			free(tdata);
-			free(task);
-			i++;
-		}
-		pthread_mutex_unlock(&result_lock);
+	/* Join worker threads */
+	for (i = 0; i < num_tasks; i++) {
+		pthread_join(threads[i], NULL);
 	}
 
 	free(resresv_arr);
@@ -420,15 +446,8 @@ free_resource_resv(resource_resv *resresv)
 	free(resresv);
 }
 
-/**
- * @brief	pthread routine for duping a chunk of resresvs
- *
- * @param[in,out]	data - th_data_dup_resresv object for duping
- *
- * @return void
- */
-void
-dup_resource_resv_array_chunk(th_data_dup_resresv *data)
+static void
+dup_resource_resv_array_chunk_2(th_data_dup_resresv *data)
 {
 	resource_resv **nresresv_arr;
 	resource_resv **oresresv_arr;
@@ -465,6 +484,33 @@ dup_resource_resv_array_chunk(th_data_dup_resresv *data)
 }
 
 /**
+ * @brief	pthread routine for duping a chunk of resresvs
+ *
+ * @param[in,out]	data - th_data_dup_resresv object for duping
+ *
+ * @return void
+ */
+static void *
+dup_resource_resv_array_chunk(void *tdata)
+{
+	th_task_info *task = tdata;
+	th_data_dup_resresv *data = task->thread_data;
+	int *tid;
+
+	tid = malloc(sizeof(int));
+	if (tid == NULL) {
+		data->error = 1;
+		return NULL;
+	}
+	*tid = task->task_id;
+	pthread_setspecific(th_id_key, tid);
+
+	dup_resource_resv_array_chunk_2(data);
+
+	return task;
+}
+
+/**
  * @brief	Allocates th_data_dup_resresv for multi-threading of dup_resource_resv_array
  *
  * @param[in]	oresresv_arr	-	the array to duplicate
@@ -479,7 +525,7 @@ dup_resource_resv_array_chunk(th_data_dup_resresv *data)
  * @retval NULL for malloc error
  */
 static inline th_data_dup_resresv *
-alloc_tdata_dup_nodes(resource_resv **oresresv_arr, resource_resv **nresresv_arr, server_info *nsinfo,
+alloc_tdata_dup_jobs(resource_resv **oresresv_arr, resource_resv **nresresv_arr, server_info *nsinfo,
 		queue_info *nqinfo, int sidx, int eidx)
 {
 	th_data_dup_resresv *tdata = NULL;
@@ -518,13 +564,12 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 {
 	resource_resv **nresresv_arr;
 	int i, j;
-	int chunk_size = mt_job_chunk_min_size;
+	long chunk_size;
 	static int min_mt_work = -1;
 	th_data_dup_resresv *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks;
 	int num_resresv;
-	int thread_job_ct_left;
 	int th_err = 0;
 	int tid;
 
@@ -533,14 +578,15 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
     struct timeval t1, t2;
     double tt;
 
+    gettimeofday(&t1, NULL);
 
 	if (oresresv_arr == NULL || nsinfo == NULL)
 		return NULL;
 
 	if (min_mt_work == -1)
-		min_mt_work = 2 * chunk_size;
+		min_mt_work = 2 * mt_job_chunk_min_size;
 
-	num_resresv = thread_job_ct_left = count_array((void **) oresresv_arr);
+	num_resresv = count_array((void **) oresresv_arr);
 
 	if ((nresresv_arr = malloc((num_resresv + 1) * sizeof(resource_resv *))) == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
@@ -553,18 +599,31 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 		mt = 0;
 
 	if (!mt) {
-		tdata = alloc_tdata_dup_nodes(oresresv_arr, nresresv_arr, nsinfo, nqinfo, 0, num_resresv - 1);
+		tdata = alloc_tdata_dup_jobs(oresresv_arr, nresresv_arr, nsinfo, nqinfo, 0, num_resresv - 1);
 		if (tdata == NULL)
 			th_err = 1;
 		else {
-			dup_resource_resv_array_chunk(tdata);
+			dup_resource_resv_array_chunk_2(tdata);
 			th_err = tdata->error;
 			free(tdata);
 		}
 	} else { /* Use multithreading */
-		for (j = 0, num_tasks = 0; thread_job_ct_left > 0;
-				num_tasks++, j += chunk_size, thread_job_ct_left -= chunk_size) {
-			tdata = alloc_tdata_dup_nodes(oresresv_arr, nresresv_arr, nsinfo, nqinfo, j, j + chunk_size - 1);
+		int remainder;
+		int num_tasks;
+
+		srand(time(NULL));
+
+		chunk_size = num_resresv / num_threads;
+		if (chunk_size < mt_node_chunk_min_size)
+			chunk_size = mt_node_chunk_min_size;
+		remainder = num_resresv % chunk_size;
+
+		for (j = 0, num_tasks = 0; j < num_resresv; num_tasks++, j+= chunk_size) {
+			/* Last thread also takes the remainder work */
+			if (num_tasks == (num_threads - 1))
+				chunk_size += remainder;
+
+			tdata = alloc_tdata_dup_jobs(oresresv_arr, nresresv_arr, nsinfo, nqinfo, j, j + chunk_size - 1);
 			if (tdata == NULL) {
 				th_err = 1;
 				break;
@@ -573,25 +632,17 @@ dup_resource_resv_array(resource_resv **oresresv_arr,
 			task->task_type = TS_DUP_RESRESV;
 			task->thread_data = (void *) tdata;
 
-			queue_work_for_threads(task);
-
+			pthread_create(&(threads[num_tasks]), NULL, &dup_resource_resv_array_chunk, task);
 		}
 
-		/* Get results from worker threads */
-		for (i = 0; i < num_tasks;) {
-			pthread_mutex_lock(&result_lock);
-			while (ds_queue_is_empty(result_queue))
-				pthread_cond_wait(&result_cond, &result_lock);
-			while (!ds_queue_is_empty(result_queue)) {
-				task = (th_task_info *) ds_dequeue(result_queue);
-				tdata = (th_data_dup_resresv *) task->thread_data;
+		/* Join worker threads */
+		for (i = 0; i < num_tasks; i++) {
+			pthread_join(threads[i], (void **) &task);
+			if (task != NULL) {
+				tdata = task->thread_data;
 				if (tdata->error)
 					th_err = 1;
-				free(tdata);
-				free(task);
-				i++;
 			}
-			pthread_mutex_unlock(&result_lock);
 		}
 	}
 

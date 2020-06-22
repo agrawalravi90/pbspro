@@ -162,7 +162,7 @@ ds_queue *result_queue = NULL;
 pthread_t *threads = NULL;
 int threads_die = 0;
 int num_threads = 0;
-pthread_key_t th_id_key;
+pthread_key_t th_id_key = 0;
 pthread_once_t key_once = PTHREAD_ONCE_INIT;
 
 /* resource definitions from the server */
@@ -194,3 +194,4 @@ double query_jobs_time = 0;
 double free_nodes_time = 0;
 double free_jobs_time = 0;
 double check_node_arr_elig_time = 0;
+double is_ok_to_run_time = 0;

@@ -800,6 +800,8 @@ scheduling_cycle(int sd, char *jobid)
 		   "Time taken by free_resource_resv_array: %.5g", free_jobs_time);
 	log_eventf(PBSEVENT_PERF, PBS_EVENTCLASS_SCHED, LOG_INFO, "",
 		   "Time taken by check_node_array_eligibility: %.5g", check_node_arr_elig_time);
+	log_eventf(PBSEVENT_PERF, PBS_EVENTCLASS_SCHED, LOG_INFO, "",
+		   "Time taken by is_ok_to_run: %.5g", is_ok_to_run_time);
 
 	dup_nodes_time = 0;
 	dup_jobs_time = 0;
@@ -808,6 +810,7 @@ scheduling_cycle(int sd, char *jobid)
 	free_nodes_time = 0;
 	free_jobs_time = 0;
 	check_node_arr_elig_time = 0;
+	is_ok_to_run_time = 0;
 
 #ifdef NAS
 	/* localmod 064 */

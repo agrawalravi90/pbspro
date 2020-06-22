@@ -59,11 +59,6 @@ resource_resv *new_resource_resv();
  */
 void free_resource_resv(resource_resv *resresv);
 
-/*
- * pthread routine to free resource_resv array chunk
- */
-void
-free_resource_resv_array_chunk(th_data_free_resresv *data);
 
 /*
  *      free_resource_resv_array - free an array of resource resvs
@@ -77,10 +72,6 @@ void free_resource_resv_array(resource_resv **resresv);
 resource_resv *dup_resource_resv(resource_resv *oresresv, server_info *nsinfo,
 		queue_info *nqinfo, schd_error *err);
 
-/*
- * pthread routine for duping a chunk of resresvs
- */
-void dup_resource_resv_array_chunk(th_data_dup_resresv *data);
 /*
  *      dup_resource_resv_array - dup a array of pointers of resource resvs
  */

@@ -722,12 +722,15 @@ is_ok_to_run(status *policy, server_info *sinfo,
 	schd_error	*prev_err = NULL;
 	schd_error	*err;
 	resource_req	*resreq = NULL;
+	struct timeval t1, t2;
 
 	if (sinfo == NULL || resresv == NULL || perr == NULL)
 		return NULL;
 
 	if (resresv->is_job && qinfo == NULL)
 		return NULL;
+
+	gettimeofday(&t1, NULL);
 
 	err = perr;
 
@@ -1085,6 +1088,9 @@ is_ok_to_run(status *policy, server_info *sinfo,
 	 */
 	if(err->status_code == SCHD_UNKWN && err != perr)
 		free_schd_error(err);
+
+	gettimeofday(&t2, NULL);
+	is_ok_to_run_time += get_time_diff(t1, t1);
 
 	return ns_arr;
 }
