@@ -400,38 +400,20 @@ tcp_connect(char *server, int server_port, char *extend_data)
 }
 
 /**
- * @brief
- * 	initialize_server_conns - To intialize the servers connection table.
+ * @brief	Helper function for connect_to_servers to connect to a particular server
  *
- * @param[in] num_conf_servers 
+ * @param[in]	idx - array index for the server to connect to
+ * @param[in]	extend_data - any additional data relevant for connection
  *
- * @return svr_conn_t **
- * @retval !NULL - success
- * @retval NULL - error
+ * @return	void
  */
-svr_conn_t ** 
-initialize_server_conns(int num_conf_servers)
+static void
+connect_to_server(int idx, char *extend_data)
 {
-	int i;
-	int j;
-	svr_conn_t **svr_connections = calloc(MAX_ALLOWED_SVRS, sizeof(svr_conn_t *));
-
-	if (!svr_connections)
-		return NULL;
-		
-	for (i = 0; i < num_conf_servers; i++) {
-		svr_connections[i] = malloc(sizeof(svr_conn_t));
-		if (!svr_connections[i]) {
-			for (j = 0; j < i; j++ )
-				free(svr_connections[j]);
-			free(svr_connections);
-			return NULL;
-		}
-		svr_connections[i]->sd = -1;
-		svr_connections[i]->state = SVR_CONN_STATE_DOWN;
-	}
-	
-	return svr_connections;
+	if ((pbs_conf.psi[idx].sd = tcp_connect(pbs_conf.psi[idx].name, pbs_conf.psi[idx].port, extend_data)) != -1)
+		pbs_conf.psi[idx].state = SVR_CONN_STATE_CONNECTED;
+	else
+		pbs_conf.psi[idx].state = SVR_CONN_STATE_FAILED;
 }
 
 /**
@@ -450,73 +432,39 @@ connect_to_servers(char *server_name, uint port, char *extend_data)
 {
 	int i = 0;
 	int fd = -1;
-	int start = -1;
 	static int seeded = 0;
 	struct timeval tv;
 	unsigned long time_in_micros;
 	int multi_flag = 0;
-	int num_conf_servers = get_current_servers();
+	int num_conf_servers = get_num_servers();
+	int svr_to_conn = -1;
 
 	multi_flag = getenv(MULTI_SERVER) != NULL;
 
-	if (!multi_flag && !seeded) {
-		gettimeofday(&tv, NULL);
-		time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
-		srand(time_in_micros); /* seed the random generator */
-		seeded = 1;
-	}
-
-	svr_conn_t **svr_connections = calloc(num_conf_servers, sizeof(svr_conn_t *));
-	if (!svr_connections)
-		return -1;
-
-	if (!multi_flag) {
-		if (server_name) {
-			for (i = 0; i < get_current_servers(); i++) {
-				if (!strcmp(server_name, pbs_conf.psi[i]->name) && port == pbs_conf.psi[i]->port) {
-					start = i;
-					break;
-				}
-			}
-		}
-		if (start == -1)
-			start = rand() % get_current_servers();
-	}
-	else
-		start = 0;
-
-	i = start;
-	do {
-		if (!svr_connections[i]) {
-			if (!(svr_connections[i] = malloc(sizeof(svr_conn_t))))
-				goto err;
+	if (!multi_flag) {	/* Connect to a random server */
+		if (!seeded) {
+			gettimeofday(&tv, NULL);
+			time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
+			srand(time_in_micros);
+			seeded = 1;
 		}
 
-		if ((svr_connections[i]->sd = tcp_connect(pbs_conf.psi[i]->name, pbs_conf.psi[i]->port, extend_data)) != -1) {
-			svr_connections[i]->state = SVR_CONN_STATE_CONNECTED;
-			fd = svr_connections[i]->sd;
-			if (!multi_flag)
-				break;
-		} else
-			svr_connections[i]->state = SVR_CONN_STATE_FAILED;
+		svr_to_conn = rand() % get_num_servers();
+		if (svr_to_conn == -1)
+			return -1;
 
-		i++;
-		if (i >= num_conf_servers)
-			i = 0;
-	} while (i != start);
+		connect_to_server(svr_to_conn, extend_data);
+		fd = pbs_conf.psi[svr_to_conn].sd;
+	} else {	/* Connect to all servers */
 
-	if (set_conn_servers(fd, (void *)svr_connections))
-		return -1;
+		for (i = 0; i < num_conf_servers; i++)
+			connect_to_server(i, extend_data);
+
+		/* Return fd of the first server in the list */
+		fd = pbs_conf.psi[0].sd;
+	}
 
 	return fd;
-
-err:
-	/* free svr_connections array and return */
-	for (i = 0; i < num_conf_servers; i++)
-		free(svr_connections[i]);
-
-	free(svr_connections);
-	return -1;
 }
 
 /**

@@ -53,6 +53,7 @@
 #include <pbs_error.h>
 #include "pbs_client_thread.h"
 #include "net_connect.h"
+#include "libpbs.h"
 
 #ifdef WIN32
 #include <sys/stat.h>
@@ -267,78 +268,37 @@ parse_config_line(FILE *fp, char **key, char **val)
  */
 
 int 
-parse_psi(char * conf_value)
+parse_psi(char *conf_value)
 {
-	char *token = NULL;
-	char *host;
-	int port;
-	int count = 0;
 	char **list;
 	int i;
+
 	free(pbs_conf.psi);
 
 	list = break_comma_list(conf_value);
-	if (list != NULL) {
-		for (i = 0; list[i] != NULL; i++) {
-			count++;
-		}
-	}
-	if (!(pbs_conf.psi = calloc(count, sizeof(struct pbs_server_instance)))) {
+	if (list == NULL)
+		return -1;
+
+	for (i = 0; list[i] != NULL; i++)
+		;
+
+	if (!(pbs_conf.psi = calloc(i, sizeof(svr_conn_t)))) {
 		fprintf(stderr, "Ran out of memory parsing configuration %s", conf_value);
 		return -1;
 	}
-	count = 0;
-	for (i = 0; list[i] != NULL; i++) {
-		char *p;
-		/* should be a host:port pair, later things can be made more fluid */
-		port = PBS_BATCH_SERVICE_PORT;
-		token = list[i];
-		if ((p = strchr(token, ':'))) {
-			*p = '\0';
-			port = atol(p+1);
-		}
-		host = token;
-		if (*host == '\0') {
-			host = pbs_conf.pbs_server_name;
-		}
 
-		if (!(pbs_conf.psi[count] = calloc(1, sizeof(struct pbs_server_instance)))) {
-			fprintf(stderr, "Ran out of memory parsing configuration %s", conf_value);
+	for (i = 0; list[i] != NULL; i++) {
+		if (parse_pbs_name_port(list[i], pbs_conf.psi[i].name, &(pbs_conf.psi[i].port)) != 0) {
+			fprintf(stderr, "Error parsing PBS_SERVER_INSTANCES\n");
 			return -1;
 		}
-		if (!(pbs_conf.psi[count]->name = strdup(host))) {
-			fprintf(stderr, "Ran out of memory parsing multi-server configuration \n");
-			return -1;			
-		}
-		pbs_conf.psi[count]->port = port;
-		count++;
+		pbs_conf.psi[i].state = SVR_CONN_STATE_DOWN;
+		pbs_conf.psi[i].sd = -1;
+		pbs_conf.psi[i].secondary_sd = -1;
 	}
-	pbs_conf.pbs_current_servers = count;
+	pbs_conf.pbs_num_servers = i;
+
 	return 0;
-}
-
-/**
- * @brief
- *	free_psi - Used to free the memory allocated while parsing PBS_SERVER_INSTANCES.
- *
- */
-
-void free_psi()
-{
-	int i;
-
-	/* ignore any PBS_SERVER_INSTANCES and default fill */
-	if (pbs_conf.psi) {
-		for(i = 0; i < get_current_servers(); i++) {
-			if (pbs_conf.psi[i]->name != NULL)
-				free(pbs_conf.psi[i]->name);
-			free(pbs_conf.psi[i]);
-			pbs_conf.psi[i] = NULL;
-		}
-		free(pbs_conf.psi);
-		pbs_conf.psi = NULL;
-		pbs_conf.pbs_current_servers = 1;
-	}
 }
 
 /**
@@ -350,7 +310,7 @@ void free_psi()
 int
 set_default_psi()
 {
-	free_psi();
+	free(pbs_conf.psi);
 	return (parse_psi(pbs_conf.pbs_server_name));
 }
 
@@ -959,9 +919,11 @@ __pbs_loadconf(int reload)
 	}
 
 	/* check sanity of pbs server instances */
-	if (pbs_conf.pbs_current_servers == 0) {
+	if (pbs_conf.pbs_num_servers == 0) {
 		if (set_default_psi() != 0)
 			goto err;
+
+		pbs_conf.pbs_num_servers = 1;
 	}
 
 	/*
@@ -1185,7 +1147,7 @@ err:
 		pbs_conf.supported_auth_methods = NULL;
 	}
 
-	free_psi();
+	free(pbs_conf.psi);
 	
 	pbs_conf.load_failed = 1;
 	(void)pbs_client_thread_unlock_conf();
