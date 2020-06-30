@@ -294,12 +294,12 @@ stat_a_jobidname(struct batch_request *preq, char *name, int dohistjobs, int dos
 void
 req_stat_job(struct batch_request *preq)
 {
-	int		    at_least_one_success = 0;
-	int		    dosubjobs = 0;
-	int		    dohistjobs = 0;
-	char		   *name;
-	job		   *pjob = NULL;
-	pbs_queue	   *pque = NULL;
+	int at_least_one_success = 0;
+	int dosubjobs = 0;
+	int dohistjobs = 0;
+	char *name;
+	job *pjob = NULL;
+	pbs_queue *pque = NULL;
 	struct batch_reply *preply;
 	int rc = 0;
 	int type = 0;

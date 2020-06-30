@@ -293,6 +293,30 @@ add_select_array_entries(job *pjob, int dosub, char *statelist,
 }
 
 /**
+ * @brief	helper function to check if job stat limit has been reached
+ *
+ * @param[in,out] count - number of jobs stat'd so far
+ * @param[in] job_limit - the limit
+ *
+ * @return int
+ * @retval 1 if limit has been reached
+ * @retval 0 otherwise
+ */
+static int
+stat_limit_reached(long *count, long job_limit)
+{
+	/* Check job stat limit */
+	if (job_limit > 0) {
+		(*count)++;
+
+		if (*count >= job_limit)
+			return 1;
+	}
+
+	return 0;
+}
+
+/**
  * @brief
  * 	Service both the Select Job Request and the (special for the scheduler)
  * 	Select-status Job Request
@@ -310,17 +334,17 @@ add_select_array_entries(job *pjob, int dosub, char *statelist,
 void
 req_selectjobs(struct batch_request *preq)
 {
-	int		    bad = 0;
-	int		    i;
-	job		   *pjob;
-	svrattrl	   *plist;
-	pbs_queue	   *pque;
+	int bad = 0;
+	int i;
+	job *pjob;
+	svrattrl *plist;
+	pbs_queue *pque;
 	struct batch_reply *preply;
 	struct brp_select **pselx;
-	int		    dosubjobs = 0;
-	int		    dohistjobs = 0;
-	char		   *pstate = NULL;
-	int		    rc;
+	int dosubjobs = 0;
+	int dohistjobs = 0;
+	char *pstate = NULL;
+	int rc;
 	struct select_list *selistp;
 	pbs_sched *psched;
 	long job_limit = 0;
