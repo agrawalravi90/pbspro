@@ -464,7 +464,6 @@ connect_to_servers(char *extend_data)
 {
 	int i = 0;
 	int fd = -1;
-	static int seeded = 0;
 	struct timeval tv;
 	unsigned long time_in_micros;
 	int multi_flag = 0;
@@ -474,12 +473,7 @@ connect_to_servers(char *extend_data)
 	multi_flag = getenv(MULTI_SERVER) != NULL;
 
 	if (!multi_flag) {	/* Connect to a random server */
-		if (!seeded) {
-			gettimeofday(&tv, NULL);
-			time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec;
-			srand(time_in_micros);
-			seeded = 1;
-		}
+		random_seed();
 
 		svr_to_conn = rand() % get_num_servers();
 		if (svr_to_conn == -1)

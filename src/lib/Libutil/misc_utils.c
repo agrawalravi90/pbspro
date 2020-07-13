@@ -2247,3 +2247,16 @@ parse_pbs_name_port(char *svr_id, char *svrname, int *svrport)
 
 	return 0;
 }
+
+void
+random_seed()
+{
+	static int seeded = 0;
+	struct timeval tv;
+
+	if (!seeded) {
+		gettimeofday(&tv, NULL);
+		srand(1000000 * tv.tv_sec + tv.tv_usec); /* seed the random generator */
+		seeded = 1;
+	}
+}
