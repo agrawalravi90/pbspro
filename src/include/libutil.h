@@ -357,4 +357,4 @@ extern int get_num_servers();
 
 extern int parse_pbs_name_port(char *svr_id, char *svrname, int *svrport);
 
-extern void random_seed();
+extern int rand_num();

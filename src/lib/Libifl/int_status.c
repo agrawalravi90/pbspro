@@ -80,8 +80,7 @@ random_srv_conn(svr_conn_t *svr_connections)
 {
 	int ind = 0;
 
-	random_seed();
-	ind =  rand() % get_num_servers();
+	ind =  rand_num() % get_num_servers();
 
 	if (svr_connections[ind].state == SVR_CONN_STATE_CONNECTED)
 		return svr_connections[ind].sd;
