@@ -320,15 +320,17 @@ close_server_conn(int svr_index)
 	if (svr_conns[svr_index].state == SVR_CONN_STATE_CONNECTED) {
 		FD_CLR(svr_conns[svr_index].sd , &master_fdset);
 
-		if (svr_conns[svr_index].secondary_sd >= 0) {
-			close_tcp_connection(svr_conns[svr_index].secondary_sd);
-			/* unlock the connection level lock */
-			svr_conns[svr_index].secondary_sd = -1;
-		}
 		if (svr_conns[svr_index].sd >= 0) {
 			close_tcp_connection(svr_conns[svr_index].sd);
 			/* unlock the connection level lock */
 			svr_conns[svr_index].sd = -1;
+
+			if (svr_conns[svr_index].secondary_sd >= 0) {
+				CS_close_socket(svr_conns[svr_index].secondary_sd);
+				CLOSESOCKET(svr_conns[svr_index].secondary_sd);
+				dis_destroy_chan(svr_conns[svr_index].secondary_sd);
+				svr_conns[svr_index].secondary_sd = -1;
+			}
 		}
 		svr_conns[svr_index].state = SVR_CONN_STATE_DOWN;
 		pbs_client_thread_unlock_connection(entry_to_svr_conns);
@@ -1473,13 +1475,17 @@ socket_to_conn(int sock, struct sockaddr_in saddr_in)
 		}
 
 		strcpy(conn_arr[svr_conn_index].host_name, phe->h_name);
-		conn_arr[svr_conn_index].state = SVR_CONN_STATE_CONNECTED;
-		conn_arr[svr_conn_index].state_change_time = time(0);
+
+		/* We will wait to mark this as connected until we get secondary connection */
+		conn_arr[svr_conn_index].state = SVR_CONN_STATE_DOWN;
 		strcpy(conn_arr[svr_conn_index].svr_id, svr_id);
 		conn_arr[svr_conn_index].sd = sock;
 		FD_SET(sock, &master_fdset);
-	} else
+	} else {
 		conn_arr[svr_conn_index].secondary_sd = sock;
+		conn_arr[svr_conn_index].state = SVR_CONN_STATE_CONNECTED;
+		conn_arr[svr_conn_index].state_change_time = time(0);
+	}
 
 	free(svr_id);
 
