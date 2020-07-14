@@ -428,7 +428,7 @@ connect_to_server(int idx, char *extend_data)
  * @retval -1 - error
  */
 int 
-connect_to_servers(char *server_name, uint port, char *extend_data)
+connect_to_servers(char *extend_data)
 {
 	int i = 0;
 	int fd = -1;
@@ -511,23 +511,22 @@ __pbs_connect_extend(char *server, char *extend_data)
 
 	if (pbs_loadconf(0) == 0)
 		return -1;
+		
+	if ((sock = connect_to_servers(extend_data)) == -1) {
+		pbs_errno = PBSE_INTERNAL;
+		return -1;
+	}
+	
+	/* Returning here  */
+	
+	return sock;
 
 	/* get server host and port	*/
-
 	server = PBS_get_server(server, server_name, &server_port);
 	if (server == NULL) {
 		pbs_errno = PBSE_NOSERVER;
 		return -1;
 	}
-		
-	if ((sock = connect_to_servers(server_name, server_port, extend_data)) == -1) {
-		pbs_errno = PBSE_INTERNAL;
-		return -1;
-	}		
-	
-	/* Returning here  */
-	
-	return sock;
 
 	if (pbs_conf.pbs_primary && pbs_conf.pbs_secondary) {
 		/* failover configuered ...   */
