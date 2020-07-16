@@ -464,8 +464,6 @@ connect_to_servers(char *extend_data)
 {
 	int i = 0;
 	int fd = -1;
-	struct timeval tv;
-	unsigned long time_in_micros;
 	int multi_flag = 0;
 	int num_conf_servers = get_num_servers();
 	int svr_to_conn = -1;
@@ -473,9 +471,7 @@ connect_to_servers(char *extend_data)
 	multi_flag = getenv(MULTI_SERVER) != NULL;
 
 	if (!multi_flag) {	/* Connect to a random server */
-		random_seed();
-
-		svr_to_conn = rand() % get_num_servers();
+		svr_to_conn = rand_num() % get_num_servers();
 		if (svr_to_conn == -1)
 			return -1;
 

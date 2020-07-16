@@ -1554,7 +1554,7 @@ schedule_wrapper(int num_cfg_svrs, int *update_svr,fd_set *read_fdset, int opt_n
 		sock_to_check = svr_conns[svr_inst_idx].sd;
 		second_connection = svr_conns[svr_inst_idx].secondary_sd;
 
-		if ((sock_to_check != -1) && FD_ISSET(sock_to_check, read_fdset)) {
+		if (sock_to_check != -1 && second_connection != -1 && FD_ISSET(sock_to_check, read_fdset)) {
 			int ret;
 			ret = get_sched_cmd(sock_to_check, &cmd, &runjobid);
 			if (ret != 1) {
