@@ -1842,7 +1842,7 @@ send_attr_updates(int pbs_sd, resource_resv *job, struct attrl *pattr)
 	char *errbuf;
 	int one_attr = 0;
 	char *job_name;
-	svr_conn_t *svr_conn = get_conn_servers(pbs_sd);
+	svr_conn_t *svr_conn = get_conn_servers(0);
 
 	if (job == NULL || pattr == NULL || svr_conn == NULL)
 		return 0;

@@ -309,7 +309,7 @@ close_server_conn(int svr_index)
 
 	pbs_client_thread_lock_connection(entry_to_svr_conns);
 
-	svr_conns = get_conn_servers(entry_to_svr_conns);
+	svr_conns = get_conn_servers(0);
 
 	if (!svr_conns) {
 		/* unlock the connection level lock */
@@ -1368,7 +1368,7 @@ main(int argc, char *argv[])
 
 	for (go=1; go;) {
 		FD_ZERO(&read_fdset);
-		read_fdset = master_fdset;
+		memcpy(&read_fdset, &master_fdset, sizeof(master_fdset));
 
 		if (select(max_sd + 1, &read_fdset, NULL, NULL, NULL) < 0) {
 			if (errno != EINTR) {
@@ -1542,10 +1542,8 @@ schedule_wrapper(int num_cfg_svrs, int *update_svr,fd_set *read_fdset, int opt_n
 	int alarm_time = 0;
 	char *runjobid = NULL;
 	svr_conn_t *svr_conns = NULL;
-	int end_cycle = 0;
 
-	/* Use virtual socket i.e. server_sock when calling get_conn_shards */
-	svr_conns = get_conn_servers(entry_to_svr_conns);
+	svr_conns = get_conn_servers(0);
 	if (svr_conns == NULL)
 		die(0);
 
@@ -1568,10 +1566,9 @@ schedule_wrapper(int num_cfg_svrs, int *update_svr,fd_set *read_fdset, int opt_n
 			} else {
 				int sched_ret = 0;
 
-				if (update_svr != NULL && (*update_svr) && !end_cycle) {
+				if (update_svr != NULL && (*update_svr)) {
 					/* update sched object attributes on server */
 					if (update_svr_schedobj(svr_conns[0].sd, cmd, alarm_time) == 0) {
-						send_cycle_end(second_connection);
 						close_server_conn(svr_inst_idx);
 						continue;
 					}
@@ -1595,15 +1592,10 @@ schedule_wrapper(int num_cfg_svrs, int *update_svr,fd_set *read_fdset, int opt_n
 				DBPRT(("Scheduler received command %d\n", cmd));
 #endif /* localmod 031 */
 
-				if (!end_cycle) {
-					/* magic happens here */
-					if ((sched_ret = schedule(cmd, svr_conns[0].sd, runjobid)) == 1) {
-						end_cycle = 1;
-
-						/* Note: Deliberately not quitting here as we need to call send_end_cycle()
-						 * for all servers which sent us a run cycle request
-						 */
-					}
+				/* magic happens here */
+				if ((sched_ret = schedule(cmd, svr_conns[0].sd, runjobid)) == 1) {
+					if (cmd == SCH_QUIT)
+						return 1;
 				}
 
 				if (send_cycle_end(second_connection) == -1)

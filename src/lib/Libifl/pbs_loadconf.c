@@ -314,7 +314,6 @@ set_default_psi()
 	return (parse_psi(pbs_conf.pbs_server_name));
 }
 
-
 /**
  * @brief
  *	pbs_loadconf - Populate the pbs_conf structure

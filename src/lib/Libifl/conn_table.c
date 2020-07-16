@@ -522,27 +522,3 @@ get_conn_mutex(int fd)
 	UNLOCK_TABLE(NULL);
 	return mutex;
 }
-
-/**
- * @brief
- * 	get_conn_servers - get connection ch_servers synchronously
- *
- * @param[in] fd - socket number
- *
- * @return void 
- * @retval !NULL - success
- * @retval NULL - error
- *
- * @par Side Effects:
- *	None
- *
- * @par MT-safe: Yes
- */
-void *
-get_conn_servers(int fd)
-{
-	if (INVALID_SOCK(fd))
-		return NULL;
-
-	return pbs_conf.psi;
-}

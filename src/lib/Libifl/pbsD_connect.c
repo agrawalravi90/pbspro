@@ -400,6 +400,36 @@ tcp_connect(char *server, int server_port, char *extend_data)
 }
 
 /**
+ * @brief
+ * 	get_conn_servers - get the array of server connections
+ *
+ *	@param[in]	lock - do locking?
+ * @return void
+ * @retval !NULL - success
+ * @retval NULL - error
+ *
+ * @par Side Effects:
+ *	None
+ *
+ * @par MT-safe: Yes
+ */
+void *
+get_conn_servers(int lock)
+{
+	svr_conn_t *ret = NULL;
+
+	if (!lock)
+		return pbs_conf.psi;
+
+	pbs_client_thread_lock_conf();
+	ret = pbs_conf.psi;
+	pbs_client_thread_unlock_conf();
+
+	return ret;
+}
+
+
+/**
  * @brief	Helper function for connect_to_servers to connect to a particular server
  *
  * @param[in]	idx - array index for the server to connect to
@@ -410,10 +440,12 @@ tcp_connect(char *server, int server_port, char *extend_data)
 static void
 connect_to_server(int idx, char *extend_data)
 {
+	pbs_client_thread_lock_conf();
 	if ((pbs_conf.psi[idx].sd = tcp_connect(pbs_conf.psi[idx].name, pbs_conf.psi[idx].port, extend_data)) != -1)
 		pbs_conf.psi[idx].state = SVR_CONN_STATE_CONNECTED;
 	else
 		pbs_conf.psi[idx].state = SVR_CONN_STATE_FAILED;
+	pbs_client_thread_unlock_conf();
 }
 
 /**

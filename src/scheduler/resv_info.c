@@ -1277,7 +1277,7 @@ confirm_reservation(status *policy, int pbs_sd, resource_resv *unconf_resv, serv
 	int occr_count = nresv->resv->count;
 	int ridx = nresv->resv->resv_idx - 1;
 
-	svr_conn_t *svr_conn = get_conn_servers(pbs_sd);
+	svr_conn_t *svr_conn = get_conn_servers(0);
 
 	logmsg[0] = logmsg2[0] = '\0';
 

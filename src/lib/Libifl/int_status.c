@@ -148,7 +148,7 @@ PBSD_status_aggregate(int c, int cmd, char *id, struct attrl *attrib, char *exte
 	struct batch_status *ret = NULL;
 	struct batch_status *next = NULL;
 	struct batch_status *cur = NULL;
-	svr_conn_t *svr_connections = get_conn_servers(c);
+	svr_conn_t *svr_connections = get_conn_servers(1);
 
 	if (!svr_connections)
 		return NULL;
@@ -209,7 +209,7 @@ struct batch_status *
 PBSD_status_random(int c, int cmd, char *id, struct attrl *attrib, char *extend, int parent_object)
 {
 	struct batch_status *ret = NULL;
-	svr_conn_t *svr_connections = get_conn_servers(c);
+	svr_conn_t *svr_connections = get_conn_servers(1);
 
 	if (!svr_connections)
 		return NULL;

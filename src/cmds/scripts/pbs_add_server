@@ -80,13 +80,12 @@ create_new_inst() {
 		echo PBS_START_SCHED=0
 		echo PBS_START_COMM=0
 		echo PBS_START_SERVER=1
-		if [ ! -z $WITH_MOM ]
-		 then
-		  echo PBS_START_MOM=1
-		  echo PBS_MOM_SERVICE_PORT=`expr $NEW_SVR_PORT + 10000`
-		  echo PBS_MANAGER_SERVICE_PORT=`expr $NEW_SVR_PORT + 10001`
+		if [ ! -z $WITH_MOM ]; then
+			echo PBS_START_MOM=1
+			echo PBS_MOM_SERVICE_PORT=`expr $NEW_SVR_PORT + 10000`
+			echo PBS_MANAGER_SERVICE_PORT=`expr $NEW_SVR_PORT + 10001`
 	    else
-	       echo PBS_START_MOM=0
+			echo PBS_START_MOM=0
 	    fi
 		echo PBS_BATCH_SERVICE_PORT=${NEW_SVR_PORT}
 		echo PBS_BATCH_SERVICE_PORT_DIS=${NEW_SVR_PORT}
