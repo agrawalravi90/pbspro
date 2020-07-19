@@ -1543,6 +1543,7 @@ schedule_wrapper(int num_cfg_svrs, int *update_svr,fd_set *read_fdset, int opt_n
 	char *runjobid = NULL;
 	svr_conn_t *svr_conns = NULL;
 
+
 	svr_conns = get_conn_servers(0);
 	if (svr_conns == NULL)
 		die(0);
@@ -1594,8 +1595,10 @@ schedule_wrapper(int num_cfg_svrs, int *update_svr,fd_set *read_fdset, int opt_n
 
 				/* magic happens here */
 				if ((sched_ret = schedule(cmd, svr_conns[0].sd, runjobid)) == 1) {
-					if (cmd == SCH_QUIT)
-						return 1;
+					if (sigprocmask(SIG_SETMASK, &oldsigs, NULL) == -1)
+						log_err(errno, __func__, "sigprocmask(SIG_SETMASK)");
+
+					return 1;
 				}
 
 				if (send_cycle_end(second_connection) == -1)

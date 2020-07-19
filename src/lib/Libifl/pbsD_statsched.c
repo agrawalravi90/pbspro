@@ -67,5 +67,5 @@
 struct batch_status *
 __pbs_statsched(int c, struct attrl *attrib, char *extend)
 {
-	return PBSD_status_aggregate(c, PBS_BATCH_StatusSched, "", attrib, extend, MGR_OBJ_SCHED);
+	return PBSD_status_random(c, PBS_BATCH_StatusSched, "", attrib, extend, MGR_OBJ_SCHED);
 }

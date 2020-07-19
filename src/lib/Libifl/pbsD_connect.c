@@ -441,10 +441,13 @@ static void
 connect_to_server(int idx, char *extend_data)
 {
 	pbs_client_thread_lock_conf();
-	if ((pbs_conf.psi[idx].sd = tcp_connect(pbs_conf.psi[idx].name, pbs_conf.psi[idx].port, extend_data)) != -1)
-		pbs_conf.psi[idx].state = SVR_CONN_STATE_CONNECTED;
-	else
-		pbs_conf.psi[idx].state = SVR_CONN_STATE_FAILED;
+	if (pbs_conf.psi[idx].state != SVR_CONN_STATE_CONNECTED) {
+		if ((pbs_conf.psi[idx].sd =
+				tcp_connect(pbs_conf.psi[idx].name, pbs_conf.psi[idx].port, extend_data)) != -1)
+			pbs_conf.psi[idx].state = SVR_CONN_STATE_CONNECTED;
+		else
+			pbs_conf.psi[idx].state = SVR_CONN_STATE_FAILED;
+	}
 	pbs_client_thread_unlock_conf();
 }
 
