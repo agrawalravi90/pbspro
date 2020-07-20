@@ -135,7 +135,7 @@ int get_conn_errno(int);
 pbs_tcp_chan_t * get_conn_chan(int);
 int set_conn_chan(int, pbs_tcp_chan_t *);
 pthread_mutex_t * get_conn_mutex(int);
-extern int connect_to_servers(char *);
+extern int connect_to_servers(char *, uint , char *);
 /* max number of preempt orderings */
 #define PREEMPT_ORDER_MAX 20
 

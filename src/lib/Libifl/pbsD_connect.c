@@ -476,45 +476,44 @@ connect_to_server(int idx, svr_conn_t *conn_arr, char *extend_data)
 	return conn_arr[idx].sd;
 }
 
-/**
- * @brief
- * 	To connect to all the servers, fill up the connection table 
- * 	and returns the first connected socket.
- *
- * @param[in] extend_data 
- *
- * @return int
- * @retval >0 - success
- * @retval -1 - error
- */
 int 
-connect_to_servers(char *extend_data)
+connect_to_servers(char *server_name, uint port, char *extend_data)
 {
 	int i = 0;
 	int fd = -1;
+	int start = -1;
 	int multi_flag = 0;
 	int num_conf_servers = get_num_servers();
-	int svr_to_conn = -1;
-	svr_conn_t *conn_arr = NULL;
-
-	conn_arr = get_conn_servers();
 
 	multi_flag = getenv(MULTI_SERVER) != NULL;
 
-	if (!multi_flag) {	/* Connect to a random server */
-		svr_to_conn = rand_num() % get_num_servers();
-		if (svr_to_conn == -1)
-			return -1;
+	svr_conn_t *svr_connections = get_conn_servers();
 
-		if ((fd = connect_to_server(svr_to_conn, conn_arr, extend_data)) == -1)
-			return -1;
-	} else {	/* Connect to all servers */
-		for (i = 0; i < num_conf_servers; i++)
-			connect_to_server(i, conn_arr, extend_data);
-
-		/* Return fd of the first server in the list */
-		fd = conn_arr[0].sd;
+	if (!multi_flag) {
+		if (server_name) {
+			for (i = 0; i < num_conf_servers; i++) {
+				if (!strcmp(server_name, pbs_conf.psi[i].name) && port == pbs_conf.psi[i].port) {
+					start = i;
+					break;
+				}
+			}
+		}
+		if (start == -1)
+			start = rand_num() % num_conf_servers;
 	}
+	else
+		start = 0;
+
+	i = start;
+	do {
+		fd = connect_to_server(i, svr_connections, extend_data);
+		if (svr_connections[i].state == SVR_CONN_STATE_CONNECTED && !multi_flag)
+			break;
+
+		i++;
+		if (i >= num_conf_servers)
+			i = 0;
+	} while (i != start);
 
 	return fd;
 }
@@ -563,8 +562,14 @@ __pbs_connect_extend(char *server, char *extend_data)
 
 	if (pbs_loadconf(0) == 0)
 		return -1;
-		
-	if ((sock = connect_to_servers(extend_data)) == -1) {
+
+	server = PBS_get_server(server, server_name, &server_port);
+	if (server == NULL) {
+		pbs_errno = PBSE_NOSERVER;
+		return -1;
+	}
+
+	if ((sock = connect_to_servers(server_name, server_port, extend_data)) == -1) {
 		pbs_errno = PBSE_INTERNAL;
 		return -1;
 	}
