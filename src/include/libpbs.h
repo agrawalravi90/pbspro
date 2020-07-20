@@ -139,7 +139,7 @@ extern int connect_to_servers(char *);
 /* max number of preempt orderings */
 #define PREEMPT_ORDER_MAX 20
 
-void * get_conn_servers(int);
+void * get_conn_servers(void);
 
 /* PBS Batch Reply Structure */
 

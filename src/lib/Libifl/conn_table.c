@@ -45,7 +45,6 @@ static pbs_conn_t **connection = NULL;
 static int curr_connection_sz = 0;
 static int allocated_connection = 0;
 
-static int add_connection(int);
 static pbs_conn_t * get_connection(int);
 static int destroy_conntable(void);
 static void _destroy_connection(int);
@@ -98,7 +97,7 @@ static void _destroy_connection(int);
  * @par MT-safe: No
  *
  */
-static int
+int
 add_connection(int fd)
 {
 	pthread_mutexattr_t attr = {{0}};
@@ -134,6 +133,7 @@ add_connection(int fd)
 		connection[fd]->ch_errtxt = NULL;
 		connection[fd]->ch_errno = 0;
 	}
+	allocated_connection++;
 	return 0;
 
 add_connection_err:
@@ -260,7 +260,6 @@ get_connection(int fd)
 	if ((fd >= curr_connection_sz) || (connection[fd] == NULL)) {
 		if (add_connection(fd) != 0)
 			return NULL;
-		allocated_connection++;
 	}
 	return connection[fd];
 }

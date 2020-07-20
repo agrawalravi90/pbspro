@@ -1309,7 +1309,7 @@ send_run_job(int pbs_sd, int has_runjob_hook, char *jobid, char *execvnode, int 
 	svr_conn_t *svr_conns = NULL;
 	char *extend = NULL;
 
-	svr_conns = get_conn_servers(0);
+	svr_conns = get_conn_servers();
 	if (svr_conns == NULL) {
 		log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, "Error in getting svr_conns table");
 		return -1;

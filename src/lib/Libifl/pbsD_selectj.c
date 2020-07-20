@@ -176,7 +176,7 @@ __pbs_selectjob(int c, struct attropl *attrib, char *extend)
 	svr_conn_t *svr_connections;
 	struct job_list jlist = {0};
 
-	if ((svr_connections = get_conn_servers(1)) == NULL)
+	if ((svr_connections = get_conn_servers()) == NULL)
 		return NULL;
 
 	/* initialize the thread context data, if not already initialized */
@@ -239,7 +239,7 @@ __pbs_selstat(int c, struct attropl *attrib, struct attrl *rattrib, char *extend
 	struct batch_status *ret = NULL;
 	struct batch_status *next = NULL;
 	struct batch_status *cur = NULL;
-	svr_conn_t *svr_connections = get_conn_servers(1);
+	svr_conn_t *svr_connections = get_conn_servers();
 
 	if (!svr_connections)
 		return NULL;

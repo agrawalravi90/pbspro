@@ -194,6 +194,13 @@ extern "C" {
 
 #define MAX_ALLOWED_SVRS 100
 
+/* Structure to store each server instance details */
+typedef struct pbs_server_instance
+{
+	char name[PBS_MAXHOSTNAME];
+	int port;
+} pbs_server_instance;
+
 struct pbs_config
 {
 	unsigned loaded:1;			/* has the conf file been loaded? */
@@ -221,7 +228,7 @@ struct pbs_config
 	char *pbs_server_name;		/* name of PBS Server, usually hostname of host on which PBS server is executing */
 	char *pbs_server_id;                  /* name of the database PBS server id associated with the server hostname, pbs_server_name */
 	unsigned int pbs_num_servers;	/* currently configured number of instances */
-	svr_conn_t *psi;	/* array of pbs server instances loaded from comma separated host:port[,host:port] */
+	pbs_server_instance *psi;	/* array of pbs server instances loaded from comma separated host:port[,host:port] */
 	char *scp_path;			/* path to ssh */
 	char *rcp_path;			/* path to pbs_rsh */
 	char *pbs_demux_path;			/* path to pbs demux */
@@ -562,7 +569,6 @@ extern char *convert_time(char *);
 extern struct batch_status *bs_isort(struct batch_status *bs,
 	int (*cmp_func)(struct batch_status*, struct batch_status *));
 extern struct batch_status *bs_find(struct batch_status *, const char *);
-
 
 #endif /* _USRDLL */
 

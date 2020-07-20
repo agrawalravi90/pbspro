@@ -2225,7 +2225,7 @@ get_num_servers()
 int
 parse_pbs_name_port(char *svr_id, char *svrname, int *svrport)
 {
-	char *ptr;
+	char *ptr = NULL;
 	char *endptr;
 	long port = PBS_BATCH_SERVICE_PORT;
 

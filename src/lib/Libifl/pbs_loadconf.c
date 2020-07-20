@@ -48,6 +48,7 @@
 #include <stdlib.h>
 #include <netdb.h>
 #include <pbs_ifl.h>
+#include <pthread.h>
 #include "pbs_internal.h"
 #include <limits.h>
 #include <pbs_error.h>
@@ -66,6 +67,9 @@ char *pbs_conf_env = "PBS_CONF_FILE";
 
 static char *pbs_loadconf_buf = NULL;
 static int   pbs_loadconf_len = 0;
+
+pthread_key_t psi_key;
+static pthread_once_t key_once = PTHREAD_ONCE_INIT;
 
 /*
  * Initialize the pbs_conf structure.
@@ -282,7 +286,7 @@ parse_psi(char *conf_value)
 	for (i = 0; list[i] != NULL; i++)
 		;
 
-	if (!(pbs_conf.psi = calloc(i, sizeof(svr_conn_t)))) {
+	if (!(pbs_conf.psi = calloc(i, sizeof(pbs_server_instance)))) {
 		fprintf(stderr, "Ran out of memory parsing configuration %s", conf_value);
 		return -1;
 	}
@@ -292,9 +296,6 @@ parse_psi(char *conf_value)
 			fprintf(stderr, "Error parsing PBS_SERVER_INSTANCES\n");
 			return -1;
 		}
-		pbs_conf.psi[i].state = SVR_CONN_STATE_DOWN;
-		pbs_conf.psi[i].sd = -1;
-		pbs_conf.psi[i].secondary_sd = -1;
 	}
 	pbs_conf.pbs_num_servers = i;
 
@@ -313,6 +314,20 @@ set_default_psi()
 	free(pbs_conf.psi);
 	return (parse_psi(pbs_conf.pbs_server_name));
 }
+
+/**
+ * @brief	create the PSI key & set it for the main thread
+ *
+ * @param	void
+ *
+ * @return	void
+ */
+static void
+create_psi_key(void)
+{
+	pthread_key_create(&psi_key, free);
+}
+
 
 /**
  * @brief
@@ -359,6 +374,8 @@ __pbs_loadconf(int reload)
 	/* initialize the thread context data, if not already initialized */
 	if (pbs_client_thread_init_thread_context() != 0)
 		return 0;
+
+	pthread_once(&key_once, create_psi_key);
 
 	/* this section of the code modified the procecss-wide
 	 * tcp array. Since multiple threads can get into this

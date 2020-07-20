@@ -309,7 +309,7 @@ close_server_conn(int svr_index)
 
 	pbs_client_thread_lock_connection(entry_to_svr_conns);
 
-	svr_conns = get_conn_servers(0);
+	svr_conns = get_conn_servers();
 
 	if (!svr_conns) {
 		/* unlock the connection level lock */
@@ -1443,6 +1443,7 @@ socket_to_conn(int sock, struct sockaddr_in saddr_in)
 	int svr_conn_index;
 	char svrname[PBS_MAXHOSTNAME];
 	int port;
+	svr_conn_t *conn_arr = NULL;
 
 	if (get_sched_cmd(sock, &cmd, &svr_id) != 1) {
 		log_eventf(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
@@ -1461,23 +1462,24 @@ socket_to_conn(int sock, struct sockaddr_in saddr_in)
 		return -1;
 	}
 
-	pbs_conf.psi[svr_conn_index].port = port;
+	if ((conn_arr = get_conn_servers()) == NULL)
+		return -1;
 
-	if (pbs_conf.psi[svr_conn_index].sd == -1) {
+	if (conn_arr[svr_conn_index].sd == -1) {
 		if ((phe = gethostbyaddr((char *) &saddr_in.sin_addr, sizeof(saddr_in.sin_addr), AF_INET)) == NULL) {
 			log_eventf(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__,
 				"gethostbyaddr failed, errno=%d in function %s ",  errno, __func__);
 			return -1;
 		}
 
-		strcpy(pbs_conf.psi[svr_conn_index].host_name, phe->h_name);
-		pbs_conf.psi[svr_conn_index].state = SVR_CONN_STATE_CONNECTED;
-		pbs_conf.psi[svr_conn_index].state_change_time = time(0);
-		strcpy(pbs_conf.psi[svr_conn_index].svr_id, svr_id);
-		pbs_conf.psi[svr_conn_index].sd = sock;
+		strcpy(conn_arr[svr_conn_index].host_name, phe->h_name);
+		conn_arr[svr_conn_index].state = SVR_CONN_STATE_CONNECTED;
+		conn_arr[svr_conn_index].state_change_time = time(0);
+		strcpy(conn_arr[svr_conn_index].svr_id, svr_id);
+		conn_arr[svr_conn_index].sd = sock;
 		FD_SET(sock, &master_fdset);
 	} else
-		pbs_conf.psi[svr_conn_index].secondary_sd = sock;
+		conn_arr[svr_conn_index].secondary_sd = sock;
 
 	free(svr_id);
 
@@ -1544,7 +1546,7 @@ schedule_wrapper(int num_cfg_svrs, int *update_svr,fd_set *read_fdset, int opt_n
 	svr_conn_t *svr_conns = NULL;
 
 
-	svr_conns = get_conn_servers(0);
+	svr_conns = get_conn_servers();
 	if (svr_conns == NULL)
 		die(0);
 
