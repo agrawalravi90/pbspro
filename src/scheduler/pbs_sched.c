@@ -1394,7 +1394,7 @@ main(int argc, char *argv[])
 				die(0);
 		}
 
-		if (schedule_wrapper(num_cfg_svrs, &update_svr,&read_fdset, opt_no_restart) == 1)
+		if (schedule_wrapper(num_cfg_svrs, &update_svr, &read_fdset, opt_no_restart) == 1)
 			go = 0;
 	}
 
@@ -1574,13 +1574,15 @@ schedule_wrapper(int num_cfg_svrs, int *update_svr,fd_set *read_fdset, int opt_n
 						errno, __func__);
 			} else {
 				int sched_ret = 0;
+				static int num_svrs_updated = 0;
 
-				if (update_svr != NULL && (*update_svr)) {
+				if (num_svrs_updated < get_num_servers()) {
 					/* update sched object attributes on server */
-					if (update_svr_schedobj(svr_conns[0].sd, cmd, alarm_time) == 0) {
+					if (update_svr_schedobj(sock_to_check, cmd, alarm_time) == 0) {
 						close_server_conn(svr_inst_idx);
 						continue;
 					}
+					num_svrs_updated++;
 					*update_svr = 0;
 				}
 
@@ -1602,7 +1604,7 @@ schedule_wrapper(int num_cfg_svrs, int *update_svr,fd_set *read_fdset, int opt_n
 #endif /* localmod 031 */
 
 				/* magic happens here */
-				if ((sched_ret = schedule(cmd, svr_conns[0].sd, runjobid)) == 1) {
+				if ((sched_ret = schedule(cmd, sock_to_check, runjobid)) == 1) {
 					if (sigprocmask(SIG_SETMASK, &oldsigs, NULL) == -1)
 						log_err(errno, __func__, "sigprocmask(SIG_SETMASK)");
 
