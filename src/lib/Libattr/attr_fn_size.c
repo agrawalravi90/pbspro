@@ -437,9 +437,9 @@ from_size(const struct size_value *psize, char *cvnbuf)
 {
 
 #ifdef WIN32
-	(void)sprintf(cvnbuf, "%I64u", psize->atsv_num);
+	sprintf(cvnbuf, "%I64u", psize->atsv_num);
 #else
-	(void)sprintf(cvnbuf, "%llu", psize->atsv_num);
+	sprintf(cvnbuf, "%llu", psize->atsv_num);
 #endif
 
 	switch (psize->atsv_shift) {

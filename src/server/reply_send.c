@@ -242,7 +242,7 @@ dis_reply_write(int sfds, struct batch_request *preq)
 
 		if (get_connecthost(sfds, hn, PBS_MAXHOSTNAME) == -1)
 			strcpy(hn, "??");
-		(void)sprintf(log_buffer, "DIS reply failure, %d, to host %s, errno=%d", rc, hn, pbs_tcp_errno);
+		sprintf(log_buffer, "DIS reply failure, %d, to host %s, errno=%d", rc, hn, pbs_tcp_errno);
 		/* if EAGAIN - then write was blocked and timed-out, note it */
 		if (pbs_tcp_errno == EAGAIN)
 			strcat(log_buffer, " write timed out");

@@ -966,7 +966,7 @@ interactive_port(void)
 		exit_qsub(1);
 	}
 	port = ntohs(myaddr.sin_port);
-	(void)sprintf(portstring, "%u", (unsigned int)port);
+	sprintf(portstring, "%u", (unsigned int)port);
 	if (listen(comm_sock, 1) < 0) {
 		perror("qsub: listen on interactive socket");
 		exit_qsub(1);
@@ -1310,7 +1310,7 @@ send_winsize(int sock)
 {
 	char buf[PBS_TERM_BUF_SZ];
 
-	(void)sprintf(buf, "WINSIZE %hu,%hu,%hu,%hu", wsz.ws_row, wsz.ws_col, wsz.ws_xpixel, wsz.ws_ypixel);
+	sprintf(buf, "WINSIZE %hu,%hu,%hu,%hu", wsz.ws_row, wsz.ws_col, wsz.ws_xpixel, wsz.ws_ypixel);
 	(void)CS_write(sock, buf, PBS_TERM_BUF_SZ);
 	return;
 }
@@ -2033,7 +2033,7 @@ block_port(void)
 		exit_qsub(1);
 	}
 	port = ntohs(myaddr.sin_port);
-	(void)sprintf(portstring, "%u", (unsigned int)port);
+	sprintf(portstring, "%u", (unsigned int)port);
 #ifdef NAS /* localmod 004 */
 	DBPRT((stderr, "block_port: %s\n", portstring))
 #else

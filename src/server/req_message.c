@@ -140,7 +140,7 @@ post_message_req(struct work_task *pwt)
 	preq = pwt->wt_parm1;
 	preq->rq_conn = preq->rq_orgconn;  /* restore socket to client */
 
-	(void)sprintf(log_buffer, msg_messagejob, preq->rq_reply.brp_code);
+	sprintf(log_buffer, msg_messagejob, preq->rq_reply.brp_code);
 	log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 		preq->rq_ind.rq_message.rq_jid, log_buffer);
 	if (preq->rq_reply.brp_code)

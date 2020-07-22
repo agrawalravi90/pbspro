@@ -244,7 +244,7 @@ job_abt(job *pjob, char *text)
 			JOB_STATE_RUNNING, JOB_SUBSTATE_ABORT);
 		rc = issue_signal(pjob, "SIGKILL", release_req, 0);
 		if (rc != 0) {
-			(void)sprintf(log_buffer, msg_abt_err,
+			sprintf(log_buffer, msg_abt_err,
 				pjob->ji_qs.ji_jobid, old_substate);
 			log_err(-1, __func__, log_buffer);
 			if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0) {
@@ -261,7 +261,7 @@ job_abt(job *pjob, char *text)
 	} else if ((old_state == JOB_STATE_TRANSIT) &&
 		(old_substate == JOB_SUBSTATE_TRNOUT)) {
 		/* I don't know of a case where this could happen */
-		(void)sprintf(log_buffer, msg_abt_err,
+		sprintf(log_buffer, msg_abt_err,
 			pjob->ji_qs.ji_jobid, old_substate);
 		log_err(-1, __func__, log_buffer);
 	} else if (old_substate == JOB_SUBSTATE_PROVISION) {
@@ -1693,7 +1693,7 @@ resv_purge(resc_resv *presv)
 		 */
 		preq = alloc_br(PBS_BATCH_Manager);
 		if (preq == NULL) {
-			(void)sprintf(log_buffer, "batch request allocation failed");
+			sprintf(log_buffer, "batch request allocation failed");
 			log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_RESV, LOG_ERR,
 				presv->ri_qs.ri_resvID, log_buffer);
 			return;

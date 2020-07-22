@@ -277,7 +277,7 @@ check_pwd(job *pjob)
 
 	pwdp = getpwnam(pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str);
 	if (pwdp == NULL) {
-		(void)sprintf(log_buffer, "No Password Entry for User %s",
+		sprintf(log_buffer, "No Password Entry for User %s",
 			pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str);
 		return NULL;
 	}
@@ -314,7 +314,7 @@ check_pwd(job *pjob)
 		grpp = getgrnam(pjob->ji_wattr[(int)JOB_ATR_egroup].
 			at_val.at_str);
 		if (grpp == NULL) {
-			(void)sprintf(log_buffer, "No Group Entry for Group %s",
+			sprintf(log_buffer, "No Group Entry for Group %s",
 				pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str);
 			return NULL;
 		}
@@ -328,7 +328,7 @@ check_pwd(job *pjob)
 				++pgnam;
 			}
 			if (*pgnam == 0) {
-				(void)sprintf(log_buffer, "user not in group");
+				sprintf(log_buffer, "user not in group");
 				return NULL;
 			}
 		}
@@ -1630,7 +1630,7 @@ record_finish_exec(int sd)
 			(void)close(pjob->ji_parent2child_moms_status_pipe);
 			pjob->ji_parent2child_moms_status_pipe = -1;
 		}
-		(void)sprintf(log_buffer, "start failed, improper sid");
+		sprintf(log_buffer, "start failed, improper sid");
 		exec_bail(pjob, JOB_EXEC_RETRY, log_buffer);
 		return;
 	}
@@ -1790,7 +1790,7 @@ record_finish_exec(int sd)
 		if (sjr.sj_reservation == -1)
 			call_hup = HUP_INIT;
 #endif
-		(void)sprintf(log_buffer, "job not started, %s %d",
+		sprintf(log_buffer, "job not started, %s %d",
 			(sjr.sj_code==JOB_EXEC_RETRY)?
 			"Retry" : "Failure", sjr.sj_code);
 		exec_bail(pjob, sjr.sj_code, log_buffer);
@@ -1802,7 +1802,7 @@ record_finish_exec(int sd)
 
 	strcpy(ptask->ti_qs.ti_parentjobid, pjob->ji_qs.ji_jobid);
 	if (task_save(ptask) == -1) {
-		(void)sprintf(log_buffer, "Task save failed");
+		sprintf(log_buffer, "Task save failed");
 		exec_bail(pjob, JOB_EXEC_RETRY, log_buffer);
 		return;
 	}
@@ -2934,7 +2934,7 @@ finish_exec(job *pjob)
 		len = sizeof(saddr);
 		if (getsockname(pjob->ji_stdout,
 			(struct sockaddr *)&saddr, &len) == -1) {
-			(void)sprintf(log_buffer, "getsockname on stdout");
+			sprintf(log_buffer, "getsockname on stdout");
 			exec_bail(pjob, JOB_EXEC_RETRY, log_buffer);
 			return;
 		}
@@ -2943,7 +2943,7 @@ finish_exec(job *pjob)
 		len = sizeof(saddr);
 		if (getsockname(pjob->ji_stderr,
 			(struct sockaddr *)&saddr, &len) == -1) {
-			(void)sprintf(log_buffer, "getsockname on stderr");
+			sprintf(log_buffer, "getsockname on stderr");
 			exec_bail(pjob, JOB_EXEC_RETRY, log_buffer);
 			return;
 		}
@@ -2985,7 +2985,7 @@ finish_exec(job *pjob)
 		/* file name to the input of the shell			*/
 
 		if (pipe(pipe_script) == -1) {
-			(void)sprintf(log_buffer,
+			sprintf(log_buffer,
 				"Failed to create shell name pipe");
 			exec_bail(pjob, JOB_EXEC_RETRY, log_buffer);
 			return;
@@ -3030,7 +3030,7 @@ finish_exec(job *pjob)
 			(void)close(jsmpipe[0]);
 		if (mjspipe[1] != -1)
 			(void)close(mjspipe[1]);
-		(void)sprintf(log_buffer, "Failed to create communication pipe");
+		sprintf(log_buffer, "Failed to create communication pipe");
 		exec_bail(pjob, JOB_EXEC_RETRY, log_buffer);
 		return;
 	}
@@ -3043,7 +3043,7 @@ finish_exec(job *pjob)
 			(void)close(jsmpipe[0]);
 		if (mjspipe[1] != -1)
 			(void)close(mjspipe[1]);
-		(void)sprintf(log_buffer, "Task creation failed");
+		sprintf(log_buffer, "Task creation failed");
 		exec_bail(pjob, JOB_EXEC_RETRY, log_buffer);
 		return;
 	}
@@ -3128,7 +3128,7 @@ finish_exec(job *pjob)
 				(void)close(child2parent_job_update_pipe[0]);
 			if (parent2child_job_update_pipe[1] != -1)
 				(void)close(parent2child_job_update_pipe[1]);
-			(void)sprintf(log_buffer,
+			sprintf(log_buffer,
 					"Failed to create communication pipe");
 			exec_bail(pjob, JOB_EXEC_RETRY, log_buffer);
 			return;
@@ -3156,7 +3156,7 @@ finish_exec(job *pjob)
 				(void)close(parent2child_job_update_status_pipe_r);
 			if (parent2child_job_update_status_pipe[1] != -1)
 				(void)close(parent2child_job_update_status_pipe[1]);
-			(void)sprintf(log_buffer,
+			sprintf(log_buffer,
 					"Failed to create communication pipe");
 			exec_bail(pjob, JOB_EXEC_RETRY, log_buffer);
 			return;
@@ -3185,7 +3185,7 @@ finish_exec(job *pjob)
 				(void)close(parent2child_moms_status_pipe_r);
 			if (parent2child_moms_status_pipe[1] != -1)
 				(void)close(parent2child_moms_status_pipe[1]);
-			(void)sprintf(log_buffer,
+			sprintf(log_buffer,
 					"Failed to create communication pipe");
 			exec_bail(pjob, JOB_EXEC_RETRY, log_buffer);
 			return;
@@ -3455,7 +3455,7 @@ finish_exec(job *pjob)
 		if (parent2child_moms_status_pipe[1] != -1)
 			(void)close(parent2child_moms_status_pipe[1]);
 
-		(void)sprintf(log_buffer, "Fork failed in %s: %d",
+		sprintf(log_buffer, "Fork failed in %s: %d",
 			__func__, errno);
 		exec_bail(pjob, JOB_EXEC_RETRY, log_buffer);
 		return;
@@ -4242,12 +4242,12 @@ finish_exec(job *pjob)
 #ifdef	RLIMIT_NPROC
 #ifdef  RLIM64_INFINITY
 	if ((i = setrlimit64(RLIMIT_NPROC, &orig_nproc_limit)) == -1) {
-		(void)sprintf(log_buffer,
+		sprintf(log_buffer,
 			"Unable to restore NPROC limits, err=%d", errno);
 	}
 #else /* RLIM64... */
 	if ((i = setrlimit(RLIMIT_NPROC, &orig_nproc_limit)) == -1) {
-		(void)sprintf(log_buffer,
+		sprintf(log_buffer,
 			"Unable to restore NPROC limits, err=%d", errno);
 	}
 #endif  /* RLIM64... */
@@ -4255,7 +4255,7 @@ finish_exec(job *pjob)
 	if (i == 0) {
 		/* now set all other kernel enforced limits on the job */
 		if ((i = mom_set_limits(pjob, SET_LIMIT_SET)) != PBSE_NONE) {
-			(void)sprintf(log_buffer, "Unable to set limits, err=%d", i);
+			sprintf(log_buffer, "Unable to set limits, err=%d", i);
 		}
 	}
 	if (i != 0) {
@@ -4768,7 +4768,7 @@ start_process(task *ptask, char **argv, char **envp, bool nodemux)
 		 */
 		set_globid(pjob, &sjr);
 		if (sjr.sj_code < 0) {
-			(void)sprintf(log_buffer, "task not started, %s %s %d",
+			sprintf(log_buffer, "task not started, %s %s %d",
 				(sjr.sj_code==JOB_EXEC_RETRY)?
 				"Retry" : "Failure",
 				argv[0],
@@ -4787,7 +4787,7 @@ start_process(task *ptask, char **argv, char **envp, bool nodemux)
 			pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
 			job_save(pjob);
 		}
-		(void)sprintf(log_buffer, "task %8.8X started, %s",
+		sprintf(log_buffer, "task %8.8X started, %s",
 			ptask->ti_qs.ti_task, argv[0]);
 		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, log_buffer);
@@ -4959,7 +4959,7 @@ start_process(task *ptask, char **argv, char **envp, bool nodemux)
 	}
 	ptask->ti_qs.ti_sid = sjr.sj_session;
 	if ((i = mom_set_limits(pjob, SET_LIMIT_SET)) != PBSE_NONE) {
-		(void)sprintf(log_buffer, "Unable to set limits, err=%d", i);
+		sprintf(log_buffer, "Unable to set limits, err=%d", i);
 		log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB, LOG_WARNING,
 			pjob->ji_qs.ji_jobid, log_buffer);
 		if (i == PBSE_RESCUNAV)		/* resource temp unavailable */

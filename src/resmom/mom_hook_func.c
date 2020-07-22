@@ -1495,7 +1495,7 @@ run_hook_exit:
 		if (win_popen(cmdline, "w", &pio, NULL) == 0) {
 			errno = GetLastError();
 			pbs_errno = errno;
-			(void)sprintf(log_buffer,
+			sprintf(log_buffer,
 				"executing %s failed errno=%d", cmdline, errno);
 			log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_HOOK,
 				LOG_ERR, __func__, log_buffer);
@@ -1545,7 +1545,7 @@ run_hook_exit:
 		if (win_popen(cmdline, "r", &pio, NULL) == 0) {
 			errno = GetLastError();
 			pbs_errno = errno;
-			(void)sprintf(log_buffer,
+			sprintf(log_buffer,
 				"executing %s failed errno=%d", cmdline, errno);
 			log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_HOOK,
 				LOG_ERR, __func__, log_buffer);

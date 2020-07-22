@@ -375,7 +375,7 @@ main(int argc, char *argv[])
 	rem = -1;
 	/* Command to be executed on remote system using "rsh". */
 #ifdef	KERBEROS
-	(void)sprintf(cmd,
+	sprintf(cmd,
 		"rcp%s%s%s%s", iamrecursive ? " -r" : "",
 #ifdef CRYPT
 		(doencrypt && use_kerberos ? " -x" : ""),
@@ -384,7 +384,7 @@ main(int argc, char *argv[])
 #endif
 		pflag ? " -p" : "", targetshouldbedirectory ? " -d" : "");
 #else
-	(void)sprintf(cmd, "rcp%s%s%s",
+	sprintf(cmd, "rcp%s%s%s",
 		iamrecursive ? " -r" : "", pflag ? " -p" : "",
 		targetshouldbedirectory ? " -d" : "");
 #endif
@@ -477,13 +477,13 @@ toremote(char *targ, int argc, char *argv[])
 					suser = pwd->pw_name;
 				else if (!okname(suser))
 					continue;
-				(void)sprintf(bp,
+				sprintf(bp,
 					"%s %s -l %s -n %s %s '%s%s%s:%s'",
 					_PATH_RSH, host, suser, cmd, src,
 					tuser ? tuser : "", tuser ? "@" : "",
 					thost, targ);
 			} else
-				(void)sprintf(bp,
+				sprintf(bp,
 #ifdef WIN32
 					"%s %s -n %s %s '%s%s%s:%s'",
 #else
@@ -503,7 +503,7 @@ toremote(char *targ, int argc, char *argv[])
 				len = len + CMDNEEDS + 20;
 				if (!(bp = malloc(len)))
 					err(1, NULL);
-				(void)sprintf(bp, "%s -t %s", cmd, targ);
+				sprintf(bp, "%s -t %s", cmd, targ);
 				host = thost;
 #ifdef KERBEROS
 				if (use_kerberos)
@@ -576,9 +576,9 @@ tolocal(int argc, char *argv[])
 			if (!(bp = malloc(len)))
 				err(1, NULL);
 #ifdef WIN32
-			(void)sprintf(bp, "cmd /c %s%s%s %s %s", _PATH_CP,
+			sprintf(bp, "cmd /c %s%s%s %s %s", _PATH_CP,
 #else
-			(void)sprintf(bp, "exec %s%s%s %s %s", _PATH_CP,
+			sprintf(bp, "exec %s%s%s %s %s", _PATH_CP,
 #endif
 				iamrecursive ? " -r" : "", pflag ? " -p" : "",
 				argv[i], argv[argc - 1]);
@@ -614,7 +614,7 @@ tolocal(int argc, char *argv[])
 		strcpy(use_user, suser);
 #endif  /* USELOG */
 
-		(void)sprintf(bp, "%s -f %s", cmd, src);
+		sprintf(bp, "%s -f %s", cmd, src);
 		rem =
 #ifdef KERBEROS
 		use_kerberos ?
@@ -725,7 +725,7 @@ source(int argc, char *argv[])
 			 * Make it compatible with possible future
 			 * versions expecting microseconds.
 			 */
-			(void)sprintf(buf, "T%ld 0 %ld 0\n",
+			sprintf(buf, "T%ld 0 %ld 0\n",
 				(long)stb.st_mtime, (long)stb.st_atime);
 
 #ifdef WIN32
@@ -744,10 +744,10 @@ source(int argc, char *argv[])
 #endif
 
 #ifdef WIN32
-		(void)sprintf(buf, "C%04o %I64d %s\n",
+		sprintf(buf, "C%04o %I64d %s\n",
 			stb.st_mode & MODMASK, stb.st_size, last);
 #else
-		(void)sprintf(buf, "C%04o %ld %s\n",
+		sprintf(buf, "C%04o %ld %s\n",
 			stb.st_mode & MODMASK, (long)stb.st_size, last);
 #endif
 
@@ -864,7 +864,7 @@ rsource(char *name, pbs_stat_struct *statp)
 	} else
 		last++;
 	if (pflag) {
-		(void)sprintf(path, "T%ld 0 %ld 0\n",
+		sprintf(path, "T%ld 0 %ld 0\n",
 			(long)statp->st_mtime, (long)statp->st_atime);
 #ifdef WIN32
 		(void)send(rem, path, strlen(path), 0);
@@ -876,7 +876,7 @@ rsource(char *name, pbs_stat_struct *statp)
 			return;
 		}
 	}
-	(void)sprintf(path,
+	sprintf(path,
 		"D%04o %d %s\n", statp->st_mode & MODMASK, 0, last);
 
 #ifdef WIN32
@@ -900,7 +900,7 @@ rsource(char *name, pbs_stat_struct *statp)
 			run_err("%s/%s: name too long", name, dp->d_name);
 			continue;
 		}
-		(void)sprintf(path, "%s/%s", name, dp->d_name);
+		sprintf(path, "%s/%s", name, dp->d_name);
 		vect[0] = path;
 		source(1, vect);
 	}
@@ -1096,7 +1096,7 @@ sink(int argc, char *argv[])
 				if (!(namebuf = malloc(need)))
 					run_err("%s", strerror(errno));
 			}
-			(void)sprintf(namebuf, "%s%s%s", targ,
+			sprintf(namebuf, "%s%s%s", targ,
 				*targ ? "/" : "", cp);
 			np = namebuf;
 		} else

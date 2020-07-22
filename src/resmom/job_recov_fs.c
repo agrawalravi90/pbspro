@@ -403,7 +403,7 @@ job_recov_fs(char *filename)
 	if (strncmp(pn, pj->ji_qs.ji_jobid, strlen(pn)-3) != 0) {
 		/* mismatch, discard job */
 
-		(void)sprintf(log_buffer,
+		sprintf(log_buffer,
 			"Job Id %s does not match file name for %s",
 			pj->ji_qs.ji_jobid,
 			pbs_recov_filename);

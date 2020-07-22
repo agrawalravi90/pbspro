@@ -337,7 +337,7 @@ contact_sched(int cmd, char *jobid, pbs_net_t pbs_scheduler_addr, unsigned int p
 		close_conn(sock);
 		return (-1);
 	}
-	(void)sprintf(log_buffer, msg_sched_called, cmd);
+	sprintf(log_buffer, msg_sched_called, cmd);
 	log_event(PBSEVENT_SCHED, PBS_EVENTCLASS_SERVER, LOG_INFO,
 		server_name, log_buffer);
 	return (sock);

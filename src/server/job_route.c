@@ -286,7 +286,7 @@ job_route(job *jobp)
 			return (0);
 
 		default:
-			(void)sprintf(log_buffer, "(%s) %s, state=%d",
+			sprintf(log_buffer, "(%s) %s, state=%d",
 				__func__, msg_badstate, jobp->ji_qs.ji_state);
 			log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 				jobp->ji_qs.ji_jobid, log_buffer);

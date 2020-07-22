@@ -482,7 +482,7 @@ dis_request_read(int sfds, struct batch_request *request)
 	if (rc != 0) {
 		if (rc == DIS_EOF)
 			return EOF;
-		(void)sprintf(log_buffer,
+		sprintf(log_buffer,
 			"Req Header bad, errno %d, dis error %d",
 			errno, rc);
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, LOG_DEBUG,
@@ -681,14 +681,14 @@ dis_request_read(int sfds, struct batch_request *request)
 	if (rc == 0) {	/* Decode the Request Extension, if present */
 		rc = decode_DIS_ReqExtend(sfds, request);
 		if (rc != 0) {
-			(void)sprintf(log_buffer,
+			sprintf(log_buffer,
 				"Request type: %d Req Extension bad, dis error %d", request->rq_type, rc);
 			log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST,
 				LOG_DEBUG, "?", log_buffer);
 			rc = PBSE_DISPROTO;
 		}
 	} else if (rc != PBSE_UNKREQ) {
-		(void)sprintf(log_buffer,
+		sprintf(log_buffer,
 			"Req Body bad, dis error %d, type %d",
 			rc, request->rq_type);
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST,

@@ -395,7 +395,7 @@ static struct batch_request *cpy_stdfile(struct batch_request *preq, job *pjob, 
 
 	if ((pathattr->at_flags & ATR_VFLAG_SET) == 0) { /* This shouldn't be */
 
-		(void)sprintf(log_buffer, "%c file missing", key);
+		sprintf(log_buffer, "%c file missing", key);
 		log_event(PBSEVENT_ERROR|PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
 			LOG_INFO,  pjob->ji_qs.ji_jobid, log_buffer);
 		return NULL;
@@ -1719,11 +1719,11 @@ job_obit(struct resc_used_update *pruu, int stream)
 		DBPRT(("%s: job %s not found!\n", __func__, pruu->ru_pjobid))
 		if ((server_init_type == RECOV_COLD) ||
 			(server_init_type == RECOV_CREATE)) {
-			(void)sprintf(log_buffer, msg_obitnojob, PBSE_CLEANEDOUT);
+			sprintf(log_buffer, msg_obitnojob, PBSE_CLEANEDOUT);
 		} else if (is_job_array(pruu->ru_pjobid) == IS_ARRAY_Single) {
-			(void)sprintf(log_buffer, "%s", msg_obitnotrun);
+			sprintf(log_buffer, "%s", msg_obitnotrun);
 		} else {
-			(void)sprintf(log_buffer, msg_obitnojob, PBSE_UNKJOBID);
+			sprintf(log_buffer, msg_obitnojob, PBSE_UNKJOBID);
 		}
 		log_event(PBSEVENT_ERROR|PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
 			LOG_NOTICE, pruu->ru_pjobid, log_buffer);
@@ -1757,7 +1757,7 @@ job_obit(struct resc_used_update *pruu, int stream)
 			pjob->ji_discarding = 0;
 			reject_obit(stream, pruu->ru_pjobid);
 
-			(void)sprintf(log_buffer, "%s", msg_obitnotrun);
+			sprintf(log_buffer, "%s", msg_obitnotrun);
 			log_event(PBSEVENT_ERROR|PBSEVENT_JOB,
 				PBS_EVENTCLASS_JOB, LOG_INFO,
 				pruu->ru_pjobid, log_buffer);

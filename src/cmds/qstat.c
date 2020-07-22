@@ -758,7 +758,7 @@ cnv_size(char *value, int opt)
 	}
 	suffix1 = suffixletter[out];
 
-	(void)sprintf(outbuf, "%lu%c%c", nval, suffix1, suffix2);
+	sprintf(outbuf, "%lu%c%c", nval, suffix1, suffix2);
 	return outbuf;
 }
 
@@ -1423,7 +1423,7 @@ display_statjob(struct batch_status *status, struct batch_status *prtheader, int
 								sizeof("<></>") + strlen(a->value) + 1);
 						if (hpcbp_executable == NULL)
 							exit_qstat("out of memory");
-						(void)sprintf(hpcbp_executable, "<%s>%s</%s>",
+						sprintf(hpcbp_executable, "<%s>%s</%s>",
 								HPCBP_EXEC_TAG, a->value, HPCBP_EXEC_TAG);
 						prt_attr(a->name, a->resource, hpcbp_executable, alt_opt & ALT_DISPLAY_w);
 						free(hpcbp_executable);

@@ -697,7 +697,7 @@ read_reg_reply(int sock)
 			conn->cn_func = read_fo_request;
 			Secondary_state = SECONDARY_STATE_handsk;
 			hd_time = time(0);
-			(void)sprintf(fn, "%s/license.fo", path_priv);
+			sprintf(fn, "%s/license.fo", path_priv);
 			/* save Primary's host id */
 			fd = open(fn, O_WRONLY|O_CREAT|O_TRUNC, 0600);
 			s = sizeof(hid);

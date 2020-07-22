@@ -260,7 +260,7 @@ req_shutdown(struct batch_request *preq)
 		return;
 	}
 
-	(void)sprintf(log_buffer, msg_shutdown_op, preq->rq_user, preq->rq_host);
+	sprintf(log_buffer, msg_shutdown_op, preq->rq_user, preq->rq_host);
 	log_event(PBSEVENT_SYSTEM|PBSEVENT_ADMIN|PBSEVENT_DEBUG,
 		PBS_EVENTCLASS_SERVER, LOG_NOTICE, msg_daemonname, log_buffer);
 

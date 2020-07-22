@@ -132,7 +132,7 @@ req_movejob(struct batch_request *req)
 			jobp->ji_qs.ji_state != JOB_STATE_HELD &&
 			jobp->ji_qs.ji_state != JOB_STATE_WAITING) {
 #ifndef NDEBUG
-		(void)sprintf(log_buffer, "(%s) %s, state=%d",
+		sprintf(log_buffer, "(%s) %s, state=%d",
 			__func__, msg_badstate, jobp->ji_qs.ji_state);
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 			jobp->ji_qs.ji_jobid, log_buffer);
@@ -159,7 +159,7 @@ req_movejob(struct batch_request *req)
 	switch (svr_movejob(jobp, req->rq_ind.rq_move.rq_destin, req)) {
 		case 0:			/* success */
 			(void)strcpy(log_buffer, msg_movejob);
-			(void)sprintf(log_buffer+strlen(log_buffer),
+			sprintf(log_buffer+strlen(log_buffer),
 				msg_manager, req->rq_ind.rq_move.rq_destin,
 				req->rq_user, req->rq_host);
 			log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
@@ -213,7 +213,7 @@ req_orderjob(struct batch_request *req)
 		((pjob = pjob1)->ji_qs.ji_state == JOB_STATE_BEGUN)   ||
 		((pjob = pjob2)->ji_qs.ji_state == JOB_STATE_BEGUN)) {
 #ifndef NDEBUG
-		(void)sprintf(log_buffer, "(%s) %s, state=%d",
+		sprintf(log_buffer, "(%s) %s, state=%d",
 			__func__, msg_badstate, pjob->ji_qs.ji_state);
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 			pjob->ji_qs.ji_jobid, log_buffer);

@@ -217,7 +217,7 @@ encode_time(const attribute *attr, pbs_list_head *phead, char *atname, char *rsn
 	sec = n % 60;
 
 	pv = cvnbuf;
-	(void)sprintf(pv, "%02lu:%02u:%02u", hr, min, sec);
+	sprintf(pv, "%02lu:%02u:%02u", hr, min, sec);
 	pv += strlen(pv);
 
 	ct = strlen(cvnbuf) + 1;

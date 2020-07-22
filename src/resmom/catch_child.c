@@ -2310,10 +2310,10 @@ del_job_resc(job *pjob)
 	if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) {
 		char	file[MAXPATHLEN+1];
 #ifdef WIN32
-		(void)sprintf(file, "%s/auxiliary/%s",
+		sprintf(file, "%s/auxiliary/%s",
 			pbs_conf.pbs_home_path, pjob->ji_qs.ji_jobid);
 #else
-		(void)sprintf(file, "%s/aux/%s",
+		sprintf(file, "%s/aux/%s",
 			pbs_conf.pbs_home_path, pjob->ji_qs.ji_jobid);
 #endif
 		(void)unlink(file);

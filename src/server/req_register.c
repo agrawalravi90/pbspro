@@ -444,7 +444,7 @@ req_register(struct batch_request *preq)
 						if (pdj) {
 							del_depend_job(pdj);
 							pattr->at_flags |= ATR_MOD_MCACHE;
-							(void)sprintf(log_buffer, msg_registerrel,
+							sprintf(log_buffer, msg_registerrel,
 								preq->rq_ind.rq_register.rq_child);
 							log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
 								LOG_INFO,
@@ -500,7 +500,7 @@ req_register(struct batch_request *preq)
 			break;
 
 		case JOB_DEPEND_OP_DELETE:
-			(void)sprintf(log_buffer, msg_registerdel,
+			sprintf(log_buffer, msg_registerdel,
 				preq->rq_ind.rq_register.rq_child);
 			log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 				pjob->ji_qs.ji_jobid, log_buffer);

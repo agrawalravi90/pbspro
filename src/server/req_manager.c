@@ -1177,7 +1177,7 @@ struct batch_request *preq;
 
 		if ((badattr = check_que_attr(pque)) != NULL) {
 			/* miss match, issue warning */
-			(void)sprintf(log_buffer, msg_attrtype, pque->qu_qs.qu_name, badattr);
+			sprintf(log_buffer, msg_attrtype, pque->qu_qs.qu_name, badattr);
 			(void)reply_text(preq, PBSE_ATTRTYPE, log_buffer);
 		} else {
 			reply_ack(preq);
@@ -1829,7 +1829,7 @@ mgr_queue_set(struct batch_request *preq)
 		pque = (pbs_queue *)GET_NEXT(svr_queues);
 	while (pque) {
 		if ((badattr = check_que_attr(pque)) != NULL) {
-			(void)sprintf(log_buffer, msg_attrtype, pque->qu_qs.qu_name, badattr);
+			sprintf(log_buffer, msg_attrtype, pque->qu_qs.qu_name, badattr);
 			(void)reply_text(preq, PBSE_ATTRTYPE, log_buffer);
 			return;
 		}
@@ -4723,7 +4723,7 @@ manager_oper_chk(attribute *pattr, void *pobject, int actmode)
 			if (get_fullhostname(entry, hostname, (sizeof(hostname) - 1)) ||
 				strncasecmp(entry, hostname, (sizeof(hostname) - 1))) {
 					if (actmode == ATR_ACTION_RECOV) {
-						(void)sprintf(log_buffer, "bad entry in acl: %s",
+						sprintf(log_buffer, "bad entry in acl: %s",
 							pstr->as_string[i]);
 						log_err(PBSE_BADHOST, "manager_oper_chk",
 							log_buffer);

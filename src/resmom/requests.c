@@ -1117,7 +1117,7 @@ req_modifyjob(struct batch_request *preq)
 	}
 
 	(void)job_save(pjob);
-	(void)sprintf(log_buffer, msg_manager, msg_jobmod,
+	sprintf(log_buffer, msg_manager, msg_jobmod,
 		preq->rq_user, preq->rq_host);
 	log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 		pjob->ji_qs.ji_jobid, log_buffer);
@@ -2084,7 +2084,7 @@ req_signaljob(struct batch_request *preq)
 			(pjob->ji_qs.ji_substate == JOB_SUBSTATE_TERM)) {
 			/* No procs found, force job to exiting */
 			/* force issue of (another) job obit */
-			(void)sprintf(log_buffer,
+			sprintf(log_buffer,
 				"Job recycled into exiting on signal from substate %d",
 				pjob->ji_qs.ji_substate);
 			log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB, LOG_INFO,

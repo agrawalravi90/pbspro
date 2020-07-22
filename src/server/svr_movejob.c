@@ -318,7 +318,7 @@ post_routejob(struct work_task *pwt)
 		r = WEXITSTATUS(stat);
 	} else {
 		r = SEND_JOB_FATAL;
-		(void)sprintf(log_buffer, msg_badexit, stat);
+		sprintf(log_buffer, msg_badexit, stat);
 		(void)strcat(log_buffer, __func__);
 		log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_JOB, LOG_NOTICE,
 			jobp->ji_qs.ji_jobid, log_buffer);
@@ -413,7 +413,7 @@ post_movejob(struct work_task *pwt)
 			if (jobp->ji_qs.ji_svrflags & JOB_SVFLG_StagedIn)
 				remove_stagein(jobp);
 			(void)strcpy(log_buffer, msg_movejob);
-			(void)sprintf(log_buffer+strlen(log_buffer),
+			sprintf(log_buffer+strlen(log_buffer),
 				msg_manager,
 				req->rq_ind.rq_move.rq_destin,
 				req->rq_user, req->rq_host);
@@ -431,7 +431,7 @@ post_movejob(struct work_task *pwt)
 			r = PBSE_ROUTEREJ;
 	} else {
 		r = PBSE_SYSTEM;
-		(void)sprintf(log_buffer, msg_badexit, stat);
+		sprintf(log_buffer, msg_badexit, stat);
 		(void)strcat(log_buffer, __func__);
 		log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_JOB, LOG_NOTICE,
 			jobp->ji_qs.ji_jobid, log_buffer);
@@ -867,7 +867,7 @@ send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
 					err = pbs_errno;
 
 					reject_msg = pbs_geterrmsg(con);
-					(void)sprintf(log_buffer, "send of job to %s failed error = %d reject_msg=%s", destin, err, reject_msg ? reject_msg : "");
+					sprintf(log_buffer, "send of job to %s failed error = %d reject_msg=%s", destin, err, reject_msg ? reject_msg : "");
 					log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO, jobp->ji_qs.ji_jobid, log_buffer);
 
 					(void)strcpy(name_buf, path_hooks_workdir);
@@ -899,7 +899,7 @@ send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
 						exit(SEND_JOB_HOOK_REJECT_DELETEJOB);
 				}
 				else {
-					(void)sprintf(log_buffer, "send of job to %s failed error = %d", destin, pbs_errno);
+					sprintf(log_buffer, "send of job to %s failed error = %d", destin, pbs_errno);
 					log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO, jobp->ji_qs.ji_jobid, log_buffer);
 					continue;
 				}
@@ -953,7 +953,7 @@ send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
 	} else {
 		i = SEND_JOB_RETRY;
 	}
-	(void)sprintf(log_buffer, "send_job failed with error %d", pbs_errno);
+	sprintf(log_buffer, "send_job failed with error %d", pbs_errno);
 	log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_NOTICE, jobp->ji_qs.ji_jobid, log_buffer);
 
 	/* delete the temp script file */

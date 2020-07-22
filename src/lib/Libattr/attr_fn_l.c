@@ -153,7 +153,7 @@ encode_l(const attribute *attr, pbs_list_head *phead, char *atname, char *rsname
 	if (!(attr->at_flags & ATR_VFLAG_SET))
 		return (0);
 
-	(void)sprintf(cvnbuf, "%ld", attr->at_val.at_long);
+	sprintf(cvnbuf, "%ld", attr->at_val.at_long);
 	ct = strlen(cvnbuf) + 1;
 
 	pal = attrlist_create(atname, rsname, ct);

@@ -81,7 +81,7 @@ process_opts(int argc, char **argv, struct attrl **attrp, char *dest)
 			case 'E':
 				t = cvtdate(optarg);
 				if (t >= 0) {
-					(void)sprintf(time_buf, "%ld", (long)t);
+					sprintf(time_buf, "%ld", (long)t);
 					set_attr_error_exit(&attrib, ATTR_resv_end, time_buf);
 					dtend = t;
 				} else {
@@ -115,7 +115,7 @@ process_opts(int argc, char **argv, struct attrl **attrp, char *dest)
 			case 'R':
 				t = cvtdate(optarg);
 				if (t >= 0) {
-					(void)sprintf(time_buf, "%ld", (long)t);
+					sprintf(time_buf, "%ld", (long)t);
 					set_attr_error_exit(&attrib, ATTR_resv_start, time_buf);
 					dtstart = t;
 				} else {

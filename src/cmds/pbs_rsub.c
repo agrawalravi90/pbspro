@@ -115,7 +115,7 @@ process_opts(int argc, char **argv, struct attrl **attrp, char *dest)
 				opt_re_flg = TRUE;
 				t = cvtdate(optarg);
 				if (t >= 0) {
-					(void)sprintf(time_buf, "%ld", (long)t);
+					sprintf(time_buf, "%ld", (long)t);
 					set_attr_error_exit(&attrib, ATTR_resv_end, time_buf);
 					dtend = t;
 				}
@@ -182,7 +182,7 @@ process_opts(int argc, char **argv, struct attrl **attrp, char *dest)
 				opt_re_flg = TRUE;
 				t = cvtdate(optarg);
 				if (t >= 0) {
-					(void)sprintf(time_buf, "%ld", (long)t);
+					sprintf(time_buf, "%ld", (long)t);
 					set_attr_error_exit(&attrib, ATTR_resv_start, time_buf);
 					dtstart = t;
 				}
@@ -588,7 +588,7 @@ cnvrt_proc_attrib(int connect, struct attrl **attrp, char *dest)
 			cmd_attr = cmd_attr->next;
 	}
 
-	(void)sprintf(time_buf, "%ld", PBS_RESV_FUTURE_SCH);
+	sprintf(time_buf, "%ld", PBS_RESV_FUTURE_SCH);
 	set_attr_error_exit(&attrib, ATTR_resv_start, time_buf);
 	*attrp = attrib;
 

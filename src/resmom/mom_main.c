@@ -2955,7 +2955,7 @@ do_mom_action_script(int	ae,	/* index into action table */
 			pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
 			job_save(pjob);
 		}
-		(void)sprintf(log_buffer, "task transmogrified, %s", cmd_line);
+		sprintf(log_buffer, "task transmogrified, %s", cmd_line);
 		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, log_buffer);
 
@@ -3932,7 +3932,7 @@ set_alps_client(char *value)
 	if (alps_client)
 		free(alps_client);
 	alps_client = p;
-	(void)sprintf(log_buffer, "%s %s",
+	sprintf(log_buffer, "%s %s",
 		"alps_client now set to", alps_client);
 	log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_NOTICE,
 		__func__, log_buffer);
@@ -4152,7 +4152,7 @@ set_checkpoint_path(char *value)
 	}
 #endif	/* !DEBUG && !NO_SECURITY_CHECK */
 	if (rc == 0) {
-		(void)sprintf(log_buffer, "%s %s",
+		sprintf(log_buffer, "%s %s",
 			"Setting checkpoint path to", newpath);
 		log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_NOTICE,
 			__func__, log_buffer);
@@ -4161,7 +4161,7 @@ set_checkpoint_path(char *value)
 			path_checkpoint = path_checkpoint_buf;
 		return HANDLER_SUCCESS;	/* success */
 	}
-	(void)sprintf(log_buffer, "%s %s",
+	sprintf(log_buffer, "%s %s",
 		"Error encountered setting checkpoint path to", newpath);
 	log_err(rc, __func__, log_buffer);
 	return HANDLER_FAIL;		/* error */
@@ -8896,7 +8896,7 @@ main(int argc, char *argv[])
 		errno = WSAGetLastError();
 #endif
 		c = errno;
-		(void)sprintf(log_buffer,
+		sprintf(log_buffer,
 			"server port = %u, errno = %d",
 			pbs_mom_port, c);
 #ifdef	WIN32
@@ -8923,7 +8923,7 @@ main(int argc, char *argv[])
 		errno = WSAGetLastError();
 #endif
 		c = errno;
-		(void)sprintf(log_buffer,
+		sprintf(log_buffer,
 			"resource (tcp) port = %u, errno = %d",
 			pbs_rm_port, c);
 #ifdef	WIN32
@@ -8983,7 +8983,7 @@ main(int argc, char *argv[])
 
 	mom_pid = (pid_t)getpid();
 	(void)lseek(lockfds, (off_t)0, SEEK_SET);
-	(void)sprintf(log_buffer, "%d\n", mom_pid);
+	sprintf(log_buffer, "%d\n", mom_pid);
 	(void)write(lockfds, log_buffer, strlen(log_buffer));
 
 #else /* ! WIN32 ------------------------------------------------------------*/
@@ -9031,7 +9031,7 @@ main(int argc, char *argv[])
 #else
 	(void)ftruncate(lockfds, (off_t)0);
 #endif
-	(void)sprintf(log_buffer, "%d\n", mom_pid);
+	sprintf(log_buffer, "%d\n", mom_pid);
 	(void)write(lockfds, log_buffer, strlen(log_buffer));
 
 	daemon_protect(0, PBS_DAEMON_PROTECT_ON);
@@ -9197,7 +9197,7 @@ main(int argc, char *argv[])
 	if (init_network_add(sock_bind_mom, NULL, process_request) != 0) {
 
 		c = ERRORNO;
-		(void)sprintf(log_buffer,
+		sprintf(log_buffer,
 			"server port = %u, errno = %d",
 			pbs_mom_port, c);
 
@@ -9217,7 +9217,7 @@ main(int argc, char *argv[])
 	if (init_network_add(sock_bind_rm, NULL, tcp_request) != 0) {
 
 		c = ERRORNO;
-		(void)sprintf(log_buffer,
+		sprintf(log_buffer,
 			"resource (tcp) port = %u, errno = %d",
 			pbs_rm_port, c);
 
@@ -9304,7 +9304,7 @@ main(int argc, char *argv[])
 			/* Skip the sleep() if this is the last try. */
 			if (i >= (MAX_CHECKPOINT_DIR_RETRIES - 1))
 				break;
-			(void)sprintf(log_buffer, "%s %s %s %s",
+			sprintf(log_buffer, "%s %s %s %s",
 				"PBS checkpoint directory",
 				path_checkpoint?path_checkpoint:"NULL",
 				"does not exist or is not NFS mounted.",
@@ -9326,7 +9326,7 @@ main(int argc, char *argv[])
 		break;
 	}
 	if (c == 0) {
-		(void)sprintf(log_buffer, "%s %s %s %d %s",
+		sprintf(log_buffer, "%s %s %s %d %s",
 			"Error configuring PBS checkpoint directory",
 			path_checkpoint, "; Giving up after", i, "attempts.");
 		log_err(errno, msg_daemonname, log_buffer);
@@ -9500,7 +9500,7 @@ main(int argc, char *argv[])
 		WINSTA_ALL_ACCESS, NULL);
 
 	if (pbs_winsta == NULL) {
-		(void)sprintf(log_buffer, "CreateWindowStation failed! error=%d",
+		sprintf(log_buffer, "CreateWindowStation failed! error=%d",
 			GetLastError());
 		log_err(errno, msg_daemonname, log_buffer);
 		g_dwCurrentState = SERVICE_STOPPED;
@@ -9531,7 +9531,7 @@ main(int argc, char *argv[])
 		DESKTOP_SWITCHDESKTOP, NULL);
 
 	if (pbs_desktop == NULL) {
-		(void)sprintf(log_buffer, "CreateDesktop failed! error=%d",
+		sprintf(log_buffer, "CreateDesktop failed! error=%d",
 			GetLastError());
 		log_err(errno, msg_daemonname, log_buffer);
 		g_dwCurrentState = SERVICE_STOPPED;
@@ -9568,10 +9568,10 @@ main(int argc, char *argv[])
 		NULL,  NULL, 0, 0);
 
 	/* record the fact that we are up and running */
-	(void)sprintf(log_buffer, msg_startup1, PBS_VERSION, recover);
+	sprintf(log_buffer, msg_startup1, PBS_VERSION, recover);
 	log_event(PBSEVENT_SYSTEM | PBSEVENT_ADMIN | PBSEVENT_FORCE,
 		LOG_NOTICE, PBS_EVENTCLASS_SERVER, msg_daemonname, log_buffer);
-	(void)sprintf(log_buffer,
+	sprintf(log_buffer,
 		"Mom pid = %d ready, using ports Server:%d MOM:%d RM:%d",
 		mom_pid, default_server_port, pbs_mom_port, pbs_rm_port);
 	log_event(PBSEVENT_SYSTEM | PBSEVENT_FORCE, PBS_EVENTCLASS_SERVER,
@@ -9904,7 +9904,7 @@ main(int argc, char *argv[])
 				continue;
 
 			/* getting here means something bad happened */
-			(void)sprintf(log_buffer,
+			sprintf(log_buffer,
 				"Checkpoint failed, error %d", c);
 			(void)message_job(pjob, StdErr, log_buffer);
 			log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_NOTICE,
@@ -10021,7 +10021,7 @@ main(int argc, char *argv[])
 							} else {
 								ipaddr = ap->sin_addr.s_addr;
 								if ((fd = open_demux(ipaddr, pjob->ji_stderr)) == -1) {
-									(void)sprintf(log_buffer,
+									sprintf(log_buffer,
 										"over_limit_message: cannot write to job stderr because open_demux failed");
 									log_event(PBSEVENT_JOB | PBSEVENT_FORCE,
 										PBS_EVENTCLASS_JOB, LOG_INFO,

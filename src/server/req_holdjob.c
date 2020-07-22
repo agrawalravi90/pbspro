@@ -211,10 +211,10 @@ req_holdjob(struct batch_request *preq)
 	now = time(NULL);
 	(void)strncpy(date, (const char *)ctime(&now), 24);
 	date[24] = '\0';
-	(void)sprintf(log_buffer, "Job held by %s on %s", preq->rq_user, date);
+	sprintf(log_buffer, "Job held by %s on %s", preq->rq_user, date);
 	job_attr_def[(int)JOB_ATR_Comment].at_decode(&pjob->ji_wattr[(int)JOB_ATR_Comment], NULL, NULL, log_buffer);
 
-	(void)sprintf(log_buffer, msg_jobholdset, pset, preq->rq_user,
+	sprintf(log_buffer, msg_jobholdset, pset, preq->rq_user,
 		preq->rq_host);
 
 	if ((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) &&
@@ -353,7 +353,7 @@ req_releasejob(struct batch_request *preq)
 				}
 				if (psubjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long == HOLD_n)
 					job_attr_def[(int)JOB_ATR_Comment].at_free(&psubjob->ji_wattr[(int)JOB_ATR_Comment]);
-				(void)sprintf(log_buffer, msg_jobholdrel, pset, preq->rq_user,
+				sprintf(log_buffer, msg_jobholdrel, pset, preq->rq_user,
 					preq->rq_host);
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 					psubjob->ji_qs.ji_jobid, log_buffer);
@@ -371,7 +371,7 @@ req_releasejob(struct batch_request *preq)
 		} else
 			job_attr_def[(int)JOB_ATR_Comment].at_free(&pjob->ji_wattr[(int)JOB_ATR_Comment]);
 	}
-	(void)sprintf(log_buffer, msg_jobholdrel, pset, preq->rq_user,
+	sprintf(log_buffer, msg_jobholdrel, pset, preq->rq_user,
 		preq->rq_host);
 	log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 		pjob->ji_qs.ji_jobid, log_buffer);
@@ -487,7 +487,7 @@ post_hold(struct work_task *pwt)
 		pjob->ji_qs.ji_svrflags &= ~(JOB_SVFLG_HASHOLD | JOB_SVFLG_CHKPT);
 		if (code != PBSE_NOSUP) {
 			/* a "real" error - log message with return error code */
-			(void)sprintf(log_buffer, msg_mombadhold, code);
+			sprintf(log_buffer, msg_mombadhold, code);
 			log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 				pjob->ji_qs.ji_jobid, log_buffer);
 			/* send message back to server for display to user */

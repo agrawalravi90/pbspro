@@ -759,7 +759,7 @@ acct_resv(resc_resv *presv, char *buf, int len)
 	if (i > len)
 		if (grow_acct_buf(&pb, &len, i) == -1)
 			return (pb);
-	(void)sprintf(pb, "owner=%s ",
+	sprintf(pb, "owner=%s ",
 		presv->ri_wattr[RESV_ATR_resv_owner].at_val.at_str);
 	i = strlen(pb);
 	pb  += i;
@@ -771,7 +771,7 @@ acct_resv(resc_resv *presv, char *buf, int len)
 		if (i > len)
 			if (grow_acct_buf(&pb, &len, i) == -1)
 				return (pb);
-		(void)sprintf(pb, "name=%s ",
+		sprintf(pb, "name=%s ",
 			presv->ri_wattr[RESV_ATR_resv_name].at_val.at_str);
 		i = strlen(pb);
 		pb  += i;
@@ -784,7 +784,7 @@ acct_resv(resc_resv *presv, char *buf, int len)
 		if (i > len)
 			if (grow_acct_buf(&pb, &len, i) == -1)
 				return (pb);
-		(void)sprintf(pb, "account=%s ",
+		sprintf(pb, "account=%s ",
 			presv->ri_wattr[RESV_ATR_account].at_val.at_str);
 		i = strlen(pb);
 		pb  += i;
@@ -810,26 +810,26 @@ acct_resv(resc_resv *presv, char *buf, int len)
 			return (pb);
 
 	/* create time */
-	(void)sprintf(pb, "ctime=%ld ",
+	sprintf(pb, "ctime=%ld ",
 		presv->ri_wattr[RESV_ATR_ctime].at_val.at_long);
 	i = strlen(pb);
 	pb  += i;
 	len -= i;
 
 	/* reservation start time */
-	(void)sprintf(pb, "start=%ld ", (long)presv->ri_qs.ri_stime);
+	sprintf(pb, "start=%ld ", (long)presv->ri_qs.ri_stime);
 	i = strlen(pb);
 	pb  += i;
 	len -= i;
 
 	/* reservation end time */
-	(void)sprintf(pb, "end=%ld ", (long)presv->ri_qs.ri_etime);
+	sprintf(pb, "end=%ld ", (long)presv->ri_qs.ri_etime);
 	i = strlen(pb);
 	pb  += i;
 	len -= i;
 
 	/* reservation duration time */
-	(void)sprintf(pb, "duration=%ld ", (long)presv->ri_qs.ri_duration);
+	sprintf(pb, "duration=%ld ", (long)presv->ri_qs.ri_duration);
 	i = strlen(pb);
 	pb  += i;
 	len -= i;
@@ -840,7 +840,7 @@ acct_resv(resc_resv *presv, char *buf, int len)
 		if (i > len)
 			if (grow_acct_buf(&pb, &len, i) == -1)
 				return (pb);
-		(void)sprintf(pb, "nodes=%s ",
+		sprintf(pb, "nodes=%s ",
 			presv->ri_wattr[RESV_ATR_resv_nodes].at_val.at_str);
 		i = strlen(pb);
 		pb  += i;
@@ -948,7 +948,7 @@ acct_open(char *filename)
 	if (filename == NULL) {	/* go with default */
 		now = time(0);
 		ptm = localtime(&now);
-		(void)sprintf(filen, "%s%04d%02d%02d",
+		sprintf(filen, "%s%04d%02d%02d",
 			path_acct,
 			ptm->tm_year+1900, ptm->tm_mon+1, ptm->tm_mday);
 		filename = filen;
@@ -971,7 +971,7 @@ acct_open(char *filename)
 
 	acctfile = newacct;
 	acct_opened = 1;			/* note that file is open */
-	(void)sprintf(logmsg, "Account file %s opened", filename);
+	sprintf(logmsg, "Account file %s opened", filename);
 	log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_INFO,
 		"Act", logmsg);
 
@@ -1217,7 +1217,7 @@ account_jobend(job *pjob, char *used, int type)
 	if (i > len)
 		if (grow_acct_buf(&pb, &len, i) == -1)
 			goto writeit;
-	(void)sprintf(pb, "session=%ld",
+	sprintf(pb, "session=%ld",
 		pjob->ji_wattr[JOB_ATR_session_id].at_val.at_long);
 	i = strlen(pb);
 	pb  += i;
@@ -1231,7 +1231,7 @@ account_jobend(job *pjob, char *used, int type)
 			if (grow_acct_buf(&pb, &len, i) == -1)
 				goto writeit;
 
-		(void)sprintf(pb, " alt_id=%s",
+		sprintf(pb, " alt_id=%s",
 			pjob->ji_wattr[JOB_ATR_altid].at_val.at_str);
 
 		i = strlen(pb);
@@ -1244,7 +1244,7 @@ account_jobend(job *pjob, char *used, int type)
 	if (i > len)
 		if (grow_acct_buf(&pb, &len, i) == -1)
 			goto writeit;
-	(void)sprintf(pb, " end=%ld", (long)time_now);
+	sprintf(pb, " end=%ld", (long)time_now);
 	i = strlen(pb);
 	pb  += i;
 	len -= i;
@@ -1300,7 +1300,7 @@ account_jobend(job *pjob, char *used, int type)
 				goto writeit;
 
 		convert_duration_to_str(pjob->ji_wattr[JOB_ATR_eligible_time].at_val.at_long, timebuf, TIMEBUF_SIZE);
-		(void)sprintf(pb, " eligible_time=%s", timebuf);
+		sprintf(pb, " eligible_time=%s", timebuf);
 		i = strlen(pb);
 		pb  += i;
 		len -= i;
@@ -1384,7 +1384,7 @@ common_acct_job(job *pjob, char *buf, int len)
 		if (grow_acct_buf(&pb, &len, nd) == -1)
 			return (pb);
 
-	(void)sprintf(pb, "user=%s ",
+	sprintf(pb, "user=%s ",
 		pjob->ji_wattr[JOB_ATR_euser].at_val.at_str);
 
 	i = strlen(pb);
@@ -1397,7 +1397,7 @@ common_acct_job(job *pjob, char *buf, int len)
 		if (grow_acct_buf(&pb, &len, nd) == -1)
 			return (pb);
 
-	(void)sprintf(pb, "group=%s ",
+	sprintf(pb, "group=%s ",
 		pjob->ji_wattr[JOB_ATR_egroup].at_val.at_str);
 
 	i = strlen(pb);
@@ -1409,7 +1409,7 @@ common_acct_job(job *pjob, char *buf, int len)
 	if (nd > len)
 		if (grow_acct_buf(&pb, &len, nd) == -1)
 			return (pb);
-	(void)sprintf(pb, "jobname=%s ",
+	sprintf(pb, "jobname=%s ",
 		pjob->ji_wattr[JOB_ATR_jobname].at_val.at_str);
 	i = strlen(pb);
 	pb  += i;
@@ -1420,7 +1420,7 @@ common_acct_job(job *pjob, char *buf, int len)
 	if (nd > len)
 		if (grow_acct_buf(&pb, &len, nd) == -1)
 			return (pb);
-	(void)sprintf(pb, "queue=%s ", pjob->ji_qhdr->qu_qs.qu_name);
+	sprintf(pb, "queue=%s ", pjob->ji_qhdr->qu_qs.qu_name);
 
 	return (pb);
 }
@@ -1468,7 +1468,7 @@ set_job_ProvAcctRcd(job *pjob, long time_se, int type)
 #ifdef NAS /* localmod 136 */
 	if (pjob->ji_wattr[JOB_ATR_prov_vnode].at_val.at_str == NULL) {
 		char  logmsg[1024];
-		(void)sprintf(logmsg, "prov_vnode is NULL for job %s", pjob->ji_wattr[JOB_ATR_hashname].at_val.at_str);
+		sprintf(logmsg, "prov_vnode is NULL for job %s", pjob->ji_wattr[JOB_ATR_hashname].at_val.at_str);
 		log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, LOG_INFO, "Bug", logmsg);
 
 		return;
@@ -1478,7 +1478,7 @@ set_job_ProvAcctRcd(job *pjob, long time_se, int type)
 	if (nd > len)
 		if (grow_acct_buf(&pb, &len, nd) == -1)
 			return;
-	(void)sprintf(pb, "provision_vnode=%s ",
+	sprintf(pb, "provision_vnode=%s ",
 		pjob->ji_wattr[JOB_ATR_prov_vnode].at_val.at_str);
 	i = strlen(pb);
 	pb  += i;
@@ -1490,7 +1490,7 @@ set_job_ProvAcctRcd(job *pjob, long time_se, int type)
 			if (nd > len)
 				if (grow_acct_buf(&pb, &len, nd) == -1)
 					return;
-			(void)sprintf(pb, "provision_event=START start_time=%ld", time_se);
+			sprintf(pb, "provision_event=START start_time=%ld", time_se);
 			acct_buf[acct_bufsize-1] = '\0';
 			account_record(PBS_ACCT_PROV_START, pjob, acct_buf);
 			break;
@@ -1501,7 +1501,7 @@ set_job_ProvAcctRcd(job *pjob, long time_se, int type)
 				if (grow_acct_buf(&pb, &len, nd) == -1)
 					return;
 
-			(void)sprintf(pb, "provision_event=END status=%s end_time=%ld",
+			sprintf(pb, "provision_event=END status=%s end_time=%ld",
 				(type==2)?"SUCCESS":"FAILURE", time_se);
 			acct_buf[acct_bufsize-1] = '\0';
 			account_record(PBS_ACCT_PROV_END, pjob, acct_buf);

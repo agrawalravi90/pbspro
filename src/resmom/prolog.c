@@ -611,7 +611,7 @@ int   pe_io_type;
 
 		if (which == PE_EPILOGUE) {
 			arg[4] = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
-			(void)sprintf(sid, "%ld", pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long);
+			sprintf(sid, "%ld", pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long);
 			arg[5] = sid;
 			arg[6] = resc_to_string(&pjob->ji_wattr[(int)JOB_ATR_resource], resc_list, 2048);
 			arg[7] = resc_to_string(&pjob->ji_wattr[(int)JOB_ATR_resc_used], resc_used, 2048);

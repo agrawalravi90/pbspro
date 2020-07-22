@@ -1006,7 +1006,7 @@ mgr_hook_delete(struct batch_request *preq)
 	} else {
 		hook_purge(phook, pbs_python_ext_free_python_script);
 
-		(void)sprintf(log_buffer, msg_manager, msg_man_del,
+		sprintf(log_buffer, msg_manager, msg_man_del,
 			preq->rq_user, preq->rq_host);
 
 		log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_HOOK, LOG_INFO,
@@ -2676,7 +2676,7 @@ set_hold_types(job *pjob, char *new_hold_types_str,
 		/* Note the hold time in the job comment. */
 		now = time(NULL);
 		snprintf(date, sizeof(date), "%s", (const char *)ctime(&now));
-		(void)sprintf(buf, "Job held by '%s' hook on %s",
+		sprintf(buf, "Job held by '%s' hook on %s",
 			hook_name, date);
 		job_attr_def[(int)JOB_ATR_Comment].at_decode(
 			&pjob->ji_wattr[(int)JOB_ATR_Comment],
@@ -6625,7 +6625,7 @@ get_server_hook_results(char *input_file, int *accept_flag, int *reject_flag, ch
 			valln = (int)strlen(data_value) + 1;
 			plist = attrlist_create(name_str, resc_str, valln);
 			if (plist == NULL) {
-				(void)sprintf(log_buffer,"failed to add svrattrl list %s.%s.%s:%s",
+				sprintf(log_buffer,"failed to add svrattrl list %s.%s.%s:%s",
 						vname_str,name_str,resc_str,data_value);
 				log_event(PBSEVENT_SYSTEM | PBSEVENT_FORCE, PBS_EVENTCLASS_SERVER,
 					LOG_NOTICE, msg_daemonname, log_buffer);

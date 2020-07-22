@@ -409,10 +409,10 @@ req_quejob(struct batch_request *preq)
 		}
 		created_here = JOB_SVFLG_HERE;
 		if (i == 0) {	/* Normal job */
-			(void)sprintf(jidbuf, "%lld.%s",
+			sprintf(jidbuf, "%lld.%s",
 				next_svr_sequence_id, server_name);
 		} else {	/* Array Job */
-			(void)sprintf(jidbuf, "%lld[].%s",
+			sprintf(jidbuf, "%lld[].%s",
 					next_svr_sequence_id, server_name);
 		}
 		jid = jidbuf;
@@ -2744,7 +2744,7 @@ get_queue_for_reservation(resc_resv *presv)
 
 	newreq = alloc_br(PBS_BATCH_Manager);
 	if (newreq == NULL) {
-		(void)sprintf(log_buffer, "batch request allocation failed");
+		sprintf(log_buffer, "batch request allocation failed");
 		log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_RESV, LOG_ERR,
 			presv->ri_qs.ri_resvID, log_buffer);
 		return  (PBSE_SYSTEM);
@@ -2940,7 +2940,7 @@ get_queue_for_reservation(resc_resv *presv)
 		handle_qmgr_reply_to_resvQcreate, &pwt, 0) == -1) {
 		free_br(newreq);
 
-		(void)sprintf(log_buffer, "%s", msg_resvQcreateFail);
+		sprintf(log_buffer, "%s", msg_resvQcreateFail);
 		log_event(PBSEVENT_RESV, PBS_EVENTCLASS_RESV, LOG_ERR,
 			presv->ri_qs.ri_resvID, log_buffer);
 
@@ -3067,7 +3067,7 @@ handle_qmgr_reply_to_resvQcreate(struct work_task *pwt)
 
 	if (preq->rq_reply.brp_code) {
 
-		(void)sprintf(log_buffer, msg_resvQcreateFail,
+		sprintf(log_buffer, msg_resvQcreateFail,
 			presv->ri_jbp->ji_qs.ji_jobid,
 			presv->ri_qs.ri_resvID);
 		log_event(PBSEVENT_RESV, PBS_EVENTCLASS_RESV, LOG_INFO,

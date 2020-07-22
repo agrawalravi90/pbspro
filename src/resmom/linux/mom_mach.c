@@ -6575,7 +6575,7 @@ void
 mom_nice(void)
 {
 	if ((nice_val != 0) && (setpriority(PRIO_PROCESS, 0, nice_val) == -1)) {
-		(void)sprintf(log_buffer, "failed to nice(%d) mom", nice_val);
+		sprintf(log_buffer, "failed to nice(%d) mom", nice_val);
 		log_err(errno, __func__, log_buffer);
 	}
 }
@@ -6591,7 +6591,7 @@ void
 mom_unnice(void)
 {
 	if ((nice_val != 0) && (setpriority(PRIO_PROCESS, 0, 0) == -1)) {
-		(void)sprintf(log_buffer, "failed to nice(%d) mom", nice_val);
+		sprintf(log_buffer, "failed to nice(%d) mom", nice_val);
 		log_err(errno, __func__, log_buffer);
 	}
 }

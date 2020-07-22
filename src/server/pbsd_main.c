@@ -974,7 +974,7 @@ main(int argc, char **argv)
 
 	/* make sure no other server is running with this home directory */
 
-	(void)sprintf(lockfile, "%s/%s/server.lock", pbs_conf.pbs_home_path,
+	sprintf(lockfile, "%s/%s/server.lock", pbs_conf.pbs_home_path,
 		PBS_SVR_PRIVATE);
 	if ((are_primary = are_we_primary()) == FAILOVER_SECONDARY) {
 		strcat(lockfile, ".secondary");
@@ -989,7 +989,7 @@ main(int argc, char **argv)
 	if ((lockfds = open(lockfile, O_CREAT | O_WRONLY, 0600)) < 0)
 #endif /* localmod 104 */
 	{
-		(void)sprintf(log_buffer, "%s: unable to open lock file",
+		sprintf(log_buffer, "%s: unable to open lock file",
 			msg_daemonname);
 		(void)fprintf(stderr, "%s\n", log_buffer);
 		log_err(errno, msg_daemonname, log_buffer);
@@ -1067,10 +1067,10 @@ main(int argc, char **argv)
 	server.sv_attr[(int)SVR_ATR_log_events].at_val.at_long = PBSEVENT_MASK;
 	server.sv_attr[(int)SVR_ATR_log_events].at_flags = ATR_SET_MOD_MCACHE;
 	log_event_mask = &server.sv_attr[SVR_ATR_log_events].at_val.at_long;
-	(void)sprintf(path_log, "%s/%s", pbs_conf.pbs_home_path, PBS_LOGFILES);
+	sprintf(path_log, "%s/%s", pbs_conf.pbs_home_path, PBS_LOGFILES);
 
 	(void)log_open(log_file, path_log);
-	(void)sprintf(log_buffer, msg_startup1, PBS_VERSION, server_init_type);
+	sprintf(log_buffer, msg_startup1, PBS_VERSION, server_init_type);
 	log_event(PBSEVENT_SYSTEM | PBSEVENT_ADMIN | PBSEVENT_FORCE,
 		LOG_NOTICE,
 		PBS_EVENTCLASS_SERVER, msg_daemonname, log_buffer);
@@ -1875,7 +1875,7 @@ lock_out(int fds, int op)
 			if (op == F_WRLCK) {
 				/* if write-lock, record pid in file */
 				(void)ftruncate(fds, (off_t)0);
-				(void)sprintf(buf, "%d\n", getpid());
+				sprintf(buf, "%d\n", getpid());
 				(void)write(fds, buf, strlen(buf));
 			}
 			return;

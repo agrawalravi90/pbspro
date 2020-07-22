@@ -2785,7 +2785,7 @@ parse_sched_obj(struct batch_status *status)
 					} else {
 						/* write schedulers pid into lockfile */
 						(void)ftruncate(lockfds, (off_t)0);
-						(void)sprintf(log_buffer, "%d\n", getpid());
+						sprintf(log_buffer, "%d\n", getpid());
 						(void)write(lockfds, log_buffer, strlen(log_buffer));
 						close(lockfds);
 						log_eventf(PBSEVENT_DEBUG3, PBS_EVENTCLASS_SCHED, LOG_DEBUG, "reconfigure",

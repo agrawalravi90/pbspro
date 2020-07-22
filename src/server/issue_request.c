@@ -694,7 +694,7 @@ issue_Drequest(int conn, struct batch_request *request, void (*func)(), struct w
 			break;
 
 		default:
-			(void)sprintf(log_buffer, msg_issuebad, request->rq_type);
+			sprintf(log_buffer, msg_issuebad, request->rq_type);
 			log_err(-1, __func__, log_buffer);
 			delete_task(ptask);
 			rc = -1;

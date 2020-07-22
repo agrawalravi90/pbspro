@@ -421,7 +421,7 @@ chk_job_request(char *jobid, struct batch_request *preq, int *rc, int *err)
 	}
 
 	if (svr_authorize_jobreq(preq, pjob) == -1) {
-		(void)sprintf(log_buffer, msg_permlog, preq->rq_type,
+		sprintf(log_buffer, msg_permlog, preq->rq_type,
 			"Job", pjob->ji_qs.ji_jobid,
 			preq->rq_user, preq->rq_host);
 		log_event(PBSEVENT_SECURITY, PBS_EVENTCLASS_JOB, LOG_INFO,
@@ -441,7 +441,7 @@ chk_job_request(char *jobid, struct batch_request *preq, int *rc, int *err)
 			return (pjob);
 		}
 
-		(void)sprintf(log_buffer, "%s, state=%d", msg_badstate,
+		sprintf(log_buffer, "%s, state=%d", msg_badstate,
 			pjob->ji_qs.ji_state);
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, log_buffer);
@@ -504,7 +504,7 @@ chk_rescResv_request(char *resvID, struct batch_request *preq)
 	}
 
 	if (svr_authorize_resvReq(preq, presv) == -1) {
-		(void)sprintf(log_buffer, msg_permlog, preq->rq_type,
+		sprintf(log_buffer, msg_permlog, preq->rq_type,
 			"RESCRESV", presv->ri_qs.ri_resvID,
 			preq->rq_user, preq->rq_host);
 		log_event(PBSEVENT_SECURITY, PBS_EVENTCLASS_RESV, LOG_INFO,

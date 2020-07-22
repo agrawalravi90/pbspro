@@ -1701,7 +1701,7 @@ sys_copy(int dir, int rmtflg, char *owner, char *src, struct rqfpair *pair, int 
 
 			/* redirect stderr to make error from rcp available to MOM */
 			if ((fd = open(rcperr, O_RDWR | O_CREAT, 0644)) < 0) {
-				(void)sprintf(log_buffer, "can't open %s, error = %d",
+				sprintf(log_buffer, "can't open %s, error = %d",
 					rcperr, errno);
 				log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_FILE,
 					LOG_DEBUG, __func__, log_buffer);
@@ -2052,7 +2052,7 @@ sys_copy(int dir, int rmtflg, char *owner, char *src, struct rqfpair *pair, int 
 		}
 
 		/* copy did not work, try again */
-		(void)sprintf(log_buffer,
+		sprintf(log_buffer,
 			"command: %s %s %s %s status=%d, try=%d",
 			ag0, ag1, ag2, ag3, rc, loop);
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_FILE, LOG_DEBUG,

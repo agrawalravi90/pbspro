@@ -258,7 +258,7 @@ svr_enquejob(job *pjob)
 	/* add job to server's all job list and update server counts */
 
 #ifndef NDEBUG
-	(void)sprintf(log_buffer, "enqueuing into %s, state %x hop %ld",
+	sprintf(log_buffer, "enqueuing into %s, state %x hop %ld",
 		pque->qu_qs.qu_name, pjob->ji_qs.ji_state,
 		pjob->ji_wattr[(int)JOB_ATR_hopcount].at_val.at_long);
 	log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG,
@@ -2368,7 +2368,7 @@ eval_chkpnt(attribute *jobckp, attribute *queckp)
 			pv++;
 		jobs = atoi(pv);
 		if (jobs < queckp->at_val.at_long) {
-			(void)sprintf(queues, "%c=%ld", ckt, queckp->at_val.at_long);
+			sprintf(queues, "%c=%ld", ckt, queckp->at_val.at_long);
 			free_str(jobckp);
 			(void)decode_str(jobckp, 0, 0, queues);
 		}
@@ -2397,21 +2397,21 @@ correct_ct(pbs_queue *pqj)
 	pbs_queue *pque;
 
 
-	(void)sprintf(log_buffer, "Job state counts incorrect, server %d: ",
+	sprintf(log_buffer, "Job state counts incorrect, server %d: ",
 		server.sv_qs.sv_numjobs);
 	server.sv_qs.sv_numjobs = 0;
 	for (i=0; i<PBS_NUMJOBSTATE-4; ++i) {
 		pc = log_buffer + strlen(log_buffer);
-		(void)sprintf(pc, "%d ", server.sv_jobstates[i]);
+		sprintf(pc, "%d ", server.sv_jobstates[i]);
 		server.sv_jobstates[i] = 0;
 	}
 	if (pqj) {
 		pc = log_buffer + strlen(log_buffer);
-		(void)sprintf(pc, "; queue %s %d: ", pqj->qu_qs.qu_name,
+		sprintf(pc, "; queue %s %d: ", pqj->qu_qs.qu_name,
 			pqj->qu_numjobs);
 		for (i=0; i<PBS_NUMJOBSTATE-4; ++i) {
 			pc = log_buffer + strlen(log_buffer);
-			(void)sprintf(pc, "%d ", pqj->qu_njstate[i]);
+			sprintf(pc, "%d ", pqj->qu_njstate[i]);
 		}
 	}
 	log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, LOG_DEBUG,
@@ -3842,7 +3842,7 @@ change_enableORstart(resc_resv *presv, int which, char *value)
 
 	newreq = alloc_br(PBS_BATCH_Manager);
 	if (newreq == NULL) {
-		(void)sprintf(log_buffer, "batch request allocation failed");
+		sprintf(log_buffer, "batch request allocation failed");
 		log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_RESV, LOG_NOTICE,
 			presv->ri_qs.ri_resvID, log_buffer);
 		return  (PBSE_SYSTEM);
@@ -3883,7 +3883,7 @@ change_enableORstart(resc_resv *presv, int which, char *value)
 		handle_qmgr_reply_to_startORenable, &pwt, 0) == -1) {
 		free_br(newreq);
 
-		(void)sprintf(log_buffer, "%s", msg_internalReqFail);
+		sprintf(log_buffer, "%s", msg_internalReqFail);
 		log_event(PBSEVENT_RESV, PBS_EVENTCLASS_RESV, LOG_NOTICE,
 			presv->ri_qs.ri_resvID, log_buffer);
 
@@ -3927,7 +3927,7 @@ handle_qmgr_reply_to_startORenable(struct work_task *pwt)
 
 	if (preq->rq_reply.brp_code) {
 
-		(void)sprintf(log_buffer, "%s", msg_qEnabStartFail);
+		sprintf(log_buffer, "%s", msg_qEnabStartFail);
 		log_event(PBSEVENT_RESV, PBS_EVENTCLASS_RESV, LOG_NOTICE,
 			presv->ri_qs.ri_resvID, log_buffer);
 	}

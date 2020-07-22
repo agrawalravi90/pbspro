@@ -383,7 +383,7 @@ set_objexid(void *pobj, int objtype, attribute *attrry)
 			if (gpent != NULL) {
 				pgrpn = gpent->gr_name;		/* use group name */
 			} else {
-				(void)sprintf(gname, "%d", pwent->pw_gid);
+				sprintf(gname, "%d", pwent->pw_gid);
 				pgrpn = gname;		/* turn gid into string */
 			}
 

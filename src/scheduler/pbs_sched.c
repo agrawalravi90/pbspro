@@ -977,9 +977,9 @@ main(int argc, char *argv[])
 	}
 
 	if (dflt_sched) {
-		(void)sprintf(log_buffer, "%s/sched_priv", pbs_conf.pbs_home_path);
+		sprintf(log_buffer, "%s/sched_priv", pbs_conf.pbs_home_path);
 	} else {
-		(void)sprintf(log_buffer, "%s/sched_priv_%s", pbs_conf.pbs_home_path, sc_name);
+		sprintf(log_buffer, "%s/sched_priv_%s", pbs_conf.pbs_home_path, sc_name);
 	}
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 	c  = chk_file_sec(log_buffer, 1, 0, S_IWGRP|S_IWOTH, 1);
@@ -991,9 +991,9 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 	if (dflt_sched) {
-		(void)sprintf(path_log,   "%s/sched_logs", pbs_conf.pbs_home_path);
+		sprintf(path_log,   "%s/sched_logs", pbs_conf.pbs_home_path);
 	} else {
-		(void)sprintf(path_log,   "%s/sched_logs_%s", pbs_conf.pbs_home_path, sc_name);
+		sprintf(path_log,   "%s/sched_logs_%s", pbs_conf.pbs_home_path, sc_name);
 	}
 	if (log_open(logfile, path_log) == -1) {
 		fprintf(stderr, "%s: logfile could not be opened\n", argv[0]);
@@ -1254,7 +1254,7 @@ main(int argc, char *argv[])
 
 	/* write schedulers pid into lockfile */
 	(void)ftruncate(lockfds, (off_t)0);
-	(void)sprintf(log_buffer, "%ld\n", (long)pid);
+	sprintf(log_buffer, "%ld\n", (long)pid);
 	(void)write(lockfds, log_buffer, strlen(log_buffer));
 
 #ifdef _POSIX_MEMLOCK
@@ -1265,7 +1265,7 @@ main(int argc, char *argv[])
 	}
 #endif	/* _POSIX_MEMLOCK */
 
-	(void)sprintf(log_buffer, msg_startup1, PBS_VERSION, 0);
+	sprintf(log_buffer, msg_startup1, PBS_VERSION, 0);
 	log_event(PBSEVENT_SYSTEM | PBSEVENT_ADMIN | PBSEVENT_FORCE,
 		LOG_NOTICE, PBS_EVENTCLASS_SERVER, msg_daemonname, log_buffer);
 

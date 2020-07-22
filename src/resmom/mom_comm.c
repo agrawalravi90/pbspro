@@ -250,7 +250,7 @@ task_save(pbs_task *ptask)
 	else
 		(void)strcat(namebuf, pjob->ji_qs.ji_jobid);
 	(void)strcat(namebuf, JOB_TASKDIR_SUFFIX);
-	(void)sprintf(filnam, task_fmt, ptask->ti_qs.ti_task);
+	sprintf(filnam, task_fmt, ptask->ti_qs.ti_task);
 	(void)strcat(namebuf, filnam);
 
 	openflags =  O_WRONLY | O_CREAT;

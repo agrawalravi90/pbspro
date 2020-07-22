@@ -773,7 +773,7 @@ pbsd_init(int type)
 	/* Put us back in the Server's Private directory */
 
 	if (chdir(path_priv) != 0) {
-		(void)sprintf(log_buffer, msg_init_chdir, path_priv);
+		sprintf(log_buffer, msg_init_chdir, path_priv);
 		log_err(-1, __func__, log_buffer);
 		return (3);
 	}
@@ -784,7 +784,7 @@ pbsd_init(int type)
 	 */
 
 	if (chdir(path_hooks) != 0) {
-		(void)sprintf(log_buffer, msg_init_chdir, path_hooks);
+		sprintf(log_buffer, msg_init_chdir, path_hooks);
 		log_err(errno, __func__, log_buffer);
 		return (-1);
 	}
@@ -861,7 +861,7 @@ pbsd_init(int type)
 	/* Put us back in the Server's Private directory */
 
 	if (chdir(path_priv) != 0) {
-		(void)sprintf(log_buffer, msg_init_chdir, path_priv);
+		sprintf(log_buffer, msg_init_chdir, path_priv);
 		log_err(-1, __func__, log_buffer);
 		return (3);
 	}
@@ -1499,7 +1499,7 @@ pbsd_init_job(job *pjob, int type)
 				break;
 
 			default:
-				(void)sprintf(log_buffer,
+				sprintf(log_buffer,
 					msg_init_unkstate, pjob->ji_qs.ji_substate);
 				log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB,
 					LOG_NOTICE,
@@ -1650,7 +1650,7 @@ pbsd_init_reque(job *pjob, int change_state)
 	int newsubstate;
 	int rc;
 
-	(void)sprintf(logbuf, msg_init_substate,
+	sprintf(logbuf, msg_init_substate,
 		pjob->ji_qs.ji_substate);
 
 	/* re-enqueue the job into the queue it was in */

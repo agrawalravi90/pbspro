@@ -207,7 +207,7 @@ encode_rcost(const attribute *attr, pbs_list_head *phead, char *atname, char *rs
 		if ((pal = attrlist_create(atname, rsname, 23)) == NULL)
 			return (-1);
 
-		(void)sprintf(pal->al_value, "%ld", pcost->rc_cost);
+		sprintf(pal->al_value, "%ld", pcost->rc_cost);
 		pal->al_flags = attr->at_flags;
 		append_link(phead, &pal->al_link, pal);
 		if (first) {
