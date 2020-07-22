@@ -65,6 +65,7 @@
 #include "batch_request.h"
 #include "pbs_nodes.h"
 #include "svrfunc.h"
+#include "svrjob.h"
 #include "acct.h"
 #include <sys/time.h>
 
@@ -438,6 +439,7 @@ chk_array_doneness(job *parent)
 			/* if BEGUN, issue 'E' account record */
 			sprintf(acctbuf, msg_job_end_stat, e);
 			account_job_update(parent, PBS_ACCT_LAST);
+			set_attr_rsc_used_acct(parent);
 			account_jobend(parent, acctbuf, PBS_ACCT_END);
 
 			svr_mailowner(parent, MAIL_END, MAIL_NORMAL, acctbuf);

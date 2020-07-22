@@ -91,6 +91,7 @@
 #include	"provision.h"
 #include 	"pbs_sched.h"
 #include	"svrfunc.h"
+#include 	"svrjob.h"
 
 #if !defined(H_ERRNO_DECLARED)
 extern int h_errno;
@@ -925,6 +926,7 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 	if (pjob->ji_acctrec) {
 		/* fairly normal job exit, record accounting info */
 		account_job_update(pjob, PBS_ACCT_LAST);
+		set_attr_rsc_used_acct(pjob);
 		account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_END);
 
 		if (server.sv_attr[(int)SVR_ATR_log_events].at_val.at_long &
@@ -7974,6 +7976,7 @@ free_sister_vnodes(job *pjob, char *vnodelist, char *keep_select, char *err_msg,
 
 	if (rc == 0) {
 		account_job_update(pjob, PBS_ACCT_UPDATE);
+		set_attr_rsc_used_acct(pjob);
 		account_jobstr(pjob, PBS_ACCT_NEXT);
 	}
 

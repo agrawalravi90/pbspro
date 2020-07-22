@@ -92,7 +92,7 @@
 #include "tpp.h"
 #include "libutil.h"
 #include "pbs_sched.h"
-
+#include "svrjob.h"
 
 /* External Global Data Items */
 
@@ -1042,6 +1042,7 @@ on_job_exit(struct work_task *ptask)
 				rel_resc(pjob); /* free any resc assigned to the job */
 
 				account_job_update(pjob, PBS_ACCT_LAST);
+				set_attr_rsc_used_acct(pjob);
 				account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_END);
 
 				if (pjob->ji_acctrec)

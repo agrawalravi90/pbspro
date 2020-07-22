@@ -134,6 +134,7 @@ noinst_HEADERS = \
 	sched_attr_enum.h \
 	svr_attr_enum.h \
 	svrfunc.h \
+	svrjob.h \
 	ticket.h \
 	tracking.h \
 	user.h \

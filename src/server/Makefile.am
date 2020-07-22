@@ -137,7 +137,8 @@ pbs_server_bin_SOURCES = \
 	svr_resccost.c \
 	svr_credfunc.c \
 	user_func.c \
-	vnparse.c
+	vnparse.c \
+	svrjob/svrjob.c
 
 pbs_comm_CPPFLAGS = \
 	-I$(top_srcdir)/src/include \
