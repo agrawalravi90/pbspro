@@ -564,7 +564,6 @@ extern struct batch_status *bs_isort(struct batch_status *bs,
 	int (*cmp_func)(struct batch_status*, struct batch_status *));
 extern struct batch_status *bs_find(struct batch_status *, const char *);
 
-
 #endif /* _USRDLL */
 
 extern const char pbs_parse_err_msges[][PBS_PARSE_ERR_MSG_LEN_MAX + 1];

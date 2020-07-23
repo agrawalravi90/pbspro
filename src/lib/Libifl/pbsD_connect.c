@@ -552,6 +552,7 @@ __pbs_connect_extend(char *server, char *extend_data)
 		return -1;
 
 	server = PBS_get_server(server, server_name, &server_port);
+
 	if (server == NULL) {
 		pbs_errno = PBSE_NOSERVER;
 		return -1;
@@ -617,6 +618,7 @@ static int
 disconnect_from_server(int connect)
 {
 	char x;
+	svr_conn_t *svr_conns = NULL;
 
 	if (connect < 0)
 		return 0;
@@ -714,6 +716,23 @@ __pbs_disconnect(int connect)
 
 	/* Destroy the connection cache associated with this set of connections */
 	dealloc_conn_list_single(connect);
+
+	/* Update the server connection cache */
+	svr_conns = get_conn_servers();
+	if (svr_conns != NULL) {
+		int i;
+
+		for (i = 0; i < get_num_servers(); i++) {
+			if (svr_conns[i].sd == connect) {
+				svr_conns[i].sd = -1;
+				svr_conns[i].host_name[0] = '\0';
+				svr_conns[i].secondary_sd = -1;
+				svr_conns[i].state = SVR_CONN_STATE_DOWN;
+				svr_conns[i].state_change_time = time(NULL);
+				svr_conns[i].svr_id[0] = '\0';
+			}
+		}
+	}
 
 	return 0;
 }

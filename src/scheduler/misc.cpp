@@ -63,6 +63,7 @@
 #include "fairshare.h"
 #include "resource_resv.h"
 #include "resource.h"
+#include "libpbs.h"
 
 
 /**

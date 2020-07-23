@@ -187,6 +187,8 @@ struct rq_preempt {
 
 typedef struct rq_preempt brp_preempt_jobs;
 
+extern pthread_key_t psi_key;
+
 #define BATCH_REPLY_CHOICE_NULL		1	/* no reply choice, just code */
 #define BATCH_REPLY_CHOICE_Queue	2	/* Job ID, see brp_jid */
 #define BATCH_REPLY_CHOICE_RdytoCom	3	/* select, see brp_jid */

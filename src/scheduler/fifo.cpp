@@ -1312,8 +1312,21 @@ update_job_can_not_run(int pbs_sd, resource_resv *job, schd_error *err)
  * @retval	return value of the runjob call
  */
 static int
-send_run_job(int pbs_sd, int has_runjob_hook, char *jobid, char *execvnode)
+send_run_job(int pbs_sd, int has_runjob_hook, char *jobid, char *execvnode, int svr_of_node, int svr_of_job)
 {
+	svr_conn_t *svr_conns = NULL;
+	char *extend = NULL;
+
+	svr_conns = get_conn_servers();
+	if (svr_conns == NULL) {
+		log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_SCHED, LOG_ERR, __func__, "Error in getting svr_conns table");
+		return -1;
+	}
+
+	if (svr_of_node != svr_of_job)
+		extend = svr_conns[svr_of_node].svr_id;
+	pbs_sd = svr_conns[svr_of_job].sd;
+
 	if (sc_attrs.runjob_mode == RJ_EXECJOB_HOOK)
 		return pbs_runjob(pbs_sd, jobid, execvnode, NULL);
 	else if ((sc_attrs.runjob_mode == RJ_RUNJOB_HOOK) && has_runjob_hook)
@@ -1339,14 +1352,17 @@ send_run_job(int pbs_sd, int has_runjob_hook, char *jobid, char *execvnode)
  * @retval -1	: error
  */
 int
-run_job(int pbs_sd, resource_resv *rjob, char *execvnode, int has_runjob_hook, schd_error *err)
+run_job(int pbs_sd, resource_resv *rjob, char *execvnode, int has_runjob_hook, schd_error *err, int svr_of_node)
 {
 	char buf[100];	/* used to assemble queue@localserver */
 	const char *errbuf;		/* comes from pbs_geterrmsg() */
 	int rc = 0;
+	int svr_of_job;
 
 	if (rjob == NULL || rjob->job == NULL || err == NULL)
 		return -1;
+
+	svr_of_job = rjob->svr_index;
 
 	/* Server most likely crashed */
 	if (got_sigpipe) {
@@ -1497,6 +1513,7 @@ run_update_resresv(status *policy, int pbs_sd, server_info *sinfo,
 	resource_resv *rr;
 	const char *err_txt = NULL;
 	char old_state = 0;
+	int svr_of_node;
 
 	if (resresv == NULL || sinfo == NULL)
 		ret = -1;
@@ -1638,7 +1655,9 @@ run_update_resresv(status *policy, int pbs_sd, server_info *sinfo,
 					fflush(stdout);
 #endif /* localmod 031 */
 
-					pbsrc = run_job(pbs_sd, rr, execvnode, sinfo->has_runjob_hook, err);
+					svr_of_node =  ns[0]->ninfo->svr_index;
+
+					pbsrc = run_job(pbs_sd, rr, execvnode, sinfo->has_runjob_hook, err, svr_of_node);
 
 #ifdef NAS_CLUSTER /* localmod 125 */
 					ret = translate_runjob_return_code(pbsrc, resresv);

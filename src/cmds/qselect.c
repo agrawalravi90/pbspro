@@ -544,6 +544,7 @@ main(int argc, char **argv, char **envp) /* qselect */
 			fprintf(stderr, "qselect: illegally formed destination: %s\n", destination);
 			exit(2);
 		}
+
 		if (notNULL(server_name_out))
 			pbs_strncpy(server_out, server_name_out, sizeof(server_out));
 	}

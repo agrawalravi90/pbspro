@@ -315,6 +315,7 @@ parse_psi(char *conf_value)
 				pbs_conf.psi[i].port = PBS_BATCH_SERVICE_PORT;
 		}
 	}
+
 	free_string_array(list);
 	pbs_conf.pbs_num_servers = i;
 
@@ -949,7 +950,6 @@ __pbs_loadconf(int reload)
 		goto err;
 	}
 
-
 	/*
 	 * Perform sanity checks on PBS_*_HOST_NAME values and PBS_CONF_SMTP_SERVER_NAME.
 	 * See IDD for SPID 4534.
@@ -1194,7 +1194,6 @@ err:
 		free_string_array(pbs_conf.supported_auth_methods);
 		pbs_conf.supported_auth_methods = NULL;
 	}
-	
 	if (psi_value != NULL)
 		free(psi_value);
 

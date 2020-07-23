@@ -766,10 +766,12 @@ main(int argc, char **argv)
 
 	if (argc > optind)
 		svrs = strings2objname(&argv[optind], argc - optind, MGR_OBJ_SERVER);
-	else
+	else {
 		svrs = default_server_name();
 
-	/*perform needed security library initializations (including none)*/
+		/* User didn't specify server, talk to all */
+		setenv(MULTI_SERVER, "ENABLED", 1);
+	}
 
 	if (CS_client_init() != CS_SUCCESS) {
 		fprintf(stderr, "qmgr: unable to initialize security library.\n");

@@ -177,6 +177,7 @@ encode_states(char **val, long *cur, long *nxt)
 			       cur[index] + nxt[index]);
 	}
 	free(*val);
+
 	if ((*val = strdup(buf)) == NULL)
 		pbs_errno = PBSE_SYSTEM;
 }

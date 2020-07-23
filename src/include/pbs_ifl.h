@@ -558,6 +558,18 @@ typedef struct preempt_job_info {
         char	order[PREEMPT_METHOD_HIGH + 1];
 } preempt_job_info;
 
+typedef struct svr_conn {
+	int sd;                     	/* File descriptor for the open socket */
+	int secondary_sd;           	/* Secondary File descriptor for the open socket */
+	int state;                  	/* Connection state */
+	time_t state_change_time;   	/* Connnetion state change time */
+	time_t last_used_time;      	/* Last used time for the connection */
+	char host_name[256];        	/* hostname of the connection coming from */
+	char svr_id[MAX_SVR_ID];    	/* svr_id of the form server_name:port */
+	char name[PBS_MAXHOSTNAME];	/* server name */
+	int port;						/* server port */
+} svr_conn_t;
+
 /* Resource Reservation Information */
 typedef int	pbs_resource_t;	/* resource reservation handle */
 

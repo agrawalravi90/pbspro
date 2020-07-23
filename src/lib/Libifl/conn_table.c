@@ -98,7 +98,7 @@ static int add_connection(int fd);
  * @par MT-safe: No
  *
  */
-static int
+int
 add_connection(int fd)
 {
 	pthread_mutexattr_t attr = {{0}};
