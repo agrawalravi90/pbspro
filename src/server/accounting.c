@@ -1250,33 +1250,31 @@ account_jobend(job *pjob, char *used, int type)
 	len -= i;
 
 	/* finally add on resources used from req_jobobit() */
-	if (type == PBS_ACCT_END || type == PBS_ACCT_RERUN) {
-		if ((used == NULL && pjob->ji_acctrec == NULL) || (used != NULL && strstr(used, "resources_used") == NULL)) {
-			/* If pbs_server is restarted during the end of job processing then used maybe NULL.
-			 * So we try to derive the resource usage information from resources_used attribute of
-			 * the job and then reconstruct the resources usage information into resc_used buffer.
-			 */
+	if ((used == NULL && pjob->ji_acctrec == NULL) || (used != NULL && strstr(used, "resources_used") == NULL)) {
+		/* If pbs_server is restarted during the end of job processing then used maybe NULL.
+		 * So we try to derive the resource usage information from resources_used attribute of
+		 * the job and then reconstruct the resources usage information into resc_used buffer.
+		 */
 
-			/* Allocate initial space for resc_used.  Future space will be allocated by pbs_strcat(). */
-			resc_used = malloc(RESC_USED_BUF_SIZE);
-			if (resc_used == NULL)
-				goto writeit;
-			resc_used_size = RESC_USED_BUF_SIZE;
+		/* Allocate initial space for resc_used.  Future space will be allocated by pbs_strcat(). */
+		resc_used = malloc(RESC_USED_BUF_SIZE);
+		if (resc_used == NULL)
+			goto writeit;
+		resc_used_size = RESC_USED_BUF_SIZE;
 
 
-			/* strlen(msg_job_end_stat) == 12 characters plus a number.  This should be plenty big */
-			(void) snprintf(resc_used, resc_used_size, msg_job_end_stat,
-					pjob->ji_qs.ji_un.ji_exect.ji_exitstat);
+		/* strlen(msg_job_end_stat) == 12 characters plus a number.  This should be plenty big */
+		(void) snprintf(resc_used, resc_used_size, msg_job_end_stat,
+				pjob->ji_qs.ji_un.ji_exect.ji_exitstat);
 
-			if (get_resc_used(pjob, &resc_used, &resc_used_size) == -1) {
-				free(resc_used);
-				goto writeit;
-			}
-
-			used = resc_used;
-			free(pjob->ji_acctrec);
-			pjob->ji_acctrec = used;
+		if (get_resc_used(pjob, &resc_used, &resc_used_size) == -1) {
+			free(resc_used);
+			goto writeit;
 		}
+
+		used = resc_used;
+		free(pjob->ji_acctrec);
+		pjob->ji_acctrec = used;
 	}
 
 	if (used != NULL) {
