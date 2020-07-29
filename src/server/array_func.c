@@ -405,7 +405,7 @@ update_array_indices_remaining_attr(job *parent)
 void
 chk_array_doneness(job *parent)
 {
-	char acctbuf[40];
+	char exit_stat[40];
 	int e;
 	int i;
 	struct ajtrkhd	*ptbl = parent->ji_ajtrk;
@@ -436,13 +436,19 @@ chk_array_doneness(job *parent)
 
 		check_block(parent, "");
 		if (parent->ji_qs.ji_state == JOB_STATE_BEGUN) {
+			char *used;
+
 			/* if BEGUN, issue 'E' account record */
-			sprintf(acctbuf, msg_job_end_stat, e);
 			account_job_update(parent, PBS_ACCT_LAST);
 			set_attr_rsc_used_acct(parent);
-			account_jobend(parent, acctbuf, PBS_ACCT_END);
+			used = account_jobend(parent, NULL, PBS_ACCT_END);
+			if (used != parent->ji_acctrec) {
+				free(parent->ji_acctrec);
+				parent->ji_acctrec = used;
+			}
 
-			svr_mailowner(parent, MAIL_END, MAIL_NORMAL, acctbuf);
+			sprintf(exit_stat, msg_job_end_stat, e);
+			svr_mailowner(parent, MAIL_END, MAIL_NORMAL, exit_stat);
 		}
 		if (parent->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)
 			depend_on_term(parent);

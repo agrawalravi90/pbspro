@@ -885,7 +885,7 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 	}
 
 	if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_RERUN3 || pjob->ji_discarding) {
-
+		char *used;
 		static char *ndreque;
 
 		if (pjob->ji_discarding)
@@ -902,7 +902,9 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 		sprintf(log_buffer, ndreque, downmom);
 		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, log_buffer);
-		account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_RERUN);
+		used = account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_RERUN);
+		if (used != pjob->ji_acctrec)
+			free(used);
 		if (pjob->ji_acctrec) {
 			free(pjob->ji_acctrec);	/* logged, so clear it */
 			pjob->ji_acctrec = NULL;
@@ -924,12 +926,18 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 	/* at this point the job is to be purged */
 
 	if (pjob->ji_acctrec) {
+		char *used;
+
 		/* fairly normal job exit, record accounting info */
 		account_job_update(pjob, PBS_ACCT_LAST);
 		set_attr_rsc_used_acct(pjob);
-		account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_END);
+		used = account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_END);
+		if (used != pjob->ji_acctrec) {
+			free(pjob->ji_acctrec);
+			pjob->ji_acctrec = used;
+		}
 
-		if (server.sv_attr[(int)SVR_ATR_log_events].at_val.at_long &
+		if (server.sv_attr[SVR_ATR_log_events].at_val.at_long &
 			PBSEVENT_JOB_USAGE) {
 			/* log events set to record usage */
 			log_event(PBSEVENT_JOB_USAGE, PBS_EVENTCLASS_JOB, LOG_INFO,

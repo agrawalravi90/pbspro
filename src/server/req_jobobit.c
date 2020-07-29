@@ -718,7 +718,6 @@ on_job_exit(struct work_task *ptask)
 	job   *pjob;
 	struct batch_request *preq;
 	struct work_task *pt;
-	char  *rec;
 	int    rc;
 	int    stageout_status = 1; /* success */
 	long   t;
@@ -1034,6 +1033,8 @@ on_job_exit(struct work_task *ptask)
 				preq = NULL;
 				return;
 			} else {
+				char *rec = NULL;
+
 				/* all went ok with the delete by Mom(s) */
 				free_br(preq);
 				preq = NULL;
@@ -1043,14 +1044,16 @@ on_job_exit(struct work_task *ptask)
 
 				account_job_update(pjob, PBS_ACCT_LAST);
 				set_attr_rsc_used_acct(pjob);
-				account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_END);
+				rec = account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_END);
+				if (rec != pjob->ji_acctrec) {
+					free(pjob->ji_acctrec);
+					pjob->ji_acctrec = rec;
+				}
 
-				if (pjob->ji_acctrec)
-					rec = pjob->ji_acctrec;
-				else
+				if (rec == NULL)
 					rec = "";
 
-				if (server.sv_attr[(int)SVR_ATR_log_events].at_val.at_long &
+				if (server.sv_attr[SVR_ATR_log_events].at_val.at_long &
 					PBSEVENT_JOB_USAGE) {
 					/* log events set to record usage */
 					log_event(PBSEVENT_JOB_USAGE | PBSEVENT_JOB_USAGE,
@@ -1453,13 +1456,17 @@ on_job_rerun(struct work_task *ptask)
 				preq = NULL;
 				return;
 			} else {
+				char *used;
+
 				/* all went ok with the delete by Mom(s) */
 				free_br(preq);
 				preq = NULL;
 				if (handle != -1 && pjob->ji_mom_prot == PROT_TCP)
 					svr_disconnect(handle);
 
-				account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_RERUN);
+				used = account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_RERUN);
+				if (used != pjob->ji_acctrec)
+					free(used);
 				if (pjob->ji_acctrec) {
 					free(pjob->ji_acctrec);	/* logged, so clear it */
 					pjob->ji_acctrec = NULL;

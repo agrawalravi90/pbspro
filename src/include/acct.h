@@ -96,7 +96,7 @@ extern void account_resvstart(resc_resv *presv);
 
 extern void account_jobstr(const job *pjob, int type);
 extern void account_job_update(const job *pjob, int type);
-extern void account_jobend(job *pjob, char * used, int type);
+extern char * account_jobend(const job *pjob, char *used, int type);
 extern void log_alter_records_for_attrs(job *pjob, svrattrl *plist);
 extern void log_suspend_resume_record(job *pjob, int acct_type);
 extern void set_job_ProvAcctRcd(job *pjob, long time_se, int type);

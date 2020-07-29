@@ -316,7 +316,7 @@ cpy_quote_value(char *pb, char *value)
 
 /**
  * @brief
- * Get the resources_used job attribute
+ * Create resources_used string for accounting
  *
  * @param[in]	pjob	- pointer to job structure
  * @param[in]	resc_used - pointer to resources used string
@@ -328,7 +328,7 @@ cpy_quote_value(char *pb, char *value)
  *
  */
 static int
-get_resc_used(job *pjob, char **resc_used, int *resc_used_size)
+create_rsc_used_acct(const job *pjob, char **resc_used, int *resc_used_size)
 {
 	struct svrattrl *patlist = NULL;
 	pbs_list_head temp_head;
@@ -1173,23 +1173,23 @@ account_resvstart(resc_resv *presv)
  *	on_job_exit() and on_job_rerun() as well as force_reque().
  *
  * @param[in]	pjob	- pointer to job structure
- * @param[in]	used	- resource usage information from Mom,  this is a string
+ * @param[in,out]	used	- resource usage information from Mom,  this is a string
  *			  consisting of space separated keyword=value pairs,
  *			  may be null pointer
  * @param[in]	type	- record type, PBS_ACCT_END ('E') or
  *			  PBS_ACCT_RERUN ('R')
- * @return	void
+ * @return	char*
+ * @retval resource used accounting string
  *
  * @par	MT-safe: No - uses a global buffer, "acct_buf".
  *
  */
-void
-account_jobend(job *pjob, char *used, int type)
+char *
+account_jobend(const job *pjob, char *used, int type)
 {
 	int i = 0;
 	int len = 0;
 	char *pb = NULL;
-	char *resc_used;
 	int resc_used_size = 0;
 
 	/* pack in general information about the job */
@@ -1250,44 +1250,39 @@ account_jobend(job *pjob, char *used, int type)
 	len -= i;
 
 	/* finally add on resources used from req_jobobit() */
-	if ((used == NULL && pjob->ji_acctrec == NULL) || (used != NULL && strstr(used, "resources_used") == NULL)) {
+	if (used == NULL)
+		used = pjob->ji_acctrec;
+	if (used == NULL || strstr(used, "resources_used") == NULL) {
 		/* If pbs_server is restarted during the end of job processing then used maybe NULL.
 		 * So we try to derive the resource usage information from resources_used attribute of
 		 * the job and then reconstruct the resources usage information into resc_used buffer.
 		 */
 
 		/* Allocate initial space for resc_used.  Future space will be allocated by pbs_strcat(). */
-		resc_used = malloc(RESC_USED_BUF_SIZE);
-		if (resc_used == NULL)
+		used = malloc(RESC_USED_BUF_SIZE);
+		if (used == NULL)
 			goto writeit;
 		resc_used_size = RESC_USED_BUF_SIZE;
 
-
 		/* strlen(msg_job_end_stat) == 12 characters plus a number.  This should be plenty big */
-		(void) snprintf(resc_used, resc_used_size, msg_job_end_stat,
-				pjob->ji_qs.ji_un.ji_exect.ji_exitstat);
+		snprintf(used, resc_used_size, msg_job_end_stat, pjob->ji_qs.ji_un.ji_exect.ji_exitstat);
 
-		if (get_resc_used(pjob, &resc_used, &resc_used_size) == -1) {
-			free(resc_used);
+		if (create_rsc_used_acct(pjob, &used, &resc_used_size) == -1) {
+			free(used);
+			used = NULL;
 			goto writeit;
 		}
-
-		used = resc_used;
-		free(pjob->ji_acctrec);
-		pjob->ji_acctrec = used;
 	}
 
-	if (used != NULL) {
-		i = strlen(used) + 1;
-		if (i > len)
-			if (grow_acct_buf(&pb, &len, i) == -1)
-				goto writeit;
-		(void)strcat(pb, " ");
-		(void)strcat(pb, used);
-		i = strlen(pb);
-		pb  += i;
-		len -= i;
-	}
+	i = strlen(used) + 1;
+	if (i > len)
+		if (grow_acct_buf(&pb, &len, i) == -1)
+			goto writeit;
+	strcat(pb, " ");
+	strcat(pb, used);
+	i = strlen(pb);
+	pb += i;
+	len -= i;
 
 	/* Add eligible_time */
 	if (server.sv_attr[SVR_ATR_EligibleTimeEnable].at_val.at_long == 1) {
@@ -1320,6 +1315,8 @@ account_jobend(job *pjob, char *used, int type)
 writeit:
 	acct_buf[acct_bufsize-1] = '\0';
 	account_record(type, pjob, acct_buf);
+
+	return used;
 }
 /**
  * @brief
@@ -2226,7 +2223,7 @@ log_suspend_resume_record(job *pjob, int acct_type)
 
 		resc_buf[0] = '\0';
 
-		if (get_resc_used(pjob, &resc_buf, &resc_buf_size) == -1) {
+		if (create_rsc_used_acct(pjob, &resc_buf, &resc_buf_size) == -1) {
 			write_account_record(acct_type, pjob->ji_qs.ji_jobid, NULL);
 			free(resc_buf);
 			return;

@@ -141,6 +141,7 @@ force_reque(job *pjob)
 {
 	int  newstate;
 	int  newsubstate;
+	char *rec;
 
 	pjob->ji_momhandle = -1;
 	pjob->ji_mom_prot = PROT_INVALID;
@@ -170,7 +171,11 @@ force_reque(job *pjob)
 	rel_resc(pjob);
 
 	/* note in accounting file */
-	account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_RERUN);
+	rec = account_jobend(pjob, pjob->ji_acctrec, PBS_ACCT_RERUN);
+	if (pjob->ji_acctrec != rec) {
+		free(pjob->ji_acctrec);
+		pjob->ji_acctrec = rec;
+	}
 
 	/*
 	 * Clear any JOB_SVFLG_Actsuspd flag too, as the job is no longer
