@@ -6518,7 +6518,7 @@ set_srv_pwr_prov_attribute()
 
 	snprintf(str_val, sizeof(str_val), "%d", val);
 	set_attr_generic(&(server.sv_attr[(int)SVR_ATR_PowerProvisioning]),
-			&svr_attr_def[(int) SVR_ATR_PowerProvisioning], str_val);
+			&svr_attr_def[(int) SVR_ATR_PowerProvisioning], str_val, SET);
 
 	/*
 	 * The enabled attribute is changed so send the attributes.

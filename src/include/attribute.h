@@ -610,7 +610,7 @@ extern void *cr_attrdef_idx(struct attribute_def *adef, int limit);
 
 /* Attr setters */
 void set_attr_generic(attribute *pattr, attribute_def *pdef, char *value, enum batch_op op);
-void set_attr_l(attribute *pattr, long value);
+void set_attr_l(attribute *pattr, long value, enum batch_op op);
 
 /* "type" to pass to acl_check() */
 #define ACL_Host  1

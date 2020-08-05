@@ -753,7 +753,7 @@ req_quejob(struct batch_request *preq)
 		/* check that job has a jobname */
 
 		if ((pj->ji_wattr[JOB_ATR_jobname].at_flags & ATR_VFLAG_SET) == 0)
-			set_attr_generic(&pj->ji_wattr[JOB_ATR_jobname], job_attr_def[JOB_ATR_jobname], "none");
+			set_attr_generic(&pj->ji_wattr[JOB_ATR_jobname], &job_attr_def[JOB_ATR_jobname], "none", SET);
 
 		/* check resources in the Resource_List are valid job wide */
 
@@ -829,10 +829,10 @@ req_quejob(struct batch_request *preq)
 		strcpy(buf, preq->rq_user);
 		strcat(buf, "@");
 		strcat(buf, preq->rq_host);
-		set_attr_generic(&pj->ji_wattr[JOB_ATR_job_owner], job_attr_def[JOB_ATR_job_owner], buf);
+		set_attr_generic(&pj->ji_wattr[JOB_ATR_job_owner], &job_attr_def[JOB_ATR_job_owner], buf, SET);
 
 		strcpy(buf, conn->cn_physhost);
-		set_attr_generic(&pj->ji_wattr[JOB_ATR_submit_host], job_attr_def[JOB_ATR_submit_host], buf);
+		set_attr_generic(&pj->ji_wattr[JOB_ATR_submit_host], &job_attr_def[JOB_ATR_submit_host], buf, SET);
 
 		/* set create time */
 
@@ -3230,9 +3230,9 @@ copy_params_from_job(char *jobid, resc_resv *presv)
 		snprintf(buf, bufsize, "%s@%s", pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
 			pjob->ji_wattr[(int)JOB_ATR_submit_host].at_val.at_str);
 
-	set_attr_generic(&presv->ri_wattr[(int)RESV_ATR_resv_owner], &resv_attr_def[(int)RESV_ATR_resv_owner], buf);
+	set_attr_generic(&presv->ri_wattr[(int)RESV_ATR_resv_owner], &resv_attr_def[(int)RESV_ATR_resv_owner], buf, SET);
 	set_attr_generic(&presv->ri_wattr[(int)RESV_ATR_resv_nodes],
-		&resv_attr_def[(int)RESV_ATR_resv_nodes], pjob->ji_wattr[(int)JOB_ATR_exec_vnode].at_val.at_str);
+		&resv_attr_def[(int)RESV_ATR_resv_nodes], pjob->ji_wattr[(int)JOB_ATR_exec_vnode].at_val.at_str, SET);
 
 	if (pjob->ji_wattr[(int)JOB_ATR_stime].at_flags & ATR_VFLAG_SET)
 		presv->ri_wattr[(int)RESV_ATR_start].at_val.at_long = pjob->ji_wattr[(int)JOB_ATR_stime].at_val.at_long;

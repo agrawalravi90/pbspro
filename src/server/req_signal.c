@@ -516,7 +516,7 @@ post_signal_req(struct work_task *pwt)
 			log_suspend_resume_record(pjob, PBS_ACCT_RESUME);
 
 			set_attr_generic(&(pjob->ji_wattr[(int) JOB_ATR_Comment]), &job_attr_def[(int) JOB_ATR_Comment],
-				form_attr_comment("Job run at %s", pjob->ji_wattr[(int) JOB_ATR_exec_vnode].at_val.at_str));
+				form_attr_comment("Job run at %s", pjob->ji_wattr[(int) JOB_ATR_exec_vnode].at_val.at_str), SET);
 		}
 
 		if (pjob == NULL)

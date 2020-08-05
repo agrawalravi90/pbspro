@@ -1032,7 +1032,7 @@ resv_revert_alter(resc_resv *presv)
 		free(presc->rs_value.at_val.at_str);
 		presc->rs_value.at_val.at_str = presv->ri_alter.ra_select;
 		set_attr_generic(&presv->ri_wattr[RESV_ATR_SchedSelect], &resv_attr_def[RESV_ATR_SchedSelect],
-			     presv->ri_wattr[RESV_ATR_SchedSelect_orig].at_val.at_str);
+			     presv->ri_wattr[RESV_ATR_SchedSelect_orig].at_val.at_str, SET);
 
 		presv->ri_alter.ra_select = NULL;
 		resv_attr_def[RESV_ATR_SchedSelect_orig].at_free(&presv->ri_wattr[RESV_ATR_SchedSelect_orig]);
