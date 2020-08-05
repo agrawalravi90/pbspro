@@ -1166,7 +1166,7 @@ set_vnode_state(struct pbsnode *pnode, unsigned long state_bits, enum vnode_stat
 		char str_val[STR_TIME_SZ];
 
 		snprintf(str_val, sizeof(str_val), "%d", time_int_val);
-		set_attr_svr(&(pnode->nd_attr[(int)ND_ATR_last_state_change_time]),
+		set_attr_generic(&(pnode->nd_attr[(int)ND_ATR_last_state_change_time]),
 			&node_attr_def[(int) ND_ATR_last_state_change_time], str_val);
 	}
 
@@ -7788,7 +7788,7 @@ set_last_used_time_node(void *pobj, int type)
 			/* had better be the "natural" vnode with only the one parent */
 			if (pnode != NULL) {
 				snprintf(str_val, sizeof(str_val), "%d", time_int_val);
-				set_attr_svr(&(pnode->nd_attr[(int)ND_ATR_last_used_time]),
+				set_attr_generic(&(pnode->nd_attr[(int)ND_ATR_last_used_time]),
 						&node_attr_def[(int) ND_ATR_last_used_time], str_val);
 			}
 			node_save_db(pnode);

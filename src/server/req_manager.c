@@ -1535,38 +1535,38 @@ mgr_server_unset(struct batch_request *preq, conn_t *conn)
 			if (strcasecmp(plist->al_name, ATTR_logevents) == 0) {
 				char dflt_log_event[22];
 				snprintf(dflt_log_event, sizeof(dflt_log_event), "%d", SVR_LOG_DFLT);
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_log_events]), &svr_attr_def[(int) SVR_ATR_log_events],
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_log_events]), &svr_attr_def[(int) SVR_ATR_log_events],
 					     dflt_log_event);
 			}
 			else if (strcasecmp(plist->al_name, ATTR_mailfrom) == 0)
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_mailfrom]),
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_mailfrom]),
 					    &svr_attr_def[(int)SVR_ATR_mailfrom], PBS_DEFAULT_MAIL);
 			else if (strcasecmp(plist->al_name, ATTR_queryother) == 0)
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_query_others]),
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_query_others]),
 					    &svr_attr_def[(int)SVR_ATR_query_others], "TRUE");
 			else if (strcasecmp(plist->al_name, ATTR_schediteration) == 0)
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_scheduler_iteration]),
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_scheduler_iteration]),
 					    &svr_attr_def[(int)SVR_ATR_scheduler_iteration], TOSTR(PBS_SCHEDULE_CYCLE));
 			else if(strcasecmp(plist->al_name, ATTR_ResvEnable) == 0)
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_ResvEnable]),
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_ResvEnable]),
 					    &svr_attr_def[(int)SVR_ATR_ResvEnable], "TRUE");
 			else if(strcasecmp(plist->al_name, ATTR_maxarraysize) == 0)
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_maxarraysize]),
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_maxarraysize]),
 					    &svr_attr_def[(int)SVR_ATR_maxarraysize], TOSTR(PBS_MAX_ARRAY_JOB_DFL));
 			else if(strcasecmp(plist->al_name, ATTR_max_concurrent_prov) == 0)
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_max_concurrent_prov]),
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_max_concurrent_prov]),
 					    &svr_attr_def[(int)SVR_ATR_max_concurrent_prov], TOSTR(PBS_MAX_CONCURRENT_PROV));
 			else if(strcasecmp(plist->al_name, ATTR_EligibleTimeEnable) == 0)
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_EligibleTimeEnable]),
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_EligibleTimeEnable]),
 					    &svr_attr_def[(int)SVR_ATR_EligibleTimeEnable], "FALSE");
 			else if(strcasecmp(plist->al_name, ATTR_license_linger) == 0)
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_license_linger]),
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_license_linger]),
 					    &svr_attr_def[(int)SVR_ATR_license_linger], TOSTR(PBS_LIC_LINGER_TIME));
 			else if(strcasecmp(plist->al_name, ATTR_license_max) == 0)
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_license_max]),
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_license_max]),
 					    &svr_attr_def[(int)SVR_ATR_license_max], TOSTR(PBS_MAX_LICENSING_LICENSES));
 			else if(strcasecmp(plist->al_name, ATTR_license_min) == 0)
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_license_min]),
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_license_min]),
 					    &svr_attr_def[(int)SVR_ATR_license_min], TOSTR(PBS_MIN_LICENSING_LICENSES));
 			else if (strcasecmp(plist->al_name, ATTR_rescdflt) == 0) {
 				if (plist->al_resc != NULL && strcasecmp(plist->al_resc, "ncpus") == 0) {
@@ -1588,7 +1588,7 @@ mgr_server_unset(struct batch_request *preq, conn_t *conn)
 					free_svrattrl(tm_list);
 				}
 			} else if (strcasecmp(plist->al_name, ATTR_scheduling) == 0)
-				set_attr_svr(&(server.sv_attr[(int)SVR_ATR_scheduling]),
+				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_scheduling]),
 					    &svr_attr_def[(int) SVR_ATR_scheduling], "TRUE");
 		}
 		svr_save_db(&server);

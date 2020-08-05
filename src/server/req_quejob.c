@@ -752,12 +752,8 @@ req_quejob(struct batch_request *preq)
 
 		/* check that job has a jobname */
 
-		if ((pj->ji_wattr[(int)JOB_ATR_jobname].at_flags &
-			ATR_VFLAG_SET) == 0) {
-			job_attr_def[(int)JOB_ATR_jobname].at_decode(
-				&pj->ji_wattr[(int)JOB_ATR_jobname],
-				NULL, NULL, "none");
-		}
+		if ((pj->ji_wattr[JOB_ATR_jobname].at_flags & ATR_VFLAG_SET) == 0)
+			set_attr_generic(&pj->ji_wattr[JOB_ATR_jobname], job_attr_def[JOB_ATR_jobname], "none");
 
 		/* check resources in the Resource_List are valid job wide */
 
@@ -830,22 +826,13 @@ req_quejob(struct batch_request *preq)
 		}
 
 		/* set job owner attribute to user@host */
+		strcpy(buf, preq->rq_user);
+		strcat(buf, "@");
+		strcat(buf, preq->rq_host);
+		set_attr_generic(&pj->ji_wattr[JOB_ATR_job_owner], job_attr_def[JOB_ATR_job_owner], buf);
 
-		job_attr_def[(int)JOB_ATR_job_owner].at_free(
-			&pj->ji_wattr[(int)JOB_ATR_job_owner]);
-		(void)strcpy(buf, preq->rq_user);
-		(void)strcat(buf, "@");
-		(void)strcat(buf, preq->rq_host);
-		job_attr_def[(int)JOB_ATR_job_owner].at_decode(
-			&pj->ji_wattr[(int)JOB_ATR_job_owner],
-			NULL, NULL, buf);
-
-		job_attr_def[(int)JOB_ATR_submit_host].at_free(
-			&pj->ji_wattr[(int)JOB_ATR_submit_host]);
-		(void)strcpy(buf, conn->cn_physhost);
-		job_attr_def[(int)JOB_ATR_submit_host].at_decode(
-			&pj->ji_wattr[(int)JOB_ATR_submit_host],
-			NULL, NULL, buf);
+		strcpy(buf, conn->cn_physhost);
+		set_attr_generic(&pj->ji_wattr[JOB_ATR_submit_host], job_attr_def[JOB_ATR_submit_host], buf);
 
 		/* set create time */
 
@@ -1832,7 +1819,7 @@ req_commit_now(struct batch_request *preq,  job *pj)
 
 	/* need to format message first, before request goes away */
 
-	(void)snprintf(log_buffer, sizeof(log_buffer), msg_jobnew,
+	snprintf(log_buffer, sizeof(log_buffer), msg_jobnew,
 		preq->rq_user, preq->rq_host,
 		pj->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
 		pj->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,
@@ -3243,8 +3230,8 @@ copy_params_from_job(char *jobid, resc_resv *presv)
 		snprintf(buf, bufsize, "%s@%s", pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
 			pjob->ji_wattr[(int)JOB_ATR_submit_host].at_val.at_str);
 
-	set_attr_svr(&presv->ri_wattr[(int)RESV_ATR_resv_owner], &resv_attr_def[(int)RESV_ATR_resv_owner], buf);
-	set_attr_svr(&presv->ri_wattr[(int)RESV_ATR_resv_nodes],
+	set_attr_generic(&presv->ri_wattr[(int)RESV_ATR_resv_owner], &resv_attr_def[(int)RESV_ATR_resv_owner], buf);
+	set_attr_generic(&presv->ri_wattr[(int)RESV_ATR_resv_nodes],
 		&resv_attr_def[(int)RESV_ATR_resv_nodes], pjob->ji_wattr[(int)JOB_ATR_exec_vnode].at_val.at_str);
 
 	if (pjob->ji_wattr[(int)JOB_ATR_stime].at_flags & ATR_VFLAG_SET)

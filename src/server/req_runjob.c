@@ -1079,7 +1079,7 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
 	}
 
 	/* send the job to MOM */
-	set_attr_svr(&(pjob->ji_wattr[(int) JOB_ATR_Comment]), &job_attr_def[(int) JOB_ATR_Comment],
+	set_attr_generic(&(pjob->ji_wattr[(int) JOB_ATR_Comment]), &job_attr_def[(int) JOB_ATR_Comment],
 		form_attr_comment("Job was sent for execution at %s", pjob->ji_wattr[(int) JOB_ATR_exec_vnode].at_val.at_str));
 
 	if (old_subst != JOB_SUBSTATE_PROVISION)
@@ -1497,7 +1497,7 @@ post_sendmom(struct work_task *pwt)
 			}
 
 			/* if the job is a normal job or a subjob */
-			set_attr_svr(&(jobp->ji_wattr[(int) JOB_ATR_Comment]), &job_attr_def[(int) JOB_ATR_Comment], log_buffer);
+			set_attr_generic(&(jobp->ji_wattr[(int) JOB_ATR_Comment]), &job_attr_def[(int) JOB_ATR_Comment], log_buffer);
 
 			if (pbs_errno == PBSE_MOM_REJECT_ROOT_SCRIPTS)
 				check_failed_attempts(jobp);

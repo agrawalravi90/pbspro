@@ -362,7 +362,7 @@ schedule_high(pbs_sched *psched)
 
 	if (psched->scheduler_sock == -1) {
 		if ((s = contact_sched(psched->svr_do_sched_high, NULL, psched->pbs_scheduler_addr, psched->pbs_scheduler_port)) < 0) {
-			set_attr_svr(&(psched->sch_attr[(int) SCHED_ATR_sched_state]), &sched_attr_def[(int) SCHED_ATR_sched_state], SC_DOWN);
+			set_attr_generic(&(psched->sch_attr[(int) SCHED_ATR_sched_state]), &sched_attr_def[(int) SCHED_ATR_sched_state], SC_DOWN);
 			return (-1);
 		}
 		set_sched_sock(s, psched);
@@ -374,7 +374,7 @@ schedule_high(pbs_sched *psched)
 		return 0;
 	}
 
-	set_attr_svr(&(psched->sch_attr[(int) SCHED_ATR_sched_state]), &sched_attr_def[(int) SCHED_ATR_sched_state], SC_SCHEDULING);
+	set_attr_generic(&(psched->sch_attr[(int) SCHED_ATR_sched_state]), &sched_attr_def[(int) SCHED_ATR_sched_state], SC_SCHEDULING);
 
 	return 1;
 }
@@ -439,7 +439,7 @@ schedule_jobs(pbs_sched *psched)
 		}
 
 		if ((s = contact_sched(cmd, jid, psched->pbs_scheduler_addr, psched->pbs_scheduler_port)) < 0) {
-			set_attr_svr(&(psched->sch_attr[(int) SCHED_ATR_sched_state]), &sched_attr_def[(int) SCHED_ATR_sched_state], SC_DOWN);
+			set_attr_generic(&(psched->sch_attr[(int) SCHED_ATR_sched_state]), &sched_attr_def[(int) SCHED_ATR_sched_state], SC_DOWN);
 			return (-1);
 		}
 		else if (pdefr != NULL)
@@ -451,7 +451,7 @@ schedule_jobs(pbs_sched *psched)
 		}
 		psched->svr_do_schedule = SCH_SCHEDULE_NULL;
 
-		set_attr_svr(&(psched->sch_attr[(int) SCHED_ATR_sched_state]), &sched_attr_def[(int) SCHED_ATR_sched_state], SC_SCHEDULING);
+		set_attr_generic(&(psched->sch_attr[(int) SCHED_ATR_sched_state]), &sched_attr_def[(int) SCHED_ATR_sched_state], SC_SCHEDULING);
 
 		first_time = 0;
 
@@ -502,7 +502,7 @@ scheduler_close(int sock)
 	if (psched == NULL)
 		return;
 
-	set_attr_svr(&(psched->sch_attr[(int) SCHED_ATR_sched_state]), &sched_attr_def[(int) SCHED_ATR_sched_state], SC_IDLE);
+	set_attr_generic(&(psched->sch_attr[(int) SCHED_ATR_sched_state]), &sched_attr_def[(int) SCHED_ATR_sched_state], SC_IDLE);
 
 	if ((sock != -1) && (sock == psched->scheduler_sock2)) {
 		psched->scheduler_sock2 = -1;

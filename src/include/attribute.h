@@ -608,6 +608,10 @@ extern int set_attr_resc(struct attrl **attrib, char *attrib_name, char *attrib_
 extern svrattrl *make_attr(char *attr_name, char *attr_resc, char *attr_value, int attr_flags);
 extern void *cr_attrdef_idx(struct attribute_def *adef, int limit);
 
+/* Attr setters */
+void set_attr_generic(attribute *pattr, attribute_def *pdef, char *value, enum batch_op op);
+void set_attr_l(attribute *pattr, long value);
+
 /* "type" to pass to acl_check() */
 #define ACL_Host  1
 #define ACL_User  2

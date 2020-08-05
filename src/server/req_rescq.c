@@ -1031,7 +1031,7 @@ resv_revert_alter(resc_resv *presv)
 		presc = find_resc_entry(&presv->ri_wattr[RESV_ATR_resource], prdef);
 		free(presc->rs_value.at_val.at_str);
 		presc->rs_value.at_val.at_str = presv->ri_alter.ra_select;
-		set_attr_svr(&presv->ri_wattr[RESV_ATR_SchedSelect], &resv_attr_def[RESV_ATR_SchedSelect],
+		set_attr_generic(&presv->ri_wattr[RESV_ATR_SchedSelect], &resv_attr_def[RESV_ATR_SchedSelect],
 			     presv->ri_wattr[RESV_ATR_SchedSelect_orig].at_val.at_str);
 
 		presv->ri_alter.ra_select = NULL;

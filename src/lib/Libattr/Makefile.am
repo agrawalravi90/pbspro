@@ -65,6 +65,7 @@ libattr_a_SOURCES = \
 	attr_func.c \
 	attr_node_func.c \
 	attr_resc_func.c \
+	attr_setters.c \
 	job_attr_def.c \
 	Long_.c \
 	LTostr.c \

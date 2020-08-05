@@ -210,7 +210,7 @@ init_server_attrs()
 	for (i = 0; i < SVR_ATR_LAST; i++)
 		clear_attr(&server.sv_attr[i], &svr_attr_def[i]);
 
-	set_attr_svr(&(server.sv_attr[(int)SVR_ATR_scheduler_iteration]), &svr_attr_def[(int) SVR_ATR_scheduler_iteration],
+	set_attr_generic(&(server.sv_attr[(int)SVR_ATR_scheduler_iteration]), &svr_attr_def[(int) SVR_ATR_scheduler_iteration],
 		TOSTR(PBS_SCHEDULE_CYCLE));
 
 	server.newobj = 1;
@@ -258,15 +258,15 @@ init_server_attrs()
 
 	snprintf(dflt_log_event, sizeof(dflt_log_event), "%d", SVR_LOG_DFLT);
 
-	set_attr_svr(&(server.sv_attr[SVR_ATR_has_runjob_hook]), &svr_attr_def[SVR_ATR_has_runjob_hook], ATR_FALSE);
+	set_attr_generic(&(server.sv_attr[SVR_ATR_has_runjob_hook]), &svr_attr_def[SVR_ATR_has_runjob_hook], ATR_FALSE);
 
-	set_attr_svr(&(server.sv_attr[(int)SVR_ATR_log_events]), &svr_attr_def[(int) SVR_ATR_log_events], dflt_log_event);
+	set_attr_generic(&(server.sv_attr[(int)SVR_ATR_log_events]), &svr_attr_def[(int) SVR_ATR_log_events], dflt_log_event);
 
-	set_attr_svr(&(server.sv_attr[(int)SVR_ATR_mailfrom]), &svr_attr_def[(int) SVR_ATR_mailfrom], PBS_DEFAULT_MAIL);
+	set_attr_generic(&(server.sv_attr[(int)SVR_ATR_mailfrom]), &svr_attr_def[(int) SVR_ATR_mailfrom], PBS_DEFAULT_MAIL);
 
-	set_attr_svr(&(server.sv_attr[(int)SVR_ATR_query_others]), &svr_attr_def[(int) SVR_ATR_query_others], ATR_TRUE);
+	set_attr_generic(&(server.sv_attr[(int)SVR_ATR_query_others]), &svr_attr_def[(int) SVR_ATR_query_others], ATR_TRUE);
 
-	set_attr_svr(&(server.sv_attr[(int)SVR_ATR_scheduling]), &svr_attr_def[(int) SVR_ATR_scheduling], ATR_TRUE);
+	set_attr_generic(&(server.sv_attr[(int)SVR_ATR_scheduling]), &svr_attr_def[(int) SVR_ATR_scheduling], ATR_TRUE);
 
 	/* an update_to FLicenses()  and pbs_float_lic must already exist */
 	pbs_float_lic = &server.sv_attr[(int)SVR_ATR_FLicenses];
