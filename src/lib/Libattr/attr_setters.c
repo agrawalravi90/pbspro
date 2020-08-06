@@ -54,6 +54,7 @@
  * @brief	Generic attribute setter function, accepts all values as string regardless of the type
  *
  * @param[in]	pattr	-	pointer to attribute being set
+ * @param[in]	pdef 	-	attribute definition
  * @param[in]	pobj	-	pointer to attribute definition
  * @param[in]	value	-	value to be set
  *
@@ -67,26 +68,43 @@ void
 set_attr_generic(attribute *pattr, attribute_def *pdef, char *value, enum batch_op op)
 {
 	int rc;
+	attribute tempat;
 
 	if (pattr == NULL || pdef == NULL) {
 		log_err(-1, __func__, "Invalid pointer to attribute or its definition");
 		return;
 	}
 
-	if (op == SET) {
-		if ((rc = pdef->at_decode(pattr, pdef->at_name, NULL, value)) != 0)
-			log_errf(rc, __func__, "decode of %s failed", pdef->at_name);
-	} else {
-		attribute tempat;
+	clear_attr(&tempat, pdef);
+	if ((rc = pdef->at_decode(&tempat, pdef->at_name, NULL, value)) != 0)
+		log_errf(rc, __func__, "decode of %s failed", pdef->at_name);
 
-		clear_attr(&tempat, pdef);
-		if ((rc = pdef->at_decode(&tempat, pdef->at_name, NULL, value)) != 0)
-			log_errf(rc, __func__, "decode of %s failed", pdef->at_name);
-		else if ((rc = pdef->at_set(pattr, &tempat, op)) != 0)
-			log_errf(rc, __func__, "set of %s failed", pdef->at_name);
+	set_attr_with_attr(pdef, pattr, &tempat, op);
 
-		pdef->at_free(&tempat);
-	}
+	pdef->at_free(&tempat);
+}
+
+/**
+ * @brief	Set attribute using another attribute
+ *
+ * @param[in]	pdef 	-	attribute definition
+ * @param[in]	oattr	-	pointer to attribute being set
+ * @param[in]	nattr	-	pointer to attribute to set with
+ * @param[in]	op		-	operation to do
+ *
+ * @return	void
+ *
+ * @par MT-Safe: No
+ * @par Side Effects: None
+ *
+ */
+void
+set_attr_with_attr(attribute_def *pdef, attribute *oattr, attribute *nattr, enum batch_op op)
+{
+	int rc;
+
+	if ((rc = pdef->at_set(oattr, nattr, op)) != 0)
+		log_errf(rc, __func__, "set of %s failed", pdef->at_name);
 }
 
 /**
