@@ -548,7 +548,6 @@ create_resreleased(job *pjob)
 	int rc;
 	struct key_value_pair *pkvp;
 	char *resreleased;
-	attribute reqrel;
 	char buf[1024] = {0};
 	char *dflt_ncpus_rel = ":ncpus=0";
 	int no_res_rel = 1;
@@ -614,12 +613,9 @@ create_resreleased(job *pjob)
 		if (chunk)
 			strcat(resreleased, "+");
 	}
-	if (resreleased[0] != '\0') {
-		clear_attr(&reqrel, &job_attr_def[(int) JOB_ATR_resc_released]);
-		job_attr_def[(int) JOB_ATR_resc_released].at_decode(&reqrel, NULL, NULL, resreleased);
-		job_attr_def[(int) JOB_ATR_resc_released].at_set(&pjob->ji_wattr[(int) JOB_ATR_resc_released], &reqrel, SET);
-		job_attr_def[(int) JOB_ATR_resc_released].at_free(&reqrel);
-	}
+	if (resreleased[0] != '\0')
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_resc_released], &job_attr_def[JOB_ATR_resc_released], resreleased, SET);
+
 	free(resreleased);
 	return 0;
 }

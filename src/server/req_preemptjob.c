@@ -248,7 +248,7 @@ static void clear_preempt_hold(job *pjob)
 	job_attr_def[(int)JOB_ATR_hold].at_decode(&temphold, NULL, NULL, "s");
 
 	old_hold = pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long;
-	job_attr_def[(int)JOB_ATR_hold].at_set(&pjob->ji_wattr[(int)JOB_ATR_hold],
+	set_attr_with_attr(&job_attr_def[(int)JOB_ATR_hold], &pjob->ji_wattr[(int)JOB_ATR_hold],
 					       &temphold, DECR);
 
 	if (old_hold != pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long) {

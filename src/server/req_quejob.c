@@ -857,7 +857,7 @@ req_quejob(struct batch_request *preq)
 		}
 		job_attr_def[(int)JOB_ATR_variables].at_decode(&tempattr,
 			NULL, NULL, buf);
-		job_attr_def[(int)JOB_ATR_variables].at_set(
+		set_attr_with_attr(&job_attr_def[(int)JOB_ATR_variables], 
 			&pj->ji_wattr[(int)JOB_ATR_variables],
 			&tempattr, INCR);
 		job_attr_def[(int)JOB_ATR_variables].at_free(&tempattr);

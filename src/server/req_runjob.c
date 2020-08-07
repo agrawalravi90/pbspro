@@ -509,7 +509,7 @@ req_runjob(struct batch_request *preq)
 			sub_runcount = pjobsub->ji_wattr[JOB_ATR_runcount];
 			sub_run_version = pjobsub->ji_wattr[JOB_ATR_run_version];
 			if (pjobsub->ji_wattr[JOB_ATR_resource].at_flags & ATR_VFLAG_SET)
-				job_attr_def[JOB_ATR_resource].at_set(&sub_prev_res, &pjobsub->ji_wattr[JOB_ATR_resource], SET);
+				set_attr_with_attr(&job_attr_def[JOB_ATR_resource], &sub_prev_res, &pjobsub->ji_wattr[JOB_ATR_resource], SET);
 			job_purge(pjobsub);
 		}
 
@@ -532,7 +532,7 @@ req_runjob(struct batch_request *preq)
 
 		if (sub_prev_res.at_flags & ATR_VFLAG_SET) {
 			job_attr_def[JOB_ATR_resource].at_free(&pjobsub->ji_wattr[JOB_ATR_resource]);
-			job_attr_def[JOB_ATR_resource].at_set(&pjobsub->ji_wattr[JOB_ATR_resource], &sub_prev_res, SET);
+			set_attr_with_attr(&job_attr_def[JOB_ATR_resource], &pjobsub->ji_wattr[JOB_ATR_resource], &sub_prev_res, SET);
 			job_attr_def[JOB_ATR_resource].at_free(&sub_prev_res);
 		}
 

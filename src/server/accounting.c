@@ -2100,11 +2100,7 @@ account_job_update(job *pjob, int type)
 		pb += i;
 		len -= i;
 
-		if ((pjob->ji_wattr[JOB_ATR_resc_used_acct].at_flags & ATR_VFLAG_SET) != 0) {
-			job_attr_def[JOB_ATR_resc_used_acct].at_free(&pjob->ji_wattr[JOB_ATR_resc_used_acct]);
-			pjob->ji_wattr[JOB_ATR_resc_used_acct].at_flags &= ~ATR_VFLAG_SET;
-		}
-		job_attr_def[JOB_ATR_resc_used_acct].at_set(&pjob->ji_wattr[JOB_ATR_resc_used_acct], &pjob->ji_wattr[JOB_ATR_resc_used], INCR);
+		set_attr_with_attr(&job_attr_def[JOB_ATR_resc_used_acct], &pjob->ji_wattr[JOB_ATR_resc_used_acct], &pjob->ji_wattr[JOB_ATR_resc_used], INCR);
 	}
 
 writeit:

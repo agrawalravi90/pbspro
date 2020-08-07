@@ -1406,7 +1406,7 @@ update_resources_list(job *pjob, char *res_list_name,
 
 		if ((pjob->ji_wattr[backup_res_list_index].at_flags & ATR_VFLAG_SET) == 0) {
 			job_attr_def[backup_res_list_index].at_free(&pjob->ji_wattr[backup_res_list_index]);
-			job_attr_def[backup_res_list_index].at_set(&pjob->ji_wattr[backup_res_list_index], &pjob->ji_wattr[res_list_index], INCR);
+			set_attr_with_attr(&job_attr_def[backup_res_list_index], &pjob->ji_wattr[backup_res_list_index], &pjob->ji_wattr[res_list_index], INCR);
 
 		}
 
@@ -1506,7 +1506,7 @@ update_resources_list_error:
 	job_attr_def[backup_res_list_index].at_free(
 			&pjob->ji_wattr[backup_res_list_index]);
 	pjob->ji_wattr[backup_res_list_index].at_flags &= ~ATR_VFLAG_SET;
-	job_attr_def[res_list_index].at_set(
+	set_attr_with_attr(&job_attr_def[res_list_index], 
 			&pjob->ji_wattr[res_list_index],
 			&pjob->ji_wattr[backup_res_list_index], INCR);
 	return (1);

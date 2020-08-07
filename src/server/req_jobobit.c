@@ -1102,7 +1102,7 @@ unset_extra_attributes(job *pjob)
 	if (pjob->ji_wattr[(int) JOB_ATR_resource_orig].at_flags & ATR_VFLAG_SET) {
 		job_attr_def[(int) JOB_ATR_resource].at_free( &pjob->ji_wattr[(int) JOB_ATR_resource]);
 		pjob->ji_wattr[(int) JOB_ATR_resource].at_flags &= ~ATR_VFLAG_SET;
-		job_attr_def[(int) JOB_ATR_resource].at_set( &pjob->ji_wattr[(int) JOB_ATR_resource], &pjob->ji_wattr[(int) JOB_ATR_resource_orig], INCR);
+		set_attr_with_attr(&job_attr_def[(int) JOB_ATR_resource],  &pjob->ji_wattr[(int) JOB_ATR_resource], &pjob->ji_wattr[(int) JOB_ATR_resource_orig], INCR);
 
 		job_attr_def[(int) JOB_ATR_resource_orig].at_free( &pjob->ji_wattr[(int) JOB_ATR_resource_orig]);
 		pjob->ji_wattr[(int) JOB_ATR_resource_orig].at_flags &= ~ATR_VFLAG_SET;
