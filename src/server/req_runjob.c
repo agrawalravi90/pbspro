@@ -1078,6 +1078,14 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
 		pjob->ji_wattr[(int)JOB_ATR_runcount].at_flags |= ATR_SET_MOD_MCACHE;
 	}
 
+	/* Before sending the job to MOM, update resources assigned. This will make sure that
+	 * if sched queries the universe before the mom has replied back, it doesn't potentially
+	 * overbook the resources
+	 */
+	/* may have already been done for provisioning, but    */
+	/* that will be detected inside of set_resc_assigned() */
+	set_resc_assigned((void *)pjob, 0, INCR);
+
 	/* send the job to MOM */
 	set_attr_svr(&(pjob->ji_wattr[(int) JOB_ATR_Comment]), &job_attr_def[(int) JOB_ATR_Comment],
 		form_attr_comment("Job was sent for execution at %s", pjob->ji_wattr[(int) JOB_ATR_exec_vnode].at_val.at_str));
@@ -1226,10 +1234,6 @@ complete_running(job *jobp)
 		/* above saves job structure */
 	}
 
-	/* update resource usage attributes */
-	/* may have already been done for provisioning, but    */
-	/* that will be detected inside of set_resc_assigned() */
-	set_resc_assigned((void *)jobp, 0, INCR);
 	/* These attributes need to be cleared/freed now that the job has been resumed */
 	if (jobp->ji_wattr[(int) JOB_ATR_resc_released].at_flags & ATR_VFLAG_SET) {
 		job_attr_def[(int) JOB_ATR_resc_released].at_free(
@@ -1574,11 +1578,7 @@ post_sendmom(struct work_task *pwt)
 				"Unable to Run Job, MOM rejected");
 
 			/* release resources */
-			if (jobp->ji_qs.ji_substate == JOB_SUBSTATE_PROVISION ||
-					jobp->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
-				rel_resc(jobp);
-			else
-				free_nodes(jobp);
+			rel_resc(jobp);
 
 			/*
 			 * If there is a checkpoint, we leave exec_vnode
