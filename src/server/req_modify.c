@@ -146,7 +146,7 @@ req_modifyjob(struct batch_request *preq)
 	int		 add_to_am_list = 0; /* if altered during sched cycle */
 	int		 bad = 0;
 	int		 jt;		/* job type */
-	int		 newstate;
+	char		 newstate;
 	int		 newsubstate;
 	resource_def	*outsideselect = NULL;
 	job		*pjob;
@@ -200,8 +200,8 @@ req_modifyjob(struct batch_request *preq)
 	/* allow scheduler to modify job */
 	if (psched == NULL) {
 		/* provisioning job is not allowed to be modified */
-		if ((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) &&
-			(pjob->ji_qs.ji_substate == JOB_SUBSTATE_PROVISION)) {
+		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) &&
+			(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION)) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
@@ -209,7 +209,7 @@ req_modifyjob(struct batch_request *preq)
 
 	/* cannot be in exiting or transit, exiting has already be checked */
 
-	if (pjob->ji_qs.ji_state == JOB_STATE_TRANSIT) {
+	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_TRANSIT) {
 		req_reject(PBSE_BADSTATE, 0, preq);
 		return;
 	}
@@ -228,7 +228,7 @@ req_modifyjob(struct batch_request *preq)
 	 *	   altered.
 	 */
 
-	if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING) {
+	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) {
 		running = 1;
 	}
 	while (plist) {
@@ -378,9 +378,9 @@ req_modifyjob(struct batch_request *preq)
 		log_alter_records_for_attrs(pjob, plist);
 
 	/* if job is not running, may need to change its state */
-	if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING) {
+	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) {
 		svr_evaljobstate(pjob, &newstate, &newsubstate, 0);
-		(void)svr_setjobstate(pjob, newstate, newsubstate);
+		svr_setjobstate(pjob, newstate, newsubstate);
 	}
 
 	job_save_db(pjob); /* we must save the updates anyway, if any */
@@ -449,7 +449,7 @@ modify_job_attr(job *pjob, svrattrl *plist, int perm, int *bad)
 	attribute *pattr;
 	resource  *prc;
 	int	   rc;
-	int	   newstate = -1;
+	char	   newstate = -1;
 	int	   newsubstate = -1;
 	long	   newaccruetype = -1;
 
@@ -520,7 +520,7 @@ modify_job_attr(job *pjob, svrattrl *plist, int perm, int *bad)
 		/* So, the following checks are made only if not the Op/Admin */
 
 		if ((perm & (ATR_DFLAG_MGWR | ATR_DFLAG_OPWR)) == 0) {
-			if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING) {
+			if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) {
 
 				/* regular user cannot raise the limits of a running job */
 
@@ -799,8 +799,8 @@ req_modifyReservation(struct batch_request *preq)
 
 	num_jobs = presv->ri_qp->qu_numjobs;
 	if (svr_chk_history_conf()) {
-		num_jobs -= (presv->ri_qp->qu_njstate[JOB_STATE_MOVED] + presv->ri_qp->qu_njstate[JOB_STATE_FINISHED] +
-			presv->ri_qp->qu_njstate[JOB_STATE_EXPIRED]);
+		num_jobs -= (presv->ri_qp->qu_njstate[JOB_STATE_LTR_MOVED] + presv->ri_qp->qu_njstate[JOB_STATE_LTR_FINISHED] +
+			presv->ri_qp->qu_njstate[JOB_STATE_LTR_EXPIRED]);
 	}
 
 	is_standing = presv->ri_wattr[RESV_ATR_resv_standing].at_val.at_long;

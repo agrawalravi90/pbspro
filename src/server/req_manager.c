@@ -1560,14 +1560,11 @@ mgr_server_unset(struct batch_request *preq, conn_t *conn)
 				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_EligibleTimeEnable]),
 					    &svr_attr_def[(int)SVR_ATR_EligibleTimeEnable], "FALSE", SET);
 			else if(strcasecmp(plist->al_name, ATTR_license_linger) == 0)
-				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_license_linger]),
-					    &svr_attr_def[(int)SVR_ATR_license_linger], TOSTR(PBS_LIC_LINGER_TIME), SET);
+				set_attr_l(&(server.sv_attr[SVR_ATR_license_linger]), PBS_LIC_LINGER_TIME, SET);
 			else if(strcasecmp(plist->al_name, ATTR_license_max) == 0)
-				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_license_max]),
-					    &svr_attr_def[(int)SVR_ATR_license_max], TOSTR(PBS_MAX_LICENSING_LICENSES), SET);
+				set_attr_l(&(server.sv_attr[SVR_ATR_license_max]), PBS_MAX_LICENSING_LICENSES, SET);
 			else if(strcasecmp(plist->al_name, ATTR_license_min) == 0)
-				set_attr_generic(&(server.sv_attr[(int)SVR_ATR_license_min]),
-					    &svr_attr_def[(int)SVR_ATR_license_min], TOSTR(PBS_MIN_LICENSING_LICENSES), SET);
+				set_attr_l(&(server.sv_attr[SVR_ATR_license_min]), PBS_MIN_LICENSING_LICENSES, SET);
 			else if (strcasecmp(plist->al_name, ATTR_rescdflt) == 0) {
 				if (plist->al_resc != NULL && strcasecmp(plist->al_resc, "ncpus") == 0) {
 					svrattrl *tm_list;

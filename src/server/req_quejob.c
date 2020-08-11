@@ -442,7 +442,7 @@ req_quejob(struct batch_request *preq)
 	 */
 	if (pj != NULL) {
 		if ((svr_chk_history_conf()) &&
-			(pj->ji_qs.ji_state == JOB_STATE_MOVED)) {
+			(pj->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED)) {
 			job_purge(pj);
 		} else {
 			/* server rejects the queue request */
@@ -504,7 +504,7 @@ req_quejob(struct batch_request *preq)
 		}
 
 		/* if actually running, tell Server we already have it */
-		if (pj->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING) {
+		if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING) {
 			req_reject(PBSE_JOBEXIST, 0, preq);
 			return;
 		}
@@ -512,7 +512,7 @@ req_quejob(struct batch_request *preq)
 		/* if checkpointed, then keep old and skip rest of process */
 
 		if (pj->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) {
-			pj->ji_qs.ji_substate = JOB_SUBSTATE_TRANSIN;
+			pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TRANSIN;
 			int prot = preq->prot;
 			if (reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Queue) == 0) {
 				delete_link(&pj->ji_alljobs);
@@ -1057,8 +1057,8 @@ req_quejob(struct batch_request *preq)
 
 	/* set remaining job structure elements			*/
 
-	pj->ji_qs.ji_state =    JOB_STATE_TRANSIT;
-	pj->ji_qs.ji_substate = JOB_SUBSTATE_TRANSIN;
+	pj->ji_wattr[JOB_ATR_state].at_val.at_char =    JOB_STATE_LTR_TRANSIT;
+	pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TRANSIN;
 	pj->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'T';
 
 	pj->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long = (long)time_now;
@@ -1246,7 +1246,7 @@ req_jobcredential(struct batch_request *preq)
 		req_reject(PBSE_IVALREQ, 0, preq);
 		return;
 	}
-	if (pj->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN) {
+	if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSIN) {
 		delete_link(&pj->ji_alljobs);
 		req_reject(PBSE_IVALREQ, 0, preq);
 		return;
@@ -1308,7 +1308,7 @@ req_jobscript(struct batch_request *preq)
 		req_reject(PBSE_IVALREQ, 0, preq);
 		return;
 	}
-	if (pj->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN) {
+	if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSIN) {
 		delete_link(&pj->ji_alljobs);
 		req_reject(PBSE_IVALREQ, 0, preq);
 		return;
@@ -1658,7 +1658,7 @@ req_mvjobfile(struct batch_request *preq)
  * @brief
  *		Commit ownership of job
  * @par Functionality:
- *		Set state of job to JOB_STATE_QUEUED (or Held or Waiting) and
+ *		Set state of job to JOB_STATE_LTR_QUEUED (or Held or Waiting) and
  *		enqueue the job into its destination queue.
  *
  * @param[in]	preq	-	The batch request structure
@@ -1669,7 +1669,7 @@ void
 req_commit_now(struct batch_request *preq,  job *pj)
 {
 #ifndef PBS_MOM
-	int newstate;
+	char newstate;
 	int newsub;
 	pbs_queue *pque;
 	int rc;
@@ -1680,15 +1680,15 @@ req_commit_now(struct batch_request *preq,  job *pj)
 	void *conn = (void *) svr_db_conn;
 #endif
 
-	if (pj->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN) {
+	if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSIN) {
 		req_reject(PBSE_IVALREQ, 0, preq);
 		return;
 	}
 
-	pj->ji_qs.ji_state = JOB_STATE_TRANSIT;
+	pj->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_TRANSIT;
 	pj->ji_wattr[(int) JOB_ATR_state].at_val.at_char = 'T';
 	pj->ji_wattr[(int) JOB_ATR_state].at_flags |= ATR_SET_MOD_MCACHE;
-	pj->ji_qs.ji_substate = JOB_SUBSTATE_TRANSICM;
+	pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TRANSICM;
 	pj->ji_wattr[(int) JOB_ATR_substate].at_flags |= ATR_SET_MOD_MCACHE;
 
 #ifdef PBS_MOM	/* MOM only */
@@ -1707,9 +1707,9 @@ req_commit_now(struct batch_request *preq,  job *pj)
 	 ** Set JOB_SVFLG_HERE to indicate that this is Mother Superior.
 	 */
 	pj->ji_qs.ji_svrflags |= JOB_SVFLG_HERE;
-	pj->ji_qs.ji_state = JOB_STATE_RUNNING;
+	pj->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
 	pj->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_VFLAG_MODIFY;
-	pj->ji_qs.ji_substate = JOB_SUBSTATE_PRERUN;
+	pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_PRERUN;
 	pj->ji_wattr[(int)JOB_ATR_substate].at_flags |= ATR_VFLAG_MODIFY;
 	pj->ji_qs.ji_un_type = JOB_UNION_TYPE_MOM;
 	if (preq->prot) {
@@ -3218,7 +3218,7 @@ copy_params_from_job(char *jobid, resc_resv *presv)
 	if (pjob == NULL)
 		return PBSE_UNKJOBID;
 
-	if ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING) &&
+	if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) &&
 		(pjob->ji_wattr[JOB_ATR_exec_vnode].at_val.at_str == NULL))
 		return PBSE_BADSTATE;
 

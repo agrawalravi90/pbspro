@@ -88,7 +88,7 @@ build_selist(svrattrl *, int perm, struct  select_list **,
 static void free_sellist(struct select_list *pslist);
 static int  sel_attr(attribute *, struct select_list *);
 static int  select_job(job *, struct select_list *, int, int);
-static int  select_subjob(int, struct select_list *);
+static int  select_subjob(char, struct select_list *);
 
 
 /**
@@ -198,7 +198,7 @@ static attribute_def state_sel = {
  * 		chk_job_statenum - check the state of a job (actual numeric state) with
  * 		a list of state letters
  *
- * @param[in]	istat	-	state of a job (actual numeric state)
+ * @param[in]	state_ltr	-	state of a job as a letter
  * @param[in]	statelist	-	list of state letters
  *
  * @return	int
@@ -206,15 +206,13 @@ static attribute_def state_sel = {
  * @retval	1	: match found
  */
 static int
-chk_job_statenum(int istat, char *statelist)
+chk_job_statenum(char state_ltr, char *statelist)
 {
-
-
 	if (statelist == NULL)
 		return 1;
-	if (istat >= 0 && istat <= 9)
-		if (strchr(statelist, (int)(statechars[istat])))
-			return 1;
+
+	if (strchr(statelist, (int) state_ltr))
+		return 1;
 	return 0;
 }
 
@@ -471,14 +469,14 @@ select_job(job *pjob, struct select_list *psel, int dosubjobs, int dohistjobs)
 	 * them otherwise include them. i.e. if the batch request has the special
 	 * extended flag 'x'.
 	 */
-	if ((!dohistjobs) && ((pjob->ji_qs.ji_state == JOB_STATE_FINISHED) ||
-		(pjob->ji_qs.ji_state == JOB_STATE_MOVED))) {
+	if ((!dohistjobs) && ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED))) {
 		return 0;
 	}
 
 	if ((dosubjobs == 2) && (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) &&
-		(pjob->ji_qs.ji_state != JOB_STATE_EXITING) &&
-		(pjob->ji_qs.ji_state != JOB_STATE_RUNNING)) /* select only exiting or running subjobs */
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXITING) &&
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING)) /* select only exiting or running subjobs */
 		return 0;
 
 	if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_ArrayJob) == 0)
@@ -813,7 +811,7 @@ build_selist(svrattrl *plist, int perm, struct select_list **pselist, pbs_queue 
  */
 
 static int
-select_subjob(int state, struct select_list *psel)
+select_subjob(char state, struct select_list *psel)
 {
 	attribute *selstate;
 

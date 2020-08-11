@@ -611,7 +611,7 @@ acct_job(const job *pjob, int type, char *buf, int len)
 		}
 	}
 
-	if (pjob->ji_wattr[JOB_ATR_array_indices_submitted].at_flags & ATR_VFLAG_SET && ((pjob->ji_qs.ji_state == JOB_STATE_BEGUN) || type == PBS_ACCT_QUEUE)) {
+	if (pjob->ji_wattr[JOB_ATR_array_indices_submitted].at_flags & ATR_VFLAG_SET && ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_BEGUN) || type == PBS_ACCT_QUEUE)) {
 
 		/* for an Array Job in Begun state,  record index range */
 
@@ -1712,7 +1712,7 @@ build_common_data_for_job_update(const job *pjob, int type, char *buf, int len)
 	pb  += ct;
 	len -= ct;
 
-	if ((pjob->ji_wattr[JOB_ATR_array_indices_submitted].at_flags & ATR_VFLAG_SET) && (pjob->ji_qs.ji_state == JOB_STATE_BEGUN)) {
+	if ((pjob->ji_wattr[JOB_ATR_array_indices_submitted].at_flags & ATR_VFLAG_SET) && (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_BEGUN)) {
 
 		/* for an Array Job in Begun state,  record index range */
 

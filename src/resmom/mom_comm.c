@@ -1969,7 +1969,7 @@ job_start_error(job *pjob, int code, char *nodename, char *cmd)
 #endif
 		return;
 	}
-	if (pjob->ji_qs.ji_substate >= JOB_SUBSTATE_EXITING)
+	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long >= JOB_SUBSTATE_EXITING)
 		return;
 
 	if (code == PBSE_HOOK_REJECT_DELETEJOB)
@@ -2199,9 +2199,9 @@ node_bailout(job *pjob, hnodent *np)
 						break;
 				}
 				if (i == pjob->ji_numnodes) {	/* all dead */
-					if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_KILLSIS) {
-						pjob->ji_qs.ji_state    = JOB_STATE_EXITING;
-						pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+					if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_KILLSIS) {
+						pjob->ji_wattr[JOB_ATR_state].at_val.at_char    = JOB_STATE_LTR_EXITING;
+						pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
 						exiting_tasks = 1;
 					}
 				}
@@ -2400,14 +2400,14 @@ im_eof(int stream, int ret)
 			/*
 			 ** In case connection to pbs_comm is down/recently established, do not kill a job that is actually running.
 			 ** If this is the MS, we check job substate == JOB_SUBSTATE_RUNNING to see if job is running.
-			 ** If this is a sister, we check pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN || JOB_SUBSTATE_RUNNING
+			 ** If this is a sister, we check pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN || JOB_SUBSTATE_RUNNING
 			 ** We include PRERUN in case of jobs at sisters since at sister moms job substate stays at PRERUN
 			 ** till a tm task is initiated on it by the MS
                          ** We also check for substate JOB_SUBSTATE_SUSPEND to retain suspended jobs.
 			 **
 			 */
-			if ((((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0) && (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)) ||
-                                (pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING) || (pjob->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND)) {
+			if ((((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN)) ||
+                                (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING) || (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND)) {
 				if (do_tolerate_node_failures(pjob)) {
 					sprintf(log_buffer, "ignoring lost communication with %s as job is tolerant of node failures", np->hn_host);
 					log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_JOB, LOG_DEBUG, pjob->ji_qs.ji_jobid, log_buffer);
@@ -2455,7 +2455,7 @@ im_eof(int stream, int ret)
 				"lost connection to MS on %s", np->hn_host);
 			log_joberr(-1, __func__, log_buffer, pjob->ji_qs.ji_jobid);
 			kill_job(pjob, SIGKILL);
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
 			exiting_tasks = 1;
 		}
 	}
@@ -3177,8 +3177,8 @@ im_request(int stream, int version)
 			}
 
 			/* set remaining job structure elements */
-			pjob->ji_qs.ji_state =    JOB_STATE_RUNNING;
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_PRERUN;
+			pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_PRERUN;
 			pjob->ji_qs.ji_stime = time_now;
 			pjob->ji_polltime = time_now;
 			pjob->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long = (long)time_now;
@@ -3579,8 +3579,8 @@ join_err:
 			DBPRT(("%s: KILL_JOB %s\n", __func__, jobid))
 			reply = 0;	/* reply will be deferred */
 			kill_job(pjob, SIGKILL);
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
-			pjob->ji_qs.ji_state    = JOB_STATE_EXITING;
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
+			pjob->ji_wattr[JOB_ATR_state].at_val.at_char    = JOB_STATE_LTR_EXITING;
 			pjob->ji_obit = event;
 			exiting_tasks = 1;
 
@@ -4527,9 +4527,9 @@ join_err:
 						 ** At this point, we are ready to call
 						 ** finish_exec and launch the job.
 						 */
- 						if (!do_tolerate_node_failures(pjob) || (pjob->ji_qs.ji_substate == JOB_SUBSTATE_WAITING_JOIN_JOB)) {
-							if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_WAITING_JOIN_JOB) {
-								pjob->ji_qs.ji_substate = JOB_SUBSTATE_PRERUN;
+ 						if (!do_tolerate_node_failures(pjob) || (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_WAITING_JOIN_JOB)) {
+							if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_WAITING_JOIN_JOB) {
+								pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_PRERUN;
 								job_save(pjob);
 							}
 							finish_exec(pjob);
@@ -4664,9 +4664,9 @@ join_err:
 					}
 					if (i == pjob->ji_numnodes) { /* all dead */
 						DBPRT(("%s: ALL DONE, set EXITING job %s\n", __func__, jobid))
-						if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_KILLSIS) {
-							pjob->ji_qs.ji_state = JOB_STATE_EXITING;
-							pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+						if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_KILLSIS) {
+							pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_EXITING;
+							pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
 							exiting_tasks = 1;
 						}
 					}
@@ -5054,8 +5054,8 @@ join_err:
 						 ** At this point, we are ready to call
 						 ** finish_exec and launch the job.
 						 */
-						if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_WAITING_JOIN_JOB) {
-							pjob->ji_qs.ji_substate = JOB_SUBSTATE_PRERUN;
+						if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_WAITING_JOIN_JOB) {
+							pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_PRERUN;
 							job_save(pjob);
 						}
 						finish_exec(pjob);
@@ -5207,8 +5207,8 @@ join_err:
 							break;
 					}
 					if (i == pjob->ji_numnodes) {	/* all dead */
-						if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_KILLSIS) {
-							pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+						if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_KILLSIS) {
+							pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
 							exiting_tasks = 1;
 						}
 					}
@@ -5736,9 +5736,9 @@ tm_request(int fd, int version)
 #endif
 					continue;
 
-				if (pj->ji_qs.ji_substate !=
+				if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long !=
 					JOB_SUBSTATE_RUNNING &&
-					pj->ji_qs.ji_substate !=
+					pj->ji_wattr[JOB_ATR_substate].at_val.at_long !=
 					JOB_SUBSTATE_PRERUN)
 					continue;
 				i++;
@@ -5762,9 +5762,9 @@ tm_request(int fd, int version)
 				i = TM_ENOTFOUND;
 				goto aterr;
 			}
-			if (pjob->ji_qs.ji_substate !=
+			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long !=
 				JOB_SUBSTATE_RUNNING &&
-				pjob->ji_qs.ji_substate !=
+				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long !=
 				JOB_SUBSTATE_PRERUN) {
 				sprintf(log_buffer, "job not running");
 				i = TM_ENOTFOUND;
@@ -5953,9 +5953,9 @@ tm_request(int fd, int version)
 		ptask->ti_flags |= TI_FLAGS_ORPHAN;
 		(void)task_save(ptask);
 
-		if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING) {
-			pjob->ji_qs.ji_state = JOB_STATE_RUNNING;
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
+			pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
 			job_save(pjob);
 		}
 

@@ -242,7 +242,7 @@ static void clear_preempt_hold(job *pjob)
 	attribute temphold;
 	long old_hold;
 	int newsub;
-	int newstate;
+	char newstate;
 
 	clear_attr(&temphold, &job_attr_def[(int)JOB_ATR_hold]);
 	job_attr_def[(int)JOB_ATR_hold].at_decode(&temphold, NULL, NULL, "s");
@@ -316,16 +316,16 @@ req_preemptjobs(struct batch_request *preq)
 			continue;
 		}
 
-		if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING) {
+		if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) {
 			sprintf(preempt_jobs_list[preempt_index].job_id, "%s", ppj->job_id);
-			switch (pjob->ji_qs.ji_state) {
-				case JOB_STATE_QUEUED:
+			switch (pjob->ji_wattr[JOB_ATR_state].at_val.at_char) {
+				case JOB_STATE_LTR_QUEUED:
 					strcpy(preempt_jobs_list[preempt_index].order, "Q");
 					preempt_index++;
 					break;
-				case JOB_STATE_EXPIRED:
-				case JOB_STATE_FINISHED:
-				case JOB_STATE_MOVED:
+				case JOB_STATE_LTR_EXPIRED:
+				case JOB_STATE_LTR_FINISHED:
+				case JOB_STATE_LTR_MOVED:
 					strcpy(preempt_jobs_list[preempt_index].order, "D");
 					preempt_index++;
 					break;

@@ -259,7 +259,7 @@ issue_track(job *pjob)
 /**
  * @brief
  * 		track_history_job()	-	It updates the substate and comment attribute of
- * 		history job (job state = JOB_STATE_MOVED).
+ * 		history job (job state = JOB_STATE_LTR_MOVED).
  *
  * @param[in]	prqt	-	request track structure
  * @param[in]	extend	-	request "extension" data
@@ -285,7 +285,7 @@ track_history_job(struct rq_track *prqt, char *extend)
 	 */
 	if ((pjob == NULL) ||
 		((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0) ||
-		(pjob->ji_qs.ji_state != JOB_STATE_MOVED)) {
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_MOVED)) {
 		return;
 	}
 
@@ -295,7 +295,7 @@ track_history_job(struct rq_track *prqt, char *extend)
 	 * and update the comment message.
 	 */
 	if (*prqt->rq_state == 'E') {
-		pjob->ji_qs.ji_substate = JOB_SUBSTATE_FINISHED;
+		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_FINISHED;
 		pjob->ji_wattr[(int)JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_FINISHED;
 		pjob->ji_wattr[(int)JOB_ATR_substate].at_flags |= ATR_MOD_MCACHE;
 		/* over write the default comment message */
@@ -328,5 +328,5 @@ track_history_job(struct rq_track *prqt, char *extend)
 		NULL,
 		NULL,
 		log_buffer);
-	svr_histjob_update(pjob, pjob->ji_qs.ji_state, pjob->ji_qs.ji_substate);
+	svr_histjob_update(pjob, pjob->ji_wattr[JOB_ATR_state].at_val.at_char, pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
 }

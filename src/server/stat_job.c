@@ -252,6 +252,7 @@ status_job(job *pjob, struct batch_request *preq, svrattrl *pal, pbs_list_head *
 	long oldtime = 0;
 	int old_elig_flags = 0;
 	int old_atyp_flags = 0;
+	int revert_state_r = 0;
 
 	/* see if the client is authorized to status this job */
 
@@ -301,6 +302,17 @@ status_job(job *pjob, struct batch_request *preq, svrattrl *pal, pbs_list_head *
 	CLEAR_HEAD(pstat->brp_attr);
 	append_link(pstathd, &pstat->brp_stlink, pstat);
 
+	/* Temporarily set suspend/user suspend states for the stat */
+	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) {
+		if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) {
+			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_SUSPENDED, SET);
+			revert_state_r = 1;
+		} else if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_Actsuspd) {
+			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_USUSPENDED, SET);
+			revert_state_r = 1;
+		}
+	}
+
 	/* add attributes to the status reply */
 
 	*bad = 0;
@@ -322,6 +334,9 @@ status_job(job *pjob, struct batch_request *preq, svrattrl *pal, pbs_list_head *
 		pjob->ji_wattr[(int)JOB_ATR_eligible_time].at_flags = old_elig_flags;
 		pjob->ji_wattr[(int)JOB_ATR_accrue_type].at_flags = old_atyp_flags;
 	}
+
+	if (revert_state_r)
+		set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
 
 	return (0);
 }
@@ -354,7 +369,7 @@ status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pb
 	int		   rc = 0;
 	int		   oldeligflags = 0;
 	int		   oldatypflags = 0;
-	int 		   subjob_state = -1;
+	char 		   subjob_state = -1;
 	char 		   *old_subjob_comment = NULL;
 
 	/* see if the client is authorized to status this job */
@@ -368,7 +383,7 @@ status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pb
 
 	/* if subjob job obj exists, use real job structure */
 
-	if ((get_subjob_state(pjob, subj) != JOB_STATE_QUEUED) && (psubjob = pjob->ji_ajtrk->tkm_tbl[subj].trk_psubjob)) {
+	if ((get_subjob_state(pjob, subj) != JOB_STATE_LTR_QUEUED) && (psubjob = pjob->ji_ajtrk->tkm_tbl[subj].trk_psubjob)) {
 
 		status_job(psubjob, preq, pal, pstathd, bad);
 		return 0;
@@ -401,10 +416,10 @@ status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pb
 	 */
 	subjob_state = get_subjob_state(pjob, subj);
 	realstate = pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char;
-	pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char = statechars[subjob_state];
+	pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char = subjob_state;
 	pjob->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_MOD_MCACHE;
 
-	if (subjob_state == JOB_STATE_EXPIRED || subjob_state == JOB_STATE_FINISHED) {
+	if (subjob_state == JOB_STATE_LTR_EXPIRED || subjob_state == JOB_STATE_LTR_FINISHED) {
 		if (pjob->ji_ajtrk->tkm_tbl[subj].trk_substate == JOB_SUBSTATE_FINISHED) {
 			if (pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags & ATR_VFLAG_SET) {
 				old_subjob_comment = strdup(pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str);

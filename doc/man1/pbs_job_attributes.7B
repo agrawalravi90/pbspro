@@ -952,33 +952,33 @@ Job states:
 Job arrays only.  The job array has begun execution.
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_BEGUN
+.I pbs.JOB_STATE_LTR_BEGUN
 .IP E 3
 .I Exiting.  
 The job has finished, with or without errors,
 and PBS is cleaning up post-execution.
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_EXITING
+.I pbs.JOB_STATE_LTR_EXITING
 .IP F 3
 .I Finished.
 Job is finished.  Job has completed execution, job failed during execution,
 or job was deleted.
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_FINISHED
+.I pbs.JOB_STATE_LTR_FINISHED
 .IP H 3
 .I Held.  
 The job is held. 
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_HELD
+.I pbs.JOB_STATE_LTR_HELD
 .IP M 3
 .I Moved.
 Job has been moved to another server. 
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_MOVED
+.I pbs.JOB_STATE_LTR_MOVED
 .IP Q 3
 .I Queued.  
 The job resides in an execution or routing queue pending
@@ -989,26 +989,26 @@ or
 state.
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_QUEUED
+.I pbs.JOB_STATE_LTR_QUEUED
 .IP R 3
 .I Running.  
 The job is in a execution queue and is running.
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_RUNNING
+.I pbs.JOB_STATE_LTR_RUNNING
 .IP S 3
 .I Suspended.  
 The job was executing and has been suspended.   
 The job does not use CPU cycles or walltime.
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_SUSPEND
+.I pbs.JOB_STATE_LTR_SUSPEND
 .IP T 3
 .I Transiting.  
 The job is being routed or moved to a new destination.
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_TRANSIT
+.I pbs.JOB_STATE_LTR_TRANSIT
 .IP U 3
 .I User suspended.  
 The job was running on a workstation configured for cycle
@@ -1016,7 +1016,7 @@ harvesting and the keyboard/mouse is currently busy.  The job is suspended
 until the workstation has been idle for a configured amount of time.
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_SUSPEND_USERACTIVE
+.I pbs.JOB_STATE_LTR_SUSPEND_USERACTIVE
 .IP W 3
 .I Waiting.  
 The 
@@ -1026,13 +1026,13 @@ stage-in fails and PBS moves job start time out
 30 minutes to allow user to fix problem.
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_WAIITING
+.I pbs.JOB_STATE_LTR_WAIITING
 .IP X 3
 .I Expired.
 Subjobs only.  Subjob is finished (expired.)
 .br
 Python type: PBS job state constant
-.I pbs.JOB_STATE_EXPIRED
+.I pbs.JOB_STATE_LTR_EXPIRED
 .LP
 .RE
 

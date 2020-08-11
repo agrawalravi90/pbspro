@@ -274,8 +274,8 @@ set_resc_assigned(void *pobj, int objtype, enum batch_op op)
 		}
 
 		rescp = (resource *) GET_NEXT(pjob->ji_wattr[(int) JOB_ATR_resource].at_val.at_list);
-		if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND) ||
-			(pjob->ji_qs.ji_substate == JOB_SUBSTATE_SCHSUSP)) {
+		if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND) ||
+			(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SCHSUSP)) {
 			/* If resources_released attribute is not set for this suspended job then use release all
 			 * resources assigned to the job */
 			if ((pjob->ji_wattr[(int) JOB_ATR_resc_released].at_flags & ATR_VFLAG_SET) == 0)
@@ -486,7 +486,7 @@ int
 keepfiles_action(attribute *pattr, void *pobject, int mode) {
     if ((mode != ATR_ACTION_ALTER) && (mode != ATR_ACTION_NEW))
         return PBSE_NONE;
-    if (pobject && ((job *)pobject)->ji_qs.ji_state == JOB_STATE_RUNNING)
+    if (pobject && ((job *)pobject)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING)
         return PBSE_MODATRRUN;
     return verify_keepfiles_common(pattr->at_val.at_str);
 }
@@ -508,7 +508,7 @@ int
 removefiles_action(attribute *pattr, void *pobject, int mode) {
     if ((mode != ATR_ACTION_ALTER) && (mode != ATR_ACTION_NEW))
         return PBSE_NONE;
-    if (pobject && ((job *)pobject)->ji_qs.ji_state == JOB_STATE_RUNNING)
+    if (pobject && ((job *)pobject)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING)
         return PBSE_MODATRRUN;
     return verify_removefiles_common(pattr->at_val.at_str);
 }
@@ -1227,8 +1227,8 @@ unset_job_history_enable(void)
 	svr_history_enable = 0;
 
 	/*
-	 * Find all the history jobs (jobs with state JOB_STATE_MOVED
-	 * and JOB_STATE_FINISHED) in the server and purge them right
+	 * Find all the history jobs (jobs with state JOB_STATE_LTR_MOVED
+	 * and JOB_STATE_LTR_FINISHED) in the server and purge them right
 	 * now as job_history_enable has been UNSET OR SET to FALSE.
 	 */
 	pjob = (job *)GET_NEXT(svr_alljobs);
@@ -1236,9 +1236,9 @@ unset_job_history_enable(void)
 		/* save the next */
 		nxpjob = (job *)GET_NEXT(pjob->ji_alljobs);
 
-		if ((pjob->ji_qs.ji_state == JOB_STATE_MOVED) ||
-			(pjob->ji_qs.ji_state == JOB_STATE_FINISHED) ||
-			(pjob->ji_qs.ji_state == JOB_STATE_EXPIRED)) {
+		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
+			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
+			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED)) {
 			job_purge(pjob);
 			pjob = NULL;
 		}
@@ -3245,17 +3245,17 @@ set_entity_ct_sum_queued(job *pjob, pbs_queue *pque, enum batch_op op)
 	int 	    rc;
 	int 	    subjobs;
 
-	/* if the job is in states JOB_STATE_MOVED or JOB_STATE_FINISHED, */
+	/* if the job is in states JOB_STATE_LTR_MOVED or JOB_STATE_LTR_FINISHED, */
 	/* then just return,  the job's resources were removed from the   */
 	/* entity sums when it went into the MOVED/FINISHED state	  */
 	/* also return if the entity limits for this job were 		  */
 	/* decremented before.						  */
 
-	if ((pjob->ji_qs.ji_state == JOB_STATE_MOVED) ||
-		(pjob->ji_qs.ji_state == JOB_STATE_FINISHED) ||
-		(pjob->ji_qs.ji_state == JOB_STATE_EXPIRED) ||
-		((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) && (op == INCR))) {
-		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, statechars[pjob->ji_qs.ji_state])
+	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED) ||
+		((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) && (op == INCR))) {
+		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
 		return 0;
 	}
 
@@ -3360,14 +3360,14 @@ set_entity_ct_sum_max(job *pjob, pbs_queue *pque, enum batch_op op)
 	int 	    rc;
 	int 	    subjobs;
 
-	/* if the job is in states JOB_STATE_MOVED or JOB_STATE_FINISHED, */
+	/* if the job is in states JOB_STATE_LTR_MOVED or JOB_STATE_LTR_FINISHED, */
 	/* then just return,  the job's resources were removed from the   */
 	/* entity sums when it went into the MOVED/FINISHED state	  */
 
-	if ((pjob->ji_qs.ji_state == JOB_STATE_MOVED) ||
-		(pjob->ji_qs.ji_state == JOB_STATE_EXPIRED) ||
-		(pjob->ji_qs.ji_state == JOB_STATE_FINISHED)) {
-		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, statechars[pjob->ji_qs.ji_state])
+	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED) ||
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED)) {
+		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
 		return 0;
 	}
 
@@ -3542,17 +3542,17 @@ set_entity_resc_sum_queued(job *pjob, pbs_queue *pque, attribute *altered_resc,
 	enum batch_op rev_op;
 
 	ET_LIM_DBG("entered [alt_res %p]", __func__, altered_resc)
-	/* if the job is in states JOB_STATE_MOVED or JOB_STATE_FINISHED, */
+	/* if the job is in states JOB_STATE_LTR_MOVED or JOB_STATE_LTR_FINISHED, */
 	/* then just return,  the job's resources were removed from the   */
 	/* entity sums when it went into the MOVED/FINISHED state	  */
 	/* also return if the entity limits for this job were 		  */
 	/* decremented before.						  */
 
-	if ((pjob->ji_qs.ji_state == JOB_STATE_MOVED) ||
-		(pjob->ji_qs.ji_state == JOB_STATE_FINISHED) ||
-		(pjob->ji_qs.ji_state == JOB_STATE_EXPIRED) ||
-		((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) && (op == INCR))) {
-		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, statechars[pjob->ji_qs.ji_state])
+	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED) ||
+		((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) && (op == INCR))) {
+		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
 		return 0;
 	}
 
@@ -3782,14 +3782,14 @@ set_entity_resc_sum_max(job *pjob, pbs_queue *pque, attribute *altered_resc,
 	enum batch_op rev_op;
 
 	ET_LIM_DBG("entered [alt_res %p]", __func__, altered_resc)
-	/* if the job is in states JOB_STATE_MOVED or JOB_STATE_FINISHED, */
+	/* if the job is in states JOB_STATE_LTR_MOVED or JOB_STATE_LTR_FINISHED, */
 	/* then just return,  the job's resources were removed from the   */
 	/* entity sums when it went into the MOVED/FINISHED state	  */
 
-	if ((pjob->ji_qs.ji_state == JOB_STATE_MOVED) ||
-		(pjob->ji_qs.ji_state == JOB_STATE_EXPIRED) ||
-		(pjob->ji_qs.ji_state == JOB_STATE_FINISHED)) {
-		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, statechars[pjob->ji_qs.ji_state])
+	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED) ||
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED)) {
+		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
 		return 0;
 	}
 
@@ -4876,7 +4876,7 @@ is_runnable(job *ptr, struct prov_vnode_info *pvnfo)
 	/* failed to provision. Since, first vnode will return later, this is */
 	/* a catch to stop processing further since job would have already */
 	/* been held or re queued */
-	if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_PROVISION) {
+	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_PROVISION) {
 		DBPRT(("%s: stray provisioning for job %s\n", __func__,
 			pjob->ji_qs.ji_jobid))
 		eflag = -4;
@@ -5027,7 +5027,7 @@ fail_vnode_job(struct prov_vnode_info * prov_vnode_info, int hold_or_que)
 			&pjob->ji_wattr[(int)JOB_ATR_Comment],
 			NULL, NULL,
 			"job held, provisioning failed to start");
-		svr_setjobstate(pjob, JOB_STATE_HELD, JOB_SUBSTATE_HELD);
+		svr_setjobstate(pjob, JOB_STATE_LTR_HELD, JOB_SUBSTATE_HELD);
 	} else if (hold_or_que == 1) {
 		/* don't purge job, instead requeue */
 		(void)force_reque(pjob);

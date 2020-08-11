@@ -216,12 +216,12 @@ job_abt(job *pjob, char *text)
 		return 0; /* nothing to do */
 	/* save old state and update state to Exiting */
 
-	old_state = pjob->ji_qs.ji_state;
+	old_state = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
 
-	if (old_state == JOB_STATE_FINISHED)
+	if (old_state == JOB_STATE_LTR_FINISHED)
 		return 0;	/* nothing to do for this job */
 
-	old_substate = pjob->ji_qs.ji_substate;
+	old_substate = pjob->ji_wattr[JOB_ATR_substate].at_val.at_long;
 
 	/* notify user of abort if notification was requested */
 
@@ -230,9 +230,8 @@ job_abt(job *pjob, char *text)
 		svr_mailowner(pjob, MAIL_ABORT, MAIL_NORMAL, text);
 	}
 
-	if ((old_state == JOB_STATE_RUNNING) && (old_substate != JOB_SUBSTATE_PROVISION)) {
-		(void)svr_setjobstate(pjob,
-			JOB_STATE_RUNNING, JOB_SUBSTATE_ABORT);
+	if ((old_state == JOB_STATE_LTR_RUNNING) && (old_substate != JOB_SUBSTATE_PROVISION)) {
+		(void)svr_setjobstate(pjob, JOB_STATE_LTR_RUNNING, JOB_SUBSTATE_ABORT);
 		rc = issue_signal(pjob, "SIGKILL", release_req, 0);
 		if (rc != 0) {
 			(void)sprintf(log_buffer, msg_abt_err,
@@ -249,31 +248,28 @@ job_abt(job *pjob, char *text)
 			 */
 			svr_saveorpurge_finjobhist(pjob);
 		}
-	} else if ((old_state == JOB_STATE_TRANSIT) &&
+	} else if ((old_state == JOB_STATE_LTR_TRANSIT) &&
 		(old_substate == JOB_SUBSTATE_TRNOUT)) {
 		/* I don't know of a case where this could happen */
 		(void)sprintf(log_buffer, msg_abt_err,
 			pjob->ji_qs.ji_jobid, old_substate);
 		log_err(-1, __func__, log_buffer);
 	} else if (old_substate == JOB_SUBSTATE_PROVISION) {
-		(void)svr_setjobstate(pjob, JOB_STATE_RUNNING,
-			JOB_SUBSTATE_ABORT);
+		(void)svr_setjobstate(pjob, JOB_STATE_LTR_RUNNING, JOB_SUBSTATE_ABORT);
 		/*
 		 * Check if the history of the finished job can be saved or it needs to be purged .
 		 */
 		svr_saveorpurge_finjobhist(pjob);
-	} else if (old_state == JOB_STATE_HELD && old_substate == JOB_SUBSTATE_DEPNHOLD &&
+	} else if (old_state == JOB_STATE_LTR_HELD && old_substate == JOB_SUBSTATE_DEPNHOLD &&
 		  (pjob->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)) {
-		(void)svr_setjobstate(pjob, JOB_STATE_HELD,
-			JOB_SUBSTATE_ABORT);
+		(void)svr_setjobstate(pjob, JOB_STATE_LTR_HELD, JOB_SUBSTATE_ABORT);
 		depend_on_term(pjob);
 		/*
 		 * Check if the history of the finished job can be saved or it needs to be purged .
 		 */
 		svr_saveorpurge_finjobhist(pjob);
 	} else {
-		(void)svr_setjobstate(pjob, JOB_STATE_EXITING,
-			JOB_SUBSTATE_ABORT);
+		(void)svr_setjobstate(pjob, JOB_STATE_LTR_EXITING, JOB_SUBSTATE_ABORT);
 		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0) {
 			/* notify creator that job is exited */
 			issue_track(pjob);
@@ -884,15 +880,15 @@ job_purge(job *pjob)
 		(void)close(pjob->ji_parent2child_moms_status_pipe);
 #endif
 #else	/* not PBS_MOM */
-	if ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN) &&
-		(pjob->ji_qs.ji_substate != JOB_SUBSTATE_TRANSICM)) {
-		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) && (pjob->ji_qs.ji_state != JOB_STATE_FINISHED)) {
-			if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_RERUN3) || (pjob->ji_qs.ji_substate == JOB_SUBSTATE_QUEUED))
-				update_subjob_state(pjob, JOB_STATE_QUEUED);
+	if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSIN) &&
+		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSICM)) {
+		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) && (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_FINISHED)) {
+			if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RERUN3) || (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_QUEUED))
+				update_subjob_state(pjob, JOB_STATE_LTR_QUEUED);
 			else {
 				if (pjob->ji_terminated && pjob->ji_parentaj && pjob->ji_parentaj->ji_ajtrk)
 					pjob->ji_parentaj->ji_ajtrk->tkm_dsubjsct++;
-				update_subjob_state(pjob, JOB_STATE_EXPIRED);
+				update_subjob_state(pjob, JOB_STATE_LTR_EXPIRED);
 			}
 		}
 
@@ -1347,7 +1343,7 @@ do_tolerate_node_failures(job *pjob)
 	if ((pjob->ji_wattr[(int)JOB_ATR_tolerate_node_failures].at_flags & ATR_VFLAG_SET) &&
 	   ((strcmp(pjob->ji_wattr[(int)JOB_ATR_tolerate_node_failures].at_val.at_str, TOLERATE_NODE_FAILURES_ALL) == 0) ||
 	   ((strcmp(pjob->ji_wattr[(int)JOB_ATR_tolerate_node_failures].at_val.at_str, TOLERATE_NODE_FAILURES_JOB_START) == 0) &&
-	    pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING))) {
+	    pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING))) {
 		return (1);
 	}
 	return (0);
@@ -1646,7 +1642,7 @@ resv_free(resc_resv *presv)
  *
  * 		This function - ASSUMES - that if the reservation is supported by a
  * 		pbs_queue that queue is empty OR having history jobs only (i.e. job
- * 		in state JOB_STATE_MOVED/JOB_STATE_FINISHED). So, whatever mechanism
+ * 		in state JOB_STATE_LTR_MOVED/JOB_STATE_LTR_FINISHED). So, whatever mechanism
  * 		is being used to remove the jobs from such a supporting queue should,
  * 		at the outset, store the value "False" into the queue's "enabled"
  * 		attribute (blocks new jobs from being placed in the queue while the

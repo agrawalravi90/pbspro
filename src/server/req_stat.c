@@ -151,8 +151,8 @@ do_stat_of_a_job(struct batch_request *preq, job *pjob, int dohistjobs, int dosu
 
 	/* if history job and not asking for them, just return */
 	if ((!dohistjobs) &&
-			((pjob->ji_qs.ji_state == JOB_STATE_FINISHED) ||
-			(pjob->ji_qs.ji_state == JOB_STATE_MOVED))) {
+			((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
+			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED))) {
 		return (PBSE_NONE);	/* just return nothing */
 	}
 
@@ -499,7 +499,7 @@ status_que(pbs_queue *pque, struct batch_request *preq, pbs_list_head *pstathd)
 		pque->qu_attr[(int)QA_ATR_TotalJobs].at_val.at_long = pque->qu_numjobs;
 	} else {
 		pque->qu_attr[(int)QA_ATR_TotalJobs].at_val.at_long = pque->qu_numjobs -
-			(pque->qu_njstate[JOB_STATE_MOVED] + pque->qu_njstate[JOB_STATE_FINISHED] + pque->qu_njstate[JOB_STATE_EXPIRED]);
+			(pque->qu_njstate[JOB_STATE_LTR_MOVED] + pque->qu_njstate[JOB_STATE_LTR_FINISHED] + pque->qu_njstate[JOB_STATE_LTR_EXPIRED]);
 	}
 	pque->qu_attr[(int)QA_ATR_TotalJobs].at_flags |= ATR_SET_MOD_MCACHE;
 
@@ -899,9 +899,9 @@ update_state_ct(attribute *pattr, int *ct_array, char *buf)
 
 	buf[0] = '\0';
 	for (index=0; index < (PBS_NUMJOBSTATE); index++) {
-		if ((index == JOB_STATE_EXPIRED) ||
-			(index == JOB_STATE_MOVED) ||
-			(index == JOB_STATE_FINISHED))
+		if ((index == JOB_STATE_LTR_EXPIRED) ||
+			(index == JOB_STATE_LTR_MOVED) ||
+			(index == JOB_STATE_LTR_FINISHED))
 			continue;	/* skip over Expired/Moved/Finished */
 		sprintf(buf+strlen(buf), "%s:%d ", statename[index],
 			*(ct_array + index));

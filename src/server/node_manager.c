@@ -731,7 +731,7 @@ node_down_requeue(struct work_task *pwt)
 						 * Since this job is going to get requed and can run on different set of vnodes
 						 * hence to make sure provisioning failure on previous set of vnodes doesn't create problem.
 						 */
-						if(pj->ji_qs.ji_substate == JOB_SUBSTATE_PROVISION) {
+						if(pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION) {
 							cnt = parse_prov_vnode(pj->ji_wattr[(int)JOB_ATR_prov_vnode].at_val.at_str,
 												   &prov_vnode_list);
 
@@ -750,7 +750,7 @@ node_down_requeue(struct work_task *pwt)
 						}
 						/* Set for requeuing the job if job is rerunnable */
 						if (pj->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long != 0) {
-							pj->ji_qs.ji_substate = JOB_SUBSTATE_RERUN3;
+							pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RERUN3;
 							if (pj->ji_acctrec != NULL) {
 								if (pbs_asprintf(&tmp_acctrec, "%s %s", pj->ji_acctrec, log_buffer) == -1) {
 									free(tmp_acctrec); /* free 1 byte malloc'd in pbs_asprintf() */
@@ -858,7 +858,7 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 	free(pjob->ji_discard);
 	pjob->ji_discard = NULL;
 
-	if ((pjob->ji_qs.ji_state == JOB_STATE_QUEUED) && (pjob->ji_qs.ji_substate == JOB_SUBSTATE_QUEUED)) {
+	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_QUEUED) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_QUEUED)) {
 		static char nddown[] = "Job never started, execution node %s down";
 
 		/*
@@ -876,13 +876,13 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 		return;
 	}
 
-	if ((pjob->ji_qs.ji_state == JOB_STATE_HELD) && (pjob->ji_qs.ji_substate == JOB_SUBSTATE_HELD)) {
+	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_HELD) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_HELD)) {
 		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, "Leaving job in held state");
 		return;
 	}
 
-	if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_RERUN3 || pjob->ji_discarding) {
+	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RERUN3 || pjob->ji_discarding) {
 
 		static char *ndreque;
 
@@ -1953,8 +1953,8 @@ stat_update(int stream)
 		DBPRT(("stat_update: update for %s\n", rused.ru_pjobid))
 
 		if (((pjob = find_job(rused.ru_pjobid)) != NULL)     &&
-			((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) ||
-			(pjob->ji_qs.ji_state == JOB_STATE_EXITING)) &&
+			((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) ||
+			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXITING)) &&
 			(pjob->ji_wattr[(int)JOB_ATR_run_version].at_val.at_long == rused.ru_hop)) {
 
 			long old_sid = 0;  /* used to save prior sid of job */
@@ -2074,12 +2074,12 @@ stat_update(int stream)
 				 * it may have already been changed to:
 				 * - EXITING if the OBIT arrived first.
 				 */
-				if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) ||
-					(pjob->ji_qs.ji_substate == JOB_SUBSTATE_PROVISION)) {
+				if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN) ||
+					(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION)) {
 					/* log acct info and make RUNNING */
 					complete_running(pjob);
 					/* this causes a save of the job */
-					svr_setjobstate(pjob, JOB_STATE_RUNNING,
+					svr_setjobstate(pjob, JOB_STATE_LTR_RUNNING,
 						JOB_SUBSTATE_RUNNING);
 					/*
 					 * If JOB_DEPEND_TYPE_BEFORESTART dependency is set for the current job
@@ -2460,12 +2460,13 @@ recv_wk_job_idle(int stream)
 	if (pjob) {
 		/* suspend or resume job */
 
+		set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
+
 		if (which)
 			pjob->ji_qs.ji_svrflags |= JOB_SVFLG_Actsuspd;
 		else
 			pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Actsuspd;
 
-		set_statechar(pjob);
 		job_save_db(pjob);
 	}
 
@@ -2542,7 +2543,7 @@ deallocate_job_from_node(job *pjob, struct pbsnode *pnode)
 
 		/* call function to check and free the node from the */
 		/* prov list and reset wait_prov flag, if set */
-		if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PROVISION)
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION)
 			free_prov_vnode(pnode);
 	}
 
@@ -4076,27 +4077,27 @@ mom_running_jobs(int stream)
 			}
 		}
 
-		if (pjob && !discarded && pjob->ji_qs.ji_substate != substate) {
+		if (pjob && !discarded && pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != substate) {
 
 			/* Job substates disagree */
 
-			if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_SCHSUSP) ||
-				(pjob->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND)) {
+			if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SCHSUSP) ||
+				(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND)) {
 
 				if (substate == JOB_SUBSTATE_RUNNING) {
 
 					/* tell Mom to suspend job */
 					(void)issue_signal(pjob, "SIG_SUSPEND", release_req, 0);
 				}
-			} else if (pjob->ji_qs.ji_substate ==JOB_SUBSTATE_RUNNING) {
+			} else if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long ==JOB_SUBSTATE_RUNNING) {
 				if (substate == JOB_SUBSTATE_SUSPEND) {
 
 					/* tell Mom to resume job */
 					(void)issue_signal(pjob, "SIG_RESUME", release_req, 0);
 				}
 
-			} else if ((pjob->ji_qs.ji_state != JOB_STATE_EXITING) &&
-				(pjob->ji_qs.ji_state != JOB_STATE_RUNNING)) {
+			} else if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXITING) &&
+				(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING)) {
 
 				/* for any other disagreement of state except */
 				/* in Exiting or RUNNING, discard job         */
@@ -4818,8 +4819,8 @@ found:
 					goto err;
 
 				if (((pjob = find_job(jid)) != NULL)               &&
-					((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) ||
-					(pjob->ji_qs.ji_state == JOB_STATE_EXITING))  &&
+					((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) ||
+					(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXITING))  &&
 					(pjob->ji_wattr[(int)JOB_ATR_run_version].at_val.at_long == runct)) {
 					/* set the Exit_status job attribute */
 					/* to be later checked in job_obit() */
@@ -6627,8 +6628,8 @@ set_nodes(void *pobj, int objtype, char *execvnod_in, char **execvnod_out, char 
 				}
 			}
 			else if ((svr_init == TRUE) &&
-				((pjob->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND ||
-				  pjob->ji_qs.ji_substate == JOB_SUBSTATE_SCHSUSP)) &&
+				((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND ||
+				  pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SCHSUSP)) &&
 				(pjob->ji_wattr[(int)JOB_ATR_resc_released].at_flags & ATR_VFLAG_SET))
 				/* No need to add suspended job to jobinfo structure and assign CPU slots to it*/
 				break;

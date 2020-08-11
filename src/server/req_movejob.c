@@ -128,12 +128,12 @@ req_movejob(struct batch_request *req)
 		return;
 	}
 
-	if (jobp->ji_qs.ji_state != JOB_STATE_QUEUED &&
-			jobp->ji_qs.ji_state != JOB_STATE_HELD &&
-			jobp->ji_qs.ji_state != JOB_STATE_WAITING) {
+	if (jobp->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_QUEUED &&
+			jobp->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_HELD &&
+			jobp->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_WAITING) {
 #ifndef NDEBUG
 		(void)sprintf(log_buffer, "(%s) %s, state=%d",
-			__func__, msg_badstate, jobp->ji_qs.ji_state);
+			__func__, msg_badstate, jobp->ji_wattr[JOB_ATR_state].at_val.at_char);
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 			jobp->ji_qs.ji_jobid, log_buffer);
 #endif /* NDEBUG */
@@ -208,13 +208,13 @@ req_orderjob(struct batch_request *req)
 		return;
 	}
 
-	if (((pjob = pjob1)->ji_qs.ji_state == JOB_STATE_RUNNING) ||
-		((pjob = pjob2)->ji_qs.ji_state == JOB_STATE_RUNNING) ||
-		((pjob = pjob1)->ji_qs.ji_state == JOB_STATE_BEGUN)   ||
-		((pjob = pjob2)->ji_qs.ji_state == JOB_STATE_BEGUN)) {
+	if (((pjob = pjob1)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) ||
+		((pjob = pjob2)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) ||
+		((pjob = pjob1)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_BEGUN)   ||
+		((pjob = pjob2)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_BEGUN)) {
 #ifndef NDEBUG
 		(void)sprintf(log_buffer, "(%s) %s, state=%d",
-			__func__, msg_badstate, pjob->ji_qs.ji_state);
+			__func__, msg_badstate, pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 			pjob->ji_qs.ji_jobid, log_buffer);
 #endif	/* NDEBUG */

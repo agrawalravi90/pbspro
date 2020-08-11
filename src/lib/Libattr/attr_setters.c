@@ -144,3 +144,41 @@ set_attr_l(attribute *pattr, long value, enum batch_op op)
 	pattr->at_flags |= ATR_SET_MOD_MCACHE;
 }
 
+/**
+ * @brief	Attribute setter function for char type values
+ *
+ * @param[in]	pattr	-	pointer to attribute being set
+ * @param[in]	value	-	value to be set
+ *
+ * @return	void
+ *
+ * @par MT-Safe: No
+ * @par Side Effects: None
+ *
+ */
+void
+set_attr_c(attribute *pattr, char value, enum batch_op op)
+{
+	if (pattr == NULL) {
+		log_err(-1, __func__, "Invalid pointer to attribute");
+		return;
+	}
+
+	switch (op) {
+		case SET:
+			pattr->at_val.at_char = value;
+			break;
+		case INCR:
+			pattr->at_val.at_char += value;
+			break;
+		case DECR:
+			pattr->at_val.at_char -= value;
+			break;
+		default:
+			return;
+	}
+
+	pattr->at_flags |= ATR_SET_MOD_MCACHE;
+}
+
+

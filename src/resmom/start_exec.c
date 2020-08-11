@@ -479,7 +479,7 @@ exec_bail(job *pjob, int code, char *txt)
 			nodes, pjob->ji_numnodes-1);
 		log_joberr(-1, __func__, log_buffer, pjob->ji_qs.ji_jobid);
 	}
-	pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+	pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
 	pjob->ji_qs.ji_un.ji_momt.ji_exitstat = code;
 	exiting_tasks = 1;
 	if (pjob->ji_stdout > 0)
@@ -1829,8 +1829,8 @@ record_finish_exec(int sd)
 	pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
 		ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 
-	pjob->ji_qs.ji_state = JOB_STATE_RUNNING;
-	pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
+	pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
+	pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
 	job_save(pjob);
 
 	if (mom_get_sample() == PBSE_NONE) {
@@ -2584,8 +2584,8 @@ report_failed_node_hosts_task(struct work_task *ptask)
 		log_err(-1, __func__, "task structure contains reference to NULL job");
 		return;
 	}
-	if ((pjob->ji_qs.ji_state != JOB_STATE_RUNNING) ||
-	    (pjob->ji_qs.ji_substate != JOB_SUBSTATE_PRERUN)) {
+	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) ||
+	    (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_PRERUN)) {
 		return;	/* job not longer waiting for healthy moms */
 	}
 
@@ -4782,9 +4782,9 @@ start_process(task *ptask, char **argv, char **envp, bool nodemux)
 		ptask->ti_qs.ti_status = TI_STATE_RUNNING;
 
 		(void)task_save(ptask);
-		if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING) {
-			pjob->ji_qs.ji_state = JOB_STATE_RUNNING;
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
+			pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
 			job_save(pjob);
 		}
 		(void)sprintf(log_buffer, "task %8.8X started, %s",
@@ -6303,8 +6303,8 @@ start_exec(job *pjob)
 
 		free_attrlist(&phead);
 		if (do_tolerate_node_failures(pjob)) {
-			if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_WAITING_JOIN_JOB) {
-				pjob->ji_qs.ji_substate = JOB_SUBSTATE_WAITING_JOIN_JOB;
+			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_WAITING_JOIN_JOB) {
+				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_WAITING_JOIN_JOB;
 				pjob->ji_joinalarm = time_now + joinjob_alarm_time;
 				sprintf(log_buffer, "job waiting up to %ld secs ($sister_join_job_alarm) for all sister moms to join", joinjob_alarm_time);
 				log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_JOB, LOG_INFO, pjob->ji_qs.ji_jobid, log_buffer);

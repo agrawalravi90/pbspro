@@ -542,10 +542,10 @@ clear_exec_vnode()
 
 	for (pjob = (job *)GET_NEXT(svr_alljobs); pjob;
 		pjob = (job *)GET_NEXT(pjob->ji_alljobs)) {
-		if ((pjob->ji_qs.ji_state != JOB_STATE_RUNNING) &&
-			(pjob->ji_qs.ji_state != JOB_STATE_FINISHED) &&
-			(pjob->ji_qs.ji_state != JOB_STATE_MOVED) &&
-			(pjob->ji_qs.ji_state != JOB_STATE_EXITING)) {
+		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) &&
+			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_FINISHED) &&
+			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_MOVED) &&
+			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXITING)) {
 			if (((pjob->ji_wattr[(int)JOB_ATR_exec_vnode].at_flags &
 				ATR_VFLAG_SET) != 0) &&
 				((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) == 0)) {
@@ -1817,7 +1817,7 @@ start_hot_jobs()
 
 	pjob = (job *)GET_NEXT(svr_alljobs);
 	while (pjob) {
-		if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_QUEUED) &&
+		if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_QUEUED) &&
 			(pjob->ji_qs.ji_svrflags & JOB_SVFLG_HOTSTART)) {
 			if ((pjob->ji_wattr[(int)JOB_ATR_exec_vnode].at_flags &
 				ATR_VFLAG_SET) != 0) {

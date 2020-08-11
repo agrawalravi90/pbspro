@@ -336,7 +336,7 @@ registermom(int stream, int combine_msg)
 
 		if ((ret = diswst(stream, pjob->ji_qs.ji_jobid)) != DIS_SUCCESS)
 			goto err;
-		if ((ret = diswsi(stream, pjob->ji_qs.ji_substate)) != DIS_SUCCESS)
+		if ((ret = diswsi(stream, pjob->ji_wattr[JOB_ATR_substate].at_val.at_long)) != DIS_SUCCESS)
 			goto err;
 
 		if (pjob->ji_wattr[(int)JOB_ATR_run_version].at_flags & ATR_VFLAG_SET) {
@@ -904,7 +904,7 @@ is_request(int stream, int version)
 			 * then it would have already synced up with the server
 			 * on status, and not end up in this race condition.
 		 	 */
-			if (pjob && !pjob->ji_hook_running_bg_on && (pjob->ji_qs.ji_substate != JOB_SUBSTATE_PRERUN)) {
+			if (pjob && !pjob->ji_hook_running_bg_on && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_PRERUN)) {
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_NOTICE, jobid, "Job removed, Server rejected Obit");
 				mom_deljob(pjob);
 			}

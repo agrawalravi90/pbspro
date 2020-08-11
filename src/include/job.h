@@ -327,7 +327,7 @@ typedef struct	noderes {
 
 /* individual entries in array job index table */
 struct ajtrk {
-	int trk_status;		 /* status */
+	char trk_status;		 /* status */
 	int trk_error;		 /* error code */
 	int trk_exitstat;	 /* if executed and exitstat set */
 	int trk_substate;	 /* sub state */
@@ -554,8 +554,6 @@ struct job {
 #endif
 	struct jobfix {
 		int	    ji_jsversion;	/* job structure version - JSVERSION */
-		int	    ji_state;		/* internal copy of state */
-		int	    ji_substate;	/* job sub-state */
 		int	    ji_svrflags;	/* server flags */
 		int	    ji_numattr;		/* not used */
 		int	    ji_ordering;	/* special scheduling ordering */
@@ -854,6 +852,19 @@ task_find	(job		*pjob,
 #define JOB_STATE_FINISHED	9
 
 
+#define JOB_STATE_LTR_BEGUN			'B'
+#define JOB_STATE_LTR_EXITING		'E'
+#define JOB_STATE_LTR_FINISHED		'F'
+#define JOB_STATE_LTR_HELD			'H'
+#define JOB_STATE_LTR_MOVED			'M'
+#define JOB_STATE_LTR_QUEUED		'Q'
+#define JOB_STATE_LTR_RUNNING		'R'
+#define JOB_STATE_LTR_SUSPENDED		'S'
+#define JOB_STATE_LTR_TRANSIT		'T'
+#define JOB_STATE_LTR_USUSPENDED	'U'
+#define JOB_STATE_LTR_WAITING		'W'
+#define JOB_STATE_LTR_EXPIRED		'X'
+
 /*
  * job sub-states are defined by PBS (more detailed) as:
  */
@@ -1010,9 +1021,8 @@ extern int   site_check_user_map(void *, int, char *);
 extern int   site_allow_u(char *user, char *host);
 extern void  svr_dequejob(job *);
 extern int   svr_enquejob(job *);
-extern void  svr_evaljobstate(job *, int *, int *, int);
-extern void  set_statechar(job *);
-extern int   svr_setjobstate(job *, int, int);
+extern void  svr_evaljobstate(job *, char *, int *, int);
+extern int   svr_setjobstate(job *, char, int);
 extern int   state_char2int(char);
 extern int   uniq_nameANDfile(char*, char*, char*);
 extern long  determine_accruetype(job *);

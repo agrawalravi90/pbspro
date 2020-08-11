@@ -303,7 +303,7 @@ local_move(job *jobp, struct batch_request *req)
 static void
 post_routejob(struct work_task *pwt)
 {
-	int	 newstate;
+	char	 newstate;
 	int	 newsub;
 	int	 r;
 	int	 stat = pwt->wt_aux;
@@ -341,11 +341,11 @@ post_routejob(struct work_task *pwt)
 				job_purge(jobp); /* need to remove server job struct */
 			return;
 		case SEND_JOB_FATAL:		/* permanent rejection (or signal) */
-			if (jobp->ji_qs.ji_substate == JOB_SUBSTATE_ABORT) {
+			if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_ABORT) {
 
 				/* Job Delete in progress, just set to queued status */
 
-				(void)svr_setjobstate(jobp, JOB_STATE_QUEUED,
+				(void)svr_setjobstate(jobp, JOB_STATE_LTR_QUEUED,
 					JOB_SUBSTATE_ABORT);
 				return;
 			}
@@ -383,7 +383,7 @@ static void
 post_movejob(struct work_task *pwt)
 {
 	struct batch_request *req;
-	int	newstate;
+	char	newstate;
 	int	newsub;
 	int	stat;
 	int	r;
@@ -842,10 +842,10 @@ send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
 		 * just want to send the commit"
 		 */
 
-		if (jobp->ji_qs.ji_substate != JOB_SUBSTATE_TRNOUTCM) {
+		if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRNOUTCM) {
 
-			if (jobp->ji_qs.ji_substate != JOB_SUBSTATE_TRNOUT) {
-				jobp->ji_qs.ji_substate = JOB_SUBSTATE_TRNOUT;
+			if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRNOUT) {
+				jobp->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TRNOUT;
 			}
 
 			pqjatr = &((svrattrl *)GET_NEXT(attrl))->al_atopl;
@@ -920,7 +920,7 @@ send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
 					continue;
 			}
 
-			jobp->ji_qs.ji_substate = JOB_SUBSTATE_TRNOUTCM;
+			jobp->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TRNOUTCM;
 		}
 
 		if (PBSD_rdytocmt(con, job_id, PROT_TCP, NULL) != 0)
@@ -1010,7 +1010,7 @@ net_move(job *jobp, struct batch_request *req)
 		data      = 0;
 	}
 
-	(void)svr_setjobstate(jobp, JOB_STATE_TRANSIT, JOB_SUBSTATE_TRNOUT);
+	(void)svr_setjobstate(jobp, JOB_STATE_LTR_TRANSIT, JOB_SUBSTATE_TRNOUT);
 	return (send_job(jobp, hostaddr, port, move_type, post_func, data));
 }
 

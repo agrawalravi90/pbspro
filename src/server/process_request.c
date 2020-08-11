@@ -1104,7 +1104,7 @@ close_quejob(int sfds)
 	pjob = (job *)GET_NEXT(svr_newjobs);
 	while (pjob  != NULL) {
 		if (pjob->ji_qs.ji_un.ji_newt.ji_fromsock == sfds) {
-			if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_TRANSICM) {
+			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_TRANSICM) {
 
 #ifndef PBS_MOM
 				if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) {
@@ -1116,8 +1116,8 @@ close_quejob(int sfds)
 					 * server again to commit.
 					 */
 					delete_link(&pjob->ji_alljobs);
-					pjob->ji_qs.ji_state = JOB_STATE_QUEUED;
-					pjob->ji_qs.ji_substate = JOB_SUBSTATE_QUEUED;
+					pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_QUEUED;
+					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_QUEUED;
 					if (svr_enquejob(pjob))
 						(void)job_abt(pjob, msg_err_noqueue);
 

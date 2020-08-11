@@ -109,7 +109,7 @@ req_messagejob(struct batch_request *preq)
 
 	/* the job must be running */
 
-	if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING) {
+	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) {
 		req_reject(PBSE_BADSTATE, 0, preq);
 		return;
 	}
@@ -208,14 +208,14 @@ req_py_spawn(struct batch_request *preq)
 
 	if (jt == IS_ARRAY_NO) {		/* a regular job is okay */
 		/* the job must be running */
-		if ((pjob->ji_qs.ji_state != JOB_STATE_RUNNING) ||
-			(pjob->ji_qs.ji_substate !=
-			JOB_SUBSTATE_RUNNING)) {
+		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) ||
+			(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING)) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
 	}
 	else if (jt == IS_ARRAY_Single) {	/* a single subjob is okay */
+		char sjst;
 
 		offset = subjob_index_to_offset(pjob,
 			get_index_from_jid(jid));
@@ -224,13 +224,13 @@ req_py_spawn(struct batch_request *preq)
 			return;
 		}
 
-		i = get_subjob_state(pjob, offset);
-		if (i == -1) {
+		sjst = get_subjob_state(pjob, offset);
+		if (sjst == -1) {
 			req_reject(PBSE_IVALREQ, 0, preq);
 			return;
 		}
 
-		if (i != JOB_STATE_RUNNING) {
+		if (sjst != JOB_STATE_LTR_RUNNING) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
@@ -238,7 +238,7 @@ req_py_spawn(struct batch_request *preq)
 			req_reject(PBSE_UNKJOBID, 0, preq);
 			return;
 		}
-		if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING) {
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
@@ -299,14 +299,14 @@ req_relnodesjob(struct batch_request *preq)
 
 	if (jt == IS_ARRAY_NO) {		/* a regular job is okay */
 		/* the job must be running */
-		if ((pjob->ji_qs.ji_state != JOB_STATE_RUNNING) ||
-			(pjob->ji_qs.ji_substate !=
-			JOB_SUBSTATE_RUNNING)) {
+		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) ||
+			(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING)) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
 	}
 	else if (jt == IS_ARRAY_Single) {	/* a single subjob is okay */
+		char sjst;
 
 		offset = subjob_index_to_offset(pjob,
 			get_index_from_jid(jid));
@@ -315,13 +315,13 @@ req_relnodesjob(struct batch_request *preq)
 			return;
 		}
 
-		i = get_subjob_state(pjob, offset);
-		if (i == -1) {
+		sjst = get_subjob_state(pjob, offset);
+		if (sjst == -1) {
 			req_reject(PBSE_IVALREQ, 0, preq);
 			return;
 		}
 
-		if (i != JOB_STATE_RUNNING) {
+		if (sjst != JOB_STATE_LTR_RUNNING) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
@@ -329,7 +329,7 @@ req_relnodesjob(struct batch_request *preq)
 			req_reject(PBSE_UNKJOBID, 0, preq);
 			return;
 		}
-		if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING) {
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}

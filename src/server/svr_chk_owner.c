@@ -395,8 +395,8 @@ chk_job_request(char *jobid, struct batch_request *preq, int *rc, int *err)
 			req_reject(histerr, 0, preq);
 			return NULL;
 		}
-		if (deletehist == 1&& pjob->ji_qs.ji_state == JOB_STATE_MOVED &&
-			pjob->ji_qs.ji_substate != JOB_SUBSTATE_FINISHED) {
+		if (deletehist == 1&& pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED &&
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_FINISHED) {
 			job_purge(pjob);
 			req_reject(PBSE_UNKJOBID, 0, preq);
 			return NULL;
@@ -432,7 +432,7 @@ chk_job_request(char *jobid, struct batch_request *preq, int *rc, int *err)
 		return NULL;
 	}
 
-	if ((t == IS_ARRAY_NO) && (pjob->ji_qs.ji_state == JOB_STATE_EXITING)) {
+	if ((t == IS_ARRAY_NO) && (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXITING)) {
 
 		/* special case Deletejob with "force" */
 		if ((preq->rq_type == PBS_BATCH_DeleteJob) &&
@@ -442,7 +442,7 @@ chk_job_request(char *jobid, struct batch_request *preq, int *rc, int *err)
 		}
 
 		(void)sprintf(log_buffer, "%s, state=%d", msg_badstate,
-			pjob->ji_qs.ji_state);
+			pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, log_buffer);
 		if (err != NULL)

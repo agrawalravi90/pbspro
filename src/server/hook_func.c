@@ -2574,7 +2574,8 @@ set_exec_time(job *pjob, char *new_exec_time_str, char *msg,
 		job_attr_def[(int)JOB_ATR_exectime].at_free(
 			&pjob->ji_wattr[(int)JOB_ATR_exectime]);
 	} else {
-		int newstate, newsub;
+		int  newsub;
+		char newstate;
 		FILE	*fp_debug_out = NULL;
 
 		snprintf(msg, msg_len, "'%s' hook set job's %s = %s", hook_name, ATTR_a, exec_time_ctime);
@@ -2619,7 +2620,7 @@ set_hold_types(job *pjob, char *new_hold_types_str,
 	long	  old_hold;
 	int	  do_release;
 	int	  rc;
-	int	  newstate;
+	char	  newstate;
 	int	  newsub;
 
 	if ((msg == NULL) || (msg_len <= 0)) {
@@ -3234,7 +3235,7 @@ attribute_jobmap_restore(job *pjob, struct attribute_jobmap *a_map)
 	char		*attr_name = NULL;
 	attribute	*pattr, *pattr_o;
 	attribute_def	*pdef;
-	int		newstate;
+	char		newstate;
 	int		newsub;
 
 	if ((pjob == NULL) || (a_map == NULL)) {

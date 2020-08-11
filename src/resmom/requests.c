@@ -685,8 +685,8 @@ req_holdjob(struct batch_request *preq)
 	} else if (pjob->ji_flags & MOM_RESTART_ACTIVE) {
 		req_reject(PBSE_BADSTATE, 0, preq);
 		sprintf(log_buffer, "req_holdjob failed: Restart active.");
-	} else if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING &&
-		pjob->ji_qs.ji_substate != JOB_SUBSTATE_SUSPEND) {
+	} else if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING &&
+		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_SUSPEND) {
 		req_reject(PBSE_BADSTATE, 0, preq);
 		sprintf(log_buffer,
 			"req_holdjob failed: Job not running or suspended.");
@@ -1301,7 +1301,7 @@ post_suspend(job *pjob, int err)
 		stop_walltime(pjob);
 
 		pjob->ji_polltime = 0;	/* don't check polling */
-		if (pjob->ji_qs.ji_substate < JOB_SUBSTATE_EXITING) {
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long < JOB_SUBSTATE_EXITING) {
 			mom_hook_input_t  hook_input;
 			mom_hook_output_t hook_output;
 			char		  hook_msg[HOOK_MSG_SIZE+1];
@@ -1309,7 +1309,7 @@ post_suspend(job *pjob, int err)
 			unsigned int	hook_fail_action =  0;
 			int		reject_errcode = 0;
 
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_SUSPEND;
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_SUSPEND;
 			pjob->ji_qs.ji_svrflags |= JOB_SVFLG_Suspend;
 			(void)job_save(pjob);
 
@@ -1332,7 +1332,7 @@ post_suspend(job *pjob, int err)
 		else
 		{
 			snprintf(log_buffer, sizeof(log_buffer),
-				"This job can't be suspended, since the job was in %d substate",pjob->ji_qs.ji_substate);
+				"This job can't be suspended, since the job was in %d substate",pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
 			log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO, pjob->ji_qs.ji_jobid,
 				log_buffer);
 		}
@@ -1368,7 +1368,7 @@ post_resume(job *pjob, int err)
 		/* if I'm not MS, start to check for polling again */
 		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
 			pjob->ji_polltime = time_now;
-		pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
+		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
 		pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Suspend;
 		(void)job_save(pjob);
 	}
@@ -1801,7 +1801,7 @@ post_terminate(job *pjob, int err)
 		/* kill job */
 		if (kill_job(pjob, SIGKILL) == 0) {
 			/* no processes around, force into exiting */
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
 			exiting_tasks = 1;
 		}
 	}
@@ -1846,8 +1846,8 @@ terminate_job(job *pjob, int internal)
 	if ((chk_mom_action(TerminateAction) == Script) &&
 		((i = do_mom_action_script(TerminateAction, pjob, NULL, NULL,
 		post_terminate)) == 1)) {
-		pjob->ji_qs.ji_state    = JOB_STATE_EXITING;
-		pjob->ji_qs.ji_substate = JOB_SUBSTATE_TERM;
+		pjob->ji_wattr[JOB_ATR_state].at_val.at_char    = JOB_STATE_LTR_EXITING;
+		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TERM;
 	} else {
 		if (internal == -1)
 			s = SIGKILL;
@@ -1864,7 +1864,7 @@ terminate_job(job *pjob, int internal)
 		}
 		if (kill_job(pjob, s) == 0) {
 			/* no processes around, force into exiting */
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
 			exiting_tasks = 1;
 		}
 		i = -2;
@@ -1921,14 +1921,14 @@ req_signaljob(struct batch_request *preq)
 	 *	Apparently the Server didn't receive or process an Obit sent earlier.
 	 *	Just force a resend of the obit.
 	 */
-	if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_OBIT) {
+	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_OBIT) {
 		send_obit(pjob, 0);
 		if (strcmp(sname, SIG_RESUME) == 0)
 			req_reject(PBSE_BADSTATE, 0, preq);
 		else
 			reply_ack(preq);
 		return;
-	} else if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNEPILOG) &&
+	} else if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNEPILOG) &&
 		(strcmp(sname, "SIGKILL") != 0)) {
 		/* If epilogue is running and signal is not SIGKILL, */
 		/* disallow request;  note SIGKILL sent on qdel -w force */
@@ -1997,12 +1997,12 @@ req_signaljob(struct batch_request *preq)
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
-		switch (pjob->ji_qs.ji_substate) {
+		switch (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long) {
 			case JOB_SUBSTATE_RUNNING:
 				break;
 			default:
 				sprintf(log_buffer, "suspend failed, job substate = %d",
-					pjob->ji_qs.ji_substate);
+					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 					pjob->ji_qs.ji_jobid, log_buffer);
 				req_reject(PBSE_BADSTATE, 0, preq);
@@ -2022,13 +2022,13 @@ req_signaljob(struct batch_request *preq)
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
-		switch (pjob->ji_qs.ji_substate) {
+		switch (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long) {
 			case JOB_SUBSTATE_SUSPEND:
 			case JOB_SUBSTATE_SCHSUSP:
 				break;
 			default:
 				sprintf(log_buffer, "resume failed, job substate = %d",
-					pjob->ji_qs.ji_substate);
+					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 					pjob->ji_qs.ji_jobid, log_buffer);
 				req_reject(PBSE_BADSTATE, 0, preq);
@@ -2061,13 +2061,13 @@ req_signaljob(struct batch_request *preq)
 	}
 #ifdef SIGKILL
 	if ((sig != SIGKILL) &&
-		(pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING))
+		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING))
 #else
-	if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
+	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING)
 #endif
 	{
 		sprintf(log_buffer, "cannot signal job, job substate = %d",
-			pjob->ji_qs.ji_substate);
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
 		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, log_buffer);
 		req_reject(PBSE_BADSTATE, 0, preq);
@@ -2075,16 +2075,16 @@ req_signaljob(struct batch_request *preq)
 	}
 	/* Now, send signal to the MOM's child process */
 	if (kill_job(pjob, sig) == 0) {
-		if ((pjob->ji_qs.ji_substate <= JOB_SUBSTATE_EXITING) ||
-			(pjob->ji_qs.ji_substate == JOB_SUBSTATE_TERM)) {
+		if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long <= JOB_SUBSTATE_EXITING) ||
+			(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_TERM)) {
 			/* No procs found, force job to exiting */
 			/* force issue of (another) job obit */
 			(void)sprintf(log_buffer,
 				"Job recycled into exiting on signal from substate %d",
-				pjob->ji_qs.ji_substate);
+				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
 			log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB, LOG_INFO,
 				pjob->ji_qs.ji_jobid, log_buffer);
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
 			ptask = GET_NEXT(pjob->ji_tasks);
 			if (ptask)
 				ptask->ti_qs.ti_status = TI_STATE_EXITED;
@@ -2453,8 +2453,8 @@ req_rerunjob(struct batch_request *preq)
 
 		/* change substate so Mom doesn't send another obit     */
 		/* do not record to disk, so Obit is resent on recovery */
-		if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_OBIT)
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITED;
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_OBIT)
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITED;
 		return;
 	} else if (rc < 0) {
 		req_reject(-rc, 0, preq);
@@ -2569,7 +2569,7 @@ post_cpyfile(struct work_task *pwt)
 				 * on to next step in End of Job processing quickly
 				 * we will resend obit, see mom_main.c
 				 */
-				pjob->ji_qs.ji_substate = JOB_SUBSTATE_OBIT;
+				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_OBIT;
 				pjob->ji_sampletim = time(0);
 			}
 			reply_ack(preq);
@@ -2716,8 +2716,8 @@ req_cpyfile(struct batch_request *preq)
 		 * change substate so Mom doesn't send another obit
 		 * do not record to disk, so Obit is resent on recovery
 		 */
-		if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_OBIT)
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITED;
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_OBIT)
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITED;
 	}
 
 	dir  = (rqcpf->rq_dir & STAGE_DIRECTION)? STAGE_DIR_OUT : STAGE_DIR_IN;
@@ -2965,11 +2965,11 @@ req_delfile(struct batch_request *preq)
 			(void) job_save(pjob);
 		}
 
-		if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_OBIT) {
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_OBIT) {
 			/* change substate so Mom doesn't send another obit
 			 * do not record to disk, so Obit is resent on recovery
 			 */
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITED;
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITED;
 		}
 	}
 
@@ -3066,7 +3066,7 @@ post_cpyfile(job *pjob, int ev)
 		/* reset substate to OBIT,  if server doesn't move  */
 		/* on to next step in End of Job processing quickly */
 		/* we will resend obit, see mom_main.c              */
-		pjob->ji_qs.ji_substate = JOB_SUBSTATE_OBIT;
+		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_OBIT;
 		pjob->ji_sampletim = time(0);
 	}
 }
@@ -3152,8 +3152,8 @@ req_cpyfile(struct batch_request *preq)
 		}
 		/* change substate so Mom doesn't send another obit     */
 		/* do not record to disk, so Obit is resent on recovery */
-		if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_OBIT)
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITED;
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_OBIT)
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITED;
 	}
 
 	dir  = (rqcpf->rq_dir & STAGE_DIRECTION)? STAGE_DIR_OUT : STAGE_DIR_IN;
@@ -3219,8 +3219,8 @@ req_cpyfile(struct batch_request *preq)
 		if (pjob) {
 			/* change substate so Mom doesn't send another obit     */
 			/* do not record to disk, so Obit is resent on recovery */
-			if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_OBIT)
-				pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITED;
+			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_OBIT)
+				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITED;
 			pjob->ji_momsubt = pid;
 			pjob->ji_mompost = post_cpyfile;
 			if (preq->prot == PROT_TPP)
@@ -3398,7 +3398,7 @@ post_delfile(job *pjob, int ev)
 		/* reset substate to OBIT,  if server doesn't move  */
 		/* on to next step in End of Job processing quickly */
 		/* we will resend obit, see mom_main.c              */
-		pjob->ji_qs.ji_substate = JOB_SUBSTATE_OBIT;
+		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_OBIT;
 		pjob->ji_sampletim = time(0);
 	} else {
 		/* child that was doing file copies had major error */
@@ -3474,7 +3474,7 @@ req_delfile(struct batch_request *preq)
 			pjob->ji_momsubt = pid;
 			pjob->ji_mompost = post_delfile;
 			pjob->ji_sampletim = time(0);
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITED;
+			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITED;
 		}
 		return; /* parent - continue with someother task */
 	} else if (pid < 0) {
@@ -4338,7 +4338,7 @@ post_restart(job *pjob, int ev)
 		/*
 		 ** If we get here, an error happened.
 		 */
-		pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
 		exiting_tasks = 1;
 		return;
 	}
@@ -4375,7 +4375,7 @@ post_restart(job *pjob, int ev)
 			}
 		}
 
-		pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
+		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
 		start_walltime(pjob);
 
 		if (mom_get_sample() != PBSE_NONE) {
@@ -4383,7 +4383,7 @@ post_restart(job *pjob, int ev)
 			(void)mom_set_use(pjob);
 		}
 	} else {
-		pjob->ji_qs.ji_substate = JOB_SUBSTATE_SUSPEND;
+		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_SUSPEND;
 		stop_walltime(pjob);
 	}
 	if (pjob->ji_preq) {

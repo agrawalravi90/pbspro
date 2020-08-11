@@ -144,29 +144,29 @@ Represents a list of pbs.job objects.
 Represents the server's
 .I job_sort_formula 
 attribute.
-.IP  pbs.JOB_STATE_BEGUN
+.IP  pbs.JOB_STATE_LTR_BEGUN
 Represents the job array state of having started.
-.IP  pbs.JOB_STATE_EXITING
+.IP  pbs.JOB_STATE_LTR_EXITING
 Represents the job state of exiting.
-.IP  pbs.JOB_STATE_EXPIRED
+.IP  pbs.JOB_STATE_LTR_EXPIRED
 Represents the subjob state of expiring.
-.IP  pbs.JOB_STATE_FINISHED
+.IP  pbs.JOB_STATE_LTR_FINISHED
 Represents the job state of finished.
-.IP  pbs.JOB_STATE_HELD
+.IP  pbs.JOB_STATE_LTR_HELD
 Represents the job state of held.
-.IP  pbs.JOB_STATE_MOVED
+.IP  pbs.JOB_STATE_LTR_MOVED
 Represents the job state of moved.
-.IP  pbs.JOB_STATE_QUEUED
+.IP  pbs.JOB_STATE_LTR_QUEUED
 Represents the job state of queued.
-.IP  pbs.JOB_STATE_RUNNING
+.IP  pbs.JOB_STATE_LTR_RUNNING
 Represents the job state of running.
-.IP  pbs.JOB_STATE_SUSPEND
+.IP  pbs.JOB_STATE_LTR_SUSPEND
 Represents the job state of suspended.
-.IP  pbs.JOB_STATE_SUSPEND_USERACTIVE
+.IP  pbs.JOB_STATE_LTR_SUSPEND_USERACTIVE
 Represents the job state of suspended due to user activity.
-.IP  pbs.JOB_STATE_TRANSIT
+.IP  pbs.JOB_STATE_LTR_TRANSIT
 Represents the job state of transiting.
-.IP  pbs.JOB_STATE_WAITING
+.IP  pbs.JOB_STATE_LTR_WAITING
 Represents the job state of waiting.
 .IP  pbs.join_path
 Represents a job's 

@@ -97,13 +97,10 @@ mock_run_finish_exec(job *pjob)
 void
 mock_run_record_finish_exec(job *pjob)
 {
-	pjob->ji_qs.ji_state = JOB_STATE_RUNNING;
-	pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
+	pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
+	pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
 	job_save(pjob);
 
-	pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_long = JOB_STATE_RUNNING;
-	pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'R';
-	pjob->ji_wattr[(int)JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
 	pjob->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_VFLAG_MODIFY;
 	pjob->ji_wattr[(int)JOB_ATR_substate].at_flags |= ATR_VFLAG_MODIFY;
 
@@ -136,8 +133,8 @@ mock_run_end_job_task(struct work_task *ptask)
 
 	pjob = ptask->wt_parm1;
 
-	pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
-	pjob->ji_qs.ji_state = JOB_STATE_EXITING;
+	pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
+	pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_EXITING;
 	pjob->ji_qs.ji_un.ji_momt.ji_exitstat = JOB_EXEC_OK;
 
 	scan_for_exiting();

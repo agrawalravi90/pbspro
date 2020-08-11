@@ -3348,7 +3348,7 @@ _pps_helper_get_queue(pbs_queue *pque, const char *que_name, char *perf_label)
 		que->qu_attr[(int)QA_ATR_TotalJobs].at_val.at_long = que->qu_numjobs;
 	} else {
 		que->qu_attr[(int)QA_ATR_TotalJobs].at_val.at_long = que->qu_numjobs -
-			(que->qu_njstate[JOB_STATE_MOVED] + que->qu_njstate[JOB_STATE_FINISHED] + que->qu_njstate[JOB_STATE_EXPIRED]);
+			(que->qu_njstate[JOB_STATE_LTR_MOVED] + que->qu_njstate[JOB_STATE_LTR_FINISHED] + que->qu_njstate[JOB_STATE_LTR_EXPIRED]);
 	}
 	que->qu_attr[(int)QA_ATR_TotalJobs].at_flags |= ATR_SET_MOD_MCACHE;
 
@@ -8994,7 +8994,7 @@ pbsv1mod_meth_iter_nextfunc(PyObject *self, PyObject *args, PyObject *kwds)
 					/* skip jobs according to filters requested for the iterator */
 					job *njob = (job *) iter_entry->data;
 					while (njob != NULL &&
-						((ignore_fin && njob->ji_qs.ji_state == JOB_STATE_FINISHED) ||
+						((ignore_fin && njob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
 						(filter2 != NULL && filter2[0] != '\0' && strcmp(filter2, njob->ji_qs.ji_queue)) ||
 						(filter_user != NULL && filter_user[0] != '\0' && njob->ji_wattr[JOB_ATR_euser].at_flags & ATR_VFLAG_SET && njob->ji_wattr[JOB_ATR_euser].at_val.at_str != NULL && strcmp(filter_user, njob->ji_wattr[JOB_ATR_euser].at_val.at_str)))) {
 						njob = (job *)GET_NEXT(njob->ji_alljobs);
@@ -9093,7 +9093,7 @@ pbsv1mod_meth_iter_nextfunc(PyObject *self, PyObject *args, PyObject *kwds)
 					/* skip jobs according to filters requested for the iterator */
 					job *njob = (job *) iter_entry->data;
 					while (njob != NULL &&
-						((ignore_fin && njob->ji_qs.ji_state == JOB_STATE_FINISHED) ||
+						((ignore_fin && njob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
 						(filter2 != NULL && filter2[0] != '\0' && strcmp(filter2, njob->ji_qs.ji_queue)) ||
 						(filter_user != NULL && filter_user[0] != '\0' && njob->ji_wattr[JOB_ATR_euser].at_val.at_str != NULL && strcmp(filter_user, njob->ji_wattr[JOB_ATR_euser].at_val.at_str)))) {
 						njob = (job *)GET_NEXT(njob->ji_alljobs);

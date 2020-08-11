@@ -121,7 +121,7 @@ extern char	*msg_hook_reject_deletejob;
 /* Private Function local to this file */
 
 void post_sendmom(struct work_task *);
-static int  svr_stagein(job *, struct batch_request *, int, int);
+static int  svr_stagein(job *, struct batch_request *, char, int);
 static int  svr_strtjob2(job *, struct batch_request *);
 static job *chk_job_torun(struct batch_request *preq, job *);
 static void req_runjob2(struct batch_request *preq, job *pjob);
@@ -195,7 +195,7 @@ check_and_provision_job(struct batch_request *preq, job *pjob, int *need_prov)
 		/* put system hold and move to held state */
 		pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
 		pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_SET_MOD_MCACHE;
-		svr_setjobstate(pjob, JOB_STATE_HELD, JOB_SUBSTATE_HELD);
+		svr_setjobstate(pjob, JOB_STATE_LTR_HELD, JOB_SUBSTATE_HELD);
 		job_attr_def[(int)JOB_ATR_Comment].at_decode(
 			&pjob->ji_wattr[(int)JOB_ATR_Comment],
 			NULL, NULL,
@@ -211,7 +211,7 @@ check_and_provision_job(struct batch_request *preq, job *pjob, int *need_prov)
 
 	/* provisioning was needed and enqueued */
 
-	svr_setjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_PROVISION);
+	svr_setjobstate(pjob, JOB_STATE_LTR_RUNNING, JOB_SUBSTATE_PROVISION);
 	DBPRT(("%s: Sucessfully enqueued provisioning for job %s\n", __func__, pjob->ji_qs.ji_jobid))
 
 	/* log accounting line for start of prov for a job */
@@ -366,17 +366,19 @@ req_runjob(struct batch_request *preq)
 			return;
 		}
 	} else if (jt == IS_ARRAY_Single) {
+		char sjst;
+
 		/* single subjob, if queued, it can be run */
 		offset = subjob_index_to_offset(parent, get_index_from_jid(jid));
 		if (offset == -1) {
 			req_reject(PBSE_UNKJOBID, 0, preq);
 			return;
 		}
-		i = get_subjob_state(parent, offset);
-		if (i == -1) {
+		sjst = get_subjob_state(parent, offset);
+		if (sjst == -1) {
 			req_reject(PBSE_IVALREQ, 0, preq);
 			return;
-		} else if (i != JOB_STATE_QUEUED) {
+		} else if (sjst != JOB_STATE_LTR_QUEUED) {
 			/* job already running */
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
@@ -411,7 +413,7 @@ req_runjob(struct batch_request *preq)
 				int idx = numindex_to_offset(parent, i);
 				if (idx == -1)
 					continue;
-				if ((get_subjob_state(parent, idx) == JOB_STATE_QUEUED) && get_subjob_discarding(parent, idx) != 1)
+				if ((get_subjob_state(parent, idx) == JOB_STATE_LTR_QUEUED) && get_subjob_discarding(parent, idx) != 1)
 					anygood = 1;
 			}
 			range = pc;
@@ -574,7 +576,7 @@ req_runjob(struct batch_request *preq)
 			if (idx == -1)
 				continue;
 
-			if (get_subjob_state(parent, idx) == JOB_STATE_QUEUED) {
+			if (get_subjob_state(parent, idx) == JOB_STATE_LTR_QUEUED) {
 				attribute sub_runcount = {0};
 				attribute sub_run_version = {0};
 
@@ -770,7 +772,7 @@ static void
 post_stagein(struct work_task *pwt)
 {
 	int		      code;
-	int		      newstate;
+	char		      newstate;
 	int		      newsub;
 	job		     *paltjob;
 	job		     *pjob;
@@ -812,7 +814,7 @@ post_stagein(struct work_task *pwt)
 				pwait->at_flags |= ATR_SET_MOD_MCACHE;
 				job_set_wait(pwait, paltjob, 0);
 			}
-			svr_setjobstate(paltjob, JOB_STATE_WAITING,
+			svr_setjobstate(paltjob, JOB_STATE_LTR_WAITING,
 				JOB_SUBSTATE_STAGEFAIL);
 
 			if (preq->rq_reply.brp_choice == BATCH_REPLY_CHOICE_Text)
@@ -821,7 +823,7 @@ post_stagein(struct work_task *pwt)
 		} else {
 			/* stage in was successful */
 			pjob->ji_qs.ji_svrflags |= JOB_SVFLG_StagedIn;
-			if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_STAGEGO) {
+			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_STAGEGO) {
 				/* continue to start job running */
 				svr_strtjob2(pjob, NULL);
 			} else {
@@ -849,7 +851,7 @@ post_stagein(struct work_task *pwt)
  */
 
 static int
-svr_stagein(job *pjob, struct batch_request *preq, int state, int substate)
+svr_stagein(job *pjob, struct batch_request *preq, char state, int substate)
 {
 	struct batch_request *momreq = 0;
 	int		      rc;
@@ -1009,12 +1011,11 @@ svr_startjob(job *pjob, struct batch_request *preq)
 	/* Next, are there files to be staged-in? */
 
 	if ((pjob->ji_wattr[(int)JOB_ATR_stagein].at_flags & ATR_VFLAG_SET) &&
-		(pjob->ji_qs.ji_substate != JOB_SUBSTATE_STAGECMP)) {
+		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_STAGECMP)) {
 
 		/* yes, we do that first; then start the job */
 
-		rc = svr_stagein(pjob, preq, JOB_STATE_RUNNING,
-			JOB_SUBSTATE_STAGEGO);
+		rc = svr_stagein(pjob, preq, JOB_STATE_LTR_RUNNING, JOB_SUBSTATE_STAGEGO);
 
 		/* note, the positive acknowledgment to the run job request */
 		/* is done by svr_stagein if the stage-in is successful     */
@@ -1061,12 +1062,12 @@ svr_startjob(job *pjob, struct batch_request *preq)
 static int
 svr_strtjob2(job *pjob, struct batch_request *preq)
 {
-	int	old_state;
+	char	old_state;
 	int	old_subst;
 
 
-	old_state = pjob->ji_qs.ji_state;
-	old_subst = pjob->ji_qs.ji_substate;
+	old_state = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
+	old_subst = pjob->ji_wattr[JOB_ATR_substate].at_val.at_long;
 	pjob->ji_qs.ji_stime = 0;	/* updated in complete_running() */
 
 	/* if not restarting a checkpointed job, increment the run/hop count */
@@ -1083,7 +1084,7 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
 		form_attr_comment("Job was sent for execution at %s", pjob->ji_wattr[(int) JOB_ATR_exec_vnode].at_val.at_str), SET);
 
 	if (old_subst != JOB_SUBSTATE_PROVISION)
-		svr_setjobstate(pjob, JOB_STATE_RUNNING,
+		svr_setjobstate(pjob, JOB_STATE_LTR_RUNNING,
 			JOB_SUBSTATE_PRERUN);
 
 
@@ -1102,11 +1103,11 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
 		 */
 		if (preq == NULL || (preq->rq_type == PBS_BATCH_AsyrunJob_ack) || (preq->rq_type == PBS_BATCH_AsyrunJob)) {
 			job *base_job = NULL;
-			if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN){
+			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN){
 				set_resc_assigned((void *)pjob, 0, INCR);
 				/* Just update dependencies for the first subjob that runs */
 				if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) &&
-				    pjob->ji_parentaj->ji_wattr[(int)JOB_ATR_state].at_val.at_long != JOB_STATE_BEGUN)
+				    pjob->ji_parentaj->ji_wattr[(int)JOB_ATR_state].at_val.at_long != JOB_STATE_LTR_BEGUN)
 					base_job = pjob->ji_parentaj;
 				else
 					base_job = pjob;
@@ -1125,8 +1126,8 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
 			pjob->ji_qs.ji_jobid,
 			"Unable to Run Job, send to Mom failed");
 
-		if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PROVISION ||
-				pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION ||
+				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN)
 			rel_resc(pjob);
 		else
 			free_nodes(pjob);
@@ -1170,9 +1171,9 @@ complete_running(job *jobp)
 		/* if this is first subjob to run, mark */
 		/* parent Array as state "Begun"	*/
 		parent = jobp->ji_parentaj;
-		if (parent->ji_qs.ji_state == JOB_STATE_QUEUED ||
-			(parent->ji_qs.ji_state == JOB_STATE_BEGUN && parent->ji_qs.ji_stime == 0)) {
-			svr_setjobstate(parent, JOB_STATE_BEGUN, JOB_SUBSTATE_BEGUN);
+		if (parent->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_QUEUED ||
+			(parent->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_BEGUN && parent->ji_qs.ji_stime == 0)) {
+			svr_setjobstate(parent, JOB_STATE_LTR_BEGUN, JOB_SUBSTATE_BEGUN);
 
 			/* Also set the parent job's stime */
 			parent->ji_qs.ji_stime = time_now;
@@ -1220,9 +1221,8 @@ complete_running(job *jobp)
 	 *   process the send_job SIGCHLD, see stat_update()
 	 * - EXITING if the Obit was received before send_job's exit status.
 	 */
-	if (jobp->ji_qs.ji_substate == JOB_SUBSTATE_PROVISION) {
-		svr_setjobstate(jobp, JOB_STATE_RUNNING,
-			JOB_SUBSTATE_PRERUN);
+	if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION) {
+		svr_setjobstate(jobp, JOB_STATE_LTR_RUNNING, JOB_SUBSTATE_PRERUN);
 		/* above saves job structure */
 	}
 
@@ -1316,7 +1316,7 @@ check_failed_attempts(job *jobp)
 
 		if (jobp->ji_parentaj) {
 			char comment_buf[100 + PBS_MAXSVRJOBID];
-			svr_setjobstate(jobp->ji_parentaj, JOB_STATE_HELD, JOB_SUBSTATE_HELD);
+			svr_setjobstate(jobp->ji_parentaj, JOB_STATE_LTR_HELD, JOB_SUBSTATE_HELD);
 			jobp->ji_parentaj->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
 			jobp->ji_parentaj->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_SET_MOD_MCACHE;
 			sprintf(comment_buf, "Job Array Held, too many failed attempts to run subjob %s", jobp->ji_qs.ji_jobid);
@@ -1353,7 +1353,7 @@ check_failed_attempts(job *jobp)
 void
 post_sendmom(struct work_task *pwt)
 {
-	int 	newstate;
+	char 	newstate;
 	int 	newsub;
 	int 	r;
 	char	*reject_msg = NULL;
@@ -1373,7 +1373,7 @@ post_sendmom(struct work_task *pwt)
 		return;
 	}
 
-	DBPRT(("post_sendmom: %s substate is %d", jobp->ji_qs.ji_jobid, jobp->ji_qs.ji_substate))
+	DBPRT(("post_sendmom: %s substate is %d", jobp->ji_qs.ji_jobid, jobp->ji_wattr[JOB_ATR_substate].at_val.at_long))
 
 	if (jobp->ji_prunreq)
 		jobp->ji_prunreq = NULL;	/* set in svr_strtjob2() */
@@ -1489,7 +1489,7 @@ post_sendmom(struct work_task *pwt)
 				 * array starts its comment is set to a begun message and
 				 * should not change after that
 				 */
-				if (jobp->ji_parentaj->ji_qs.ji_state == JOB_STATE_QUEUED) {
+				if (jobp->ji_parentaj->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_QUEUED) {
 					job_attr_def[(int) JOB_ATR_Comment].at_decode(
 						&jobp->ji_parentaj->ji_wattr[(int) JOB_ATR_Comment],
 						NULL, NULL, log_buffer);
@@ -1515,11 +1515,11 @@ post_sendmom(struct work_task *pwt)
 	}
 
 
-	if (!(jobp->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN   ||
-		jobp->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING  ||
-		jobp->ji_qs.ji_substate == JOB_SUBSTATE_PROVISION)) {
-		sprintf(log_buffer, "send_job returned with exit status = %d and job substate = %d",
-			r, jobp->ji_qs.ji_substate);
+	if (!(jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN   ||
+		jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING  ||
+		jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION)) {
+		sprintf(log_buffer, "send_job returned with exit status = %d and job substate = %ld",
+			r, jobp->ji_wattr[JOB_ATR_substate].at_val.at_long);
 
 		log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_INFO,
 			jobp->ji_qs.ji_jobid, log_buffer);
@@ -1531,8 +1531,8 @@ post_sendmom(struct work_task *pwt)
 
 			if (preq)
 				reply_ack(preq);
-			if ((jobp->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)	||
-					(jobp->ji_qs.ji_substate == JOB_SUBSTATE_PROVISION))
+			if ((jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN)	||
+					(jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION))
 				complete_running(jobp);
 			break;
 
@@ -1556,7 +1556,7 @@ post_sendmom(struct work_task *pwt)
 			 */
 			job_abt(jobp, log_buffer);
 
-			snprintf(log_buffer, LOG_BUF_SIZE, msg_init_substate, jobp->ji_qs.ji_substate);
+			snprintf(log_buffer, LOG_BUF_SIZE, msg_init_substate, jobp->ji_wattr[JOB_ATR_substate].at_val.at_long);
 			log_event(PBSEVENT_SYSTEM|PBSEVENT_JOB|PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO, jobp->ji_qs.ji_jobid, log_buffer);
 
 			/* Force requeue the job since the job has been aborted by the server */
@@ -1574,8 +1574,8 @@ post_sendmom(struct work_task *pwt)
 				"Unable to Run Job, MOM rejected");
 
 			/* release resources */
-			if (jobp->ji_qs.ji_substate == JOB_SUBSTATE_PROVISION ||
-					jobp->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
+			if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION ||
+					jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN)
 				rel_resc(jobp);
 			else
 				free_nodes(jobp);
@@ -1591,7 +1591,7 @@ post_sendmom(struct work_task *pwt)
 			snprintf(dest_host, sizeof(dest_host), "%s", jobp->ji_qs.ji_destin);
 			clear_exec_on_run_fail(jobp);
 
-			if (jobp->ji_qs.ji_substate != JOB_SUBSTATE_ABORT) {
+			if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_ABORT) {
 				if (preq) {
 					if ((r == SEND_JOB_HOOKERR) ||
 						(r == SEND_JOB_HOOK_REJECT) ||
@@ -1626,8 +1626,8 @@ post_sendmom(struct work_task *pwt)
 					/* Need to force queued state so */
 					/* job_abt() call does not try   */
 					/* to issue a kill job signal to mom */
-					jobp->ji_qs.ji_state = JOB_STATE_QUEUED;
-					jobp->ji_qs.ji_substate = JOB_SUBSTATE_QUEUED;
+					jobp->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_QUEUED;
+					jobp->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_QUEUED;
 					job_abt(jobp, msg_hook_reject_deletejob);
 					break;
 				} else if ((r == SEND_JOB_HOOKERR) ||
@@ -1699,17 +1699,17 @@ chk_job_torun(struct batch_request *preq, job *pjob)
 		return pjob;
 
 
-	if ((pjob->ji_qs.ji_state == JOB_STATE_TRANSIT)       ||
-		(pjob->ji_qs.ji_state == JOB_STATE_EXITING)	      ||
-		(pjob->ji_qs.ji_substate == JOB_SUBSTATE_STAGEGO) ||
-		(pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)  ||
-		(pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING)) {
+	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_TRANSIT)       ||
+		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXITING)	      ||
+		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_STAGEGO) ||
+		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN)  ||
+		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING)) {
 		req_reject(PBSE_BADSTATE, 0, preq);
 		return NULL;
 	}
 
 	if (preq->rq_type == PBS_BATCH_StageIn) {
-		if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_STAGEIN) {
+		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_STAGEIN) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return NULL;
 		}
