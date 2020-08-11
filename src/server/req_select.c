@@ -462,7 +462,8 @@ req_selectjobs(struct batch_request *preq)
 							goto out;
 					}
 				}
-				if (stat_limit_reached(&count, job_limit))
+				/* Check stat limit for scheduler stats */
+				if (psched != NULL && stat_limit_reached(&count, job_limit))
 					break;
 			}
 		}
