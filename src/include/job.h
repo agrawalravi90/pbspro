@@ -1024,6 +1024,7 @@ extern int   svr_enquejob(job *);
 extern void  svr_evaljobstate(job *, char *, int *, int);
 extern int   svr_setjobstate(job *, char, int);
 extern int   state_char2int(char);
+extern char	 state_int2char(int);
 extern int   uniq_nameANDfile(char*, char*, char*);
 extern long  determine_accruetype(job *);
 extern int   update_eligible_time(long, job *);
@@ -1032,7 +1033,7 @@ extern int   update_eligible_time(long, job *);
 #define	TOLERATE_NODE_FAILURES_JOB_START	"job_start"
 #define	TOLERATE_NODE_FAILURES_NONE	"none"
 extern int   do_tolerate_node_failures(job *);
-
+int check_job_state(job *pjob, char state);
 /*
  *	The filesystem related recovery/save routines are renamed
  *	with the suffix "_fs", and the database versions of them

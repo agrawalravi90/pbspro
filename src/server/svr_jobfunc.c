@@ -567,7 +567,7 @@ svr_setjobstate(job *pjob, char newstate, int newsubstate)
 	 */
 
 	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSICM) {
-		int oldstate;
+		char oldstate;
 
 		/* if the state is changing, also update the state counts */
 
@@ -575,7 +575,7 @@ svr_setjobstate(job *pjob, char newstate, int newsubstate)
 			int oldstatenum;
 			int newstatenum;
 
-			oldstatenum = state_char2int(pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+			oldstatenum = state_char2int(oldstate);
 			newstatenum = state_char2int(newstate);
 			if (oldstatenum != -1)
 				server.sv_jobstates[oldstatenum]--;
@@ -658,8 +658,8 @@ svr_setjobstate(job *pjob, char newstate, int newsubstate)
  *		dependency attributes.  This is typically called after the job has been
  *		enqueued or the (hold, execution-time) attributes have been modified.
  * @par
- *		IF the job is a history job i.e. job state is JOB_STATE_LTR_MOVED
- *		or JOB_STATE_LTR_FINISHED, then just return state/substate without
+ *		IF the job is a history job i.e. job state is JOB_STATE_MOVED
+ *		or JOB_STATE_FINISHED, then just return state/substate without
  *		any change, irrespective of the value of "forceeval".
  *
  * @param[in]	pjob	-	pointer to the job structure
@@ -1146,9 +1146,9 @@ svr_chkque(job *pjob, pbs_queue *pque, char *hostname, int mtype)
 			int histjobs = 0;
 			if (svr_chk_history_conf()) {
 				/* calculate number of finished and moved jobs */
-				histjobs = pque->qu_njstate[JOB_STATE_LTR_MOVED] +
-						pque->qu_njstate[JOB_STATE_LTR_FINISHED] +
-						pque->qu_njstate[JOB_STATE_LTR_EXPIRED];
+				histjobs = pque->qu_njstate[JOB_STATE_MOVED] +
+						pque->qu_njstate[JOB_STATE_FINISHED] +
+						pque->qu_njstate[JOB_STATE_EXPIRED];
 			}
 			/*
 			 * check number of jobs in queue excluding
@@ -1264,7 +1264,7 @@ svr_chkque(job *pjob, pbs_queue *pque, char *hostname, int mtype)
 
 			if (i == 0) {
 				/* 7d. Check resource limits per entity in server if this */
-				/*     is a new job defined by state == JOB_STATE_LTR_TRANSIT */
+				/*     is a new job defined by state == JOB_STATE_TRANSIT */
 				i = check_entity_resc_limit_max(pjob, NULL, NULL);
 				if (i == 0)
 					i = check_entity_resc_limit_queued(pjob, NULL, NULL);
@@ -1491,7 +1491,7 @@ check_block(job *pjob, char *message)
  *		least according to a work_task entry via which we were invoked.
  * @par
  *		IMP: Should not invoke/create any such work task(s) for history
- *	     	jobs (job with state JOB_STATE_LTR_MOVED or JOB_STATE_LTR_FINISHED).
+ *	     	jobs (job with state JOB_STATE_MOVED or JOB_STATE_FINISHED).
  * @par
  *		If indeed the case, re-evaluate and set the job state.
  *
@@ -1550,7 +1550,7 @@ job_wait_over(struct work_task *pwt)
  * @par
  *		IMP: History jobs:
  *	     If the SERVER is configured for history jobs and the job is
- *	     in state JOB_STATE_LTR_MOVED or JOB_STATE_LTR_FINISHED, then do not
+ *	     in state JOB_STATE_MOVED or JOB_STATE_FINISHED, then do not
  *	     create/schedule any further work task on this job which may
  *	     modify the HISTORY jobs.
  * @par
@@ -2304,29 +2304,6 @@ set_resc_deflt(void *pobj, int objtype, pbs_queue *pque)
 		rc = PBSE_SYSTEM;
 	return rc;
 }
-
-/**
- * @brief
- * 		state_char2int - return the state from character form to int form.
- *
- * @param[in]	stc	-	state in character form
- *
- * @return	state in int form
- * @retval	-1	: failure
- */
-
-int
-state_char2int(char stc)
-{
-	int  i;
-
-	for (i=0; i < strlen(statechars); i++) {
-		if (statechars[i] == stc)
-			return (i);
-	}
-	return (-1);
-}
-
 
 /**
  * @brief
@@ -3169,7 +3146,7 @@ running_jobs_count(struct work_task *ptask)
 	presv = (resc_resv *) ptask->wt_parm1;
 
 	/* Number of remaining jobs in RUNNING/EXITING state */
-	rj = presv->ri_qp->qu_njstate[JOB_STATE_LTR_RUNNING] + presv->ri_qp->qu_njstate[JOB_STATE_LTR_EXITING];
+	rj = presv->ri_qp->qu_njstate[JOB_STATE_RUNNING] + presv->ri_qp->qu_njstate[JOB_STATE_EXITING];
 
 	if (rj == 0)
 		/* If none are left then process the next occurrence */
@@ -4867,7 +4844,7 @@ svr_clean_job_history(struct work_task *pwt)
 void
 svr_histjob_update(job * pjob, char newstate, int newsubstate)
 {
-	int oldstate = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
+	char oldstate = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
 	pbs_queue *pque = pjob->ji_qhdr;
 
 	/* update the state count in queue and server */
@@ -4889,8 +4866,8 @@ svr_histjob_update(job * pjob, char newstate, int newsubstate)
 		}
 	}
 	/* set the job state and state char */
-	pjob->ji_wattr[JOB_ATR_state].at_val.at_char = newstate;
-	pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = newsubstate;
+	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], newstate, SET);
+	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], newsubstate, SET);
 
 	/* For subjob update the state */
 	if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) {
@@ -4912,9 +4889,6 @@ svr_histjob_update(job * pjob, char newstate, int newsubstate)
 			}
 		}
 	}
-	/* set the substate attr and cache it */
-	pjob->ji_wattr[(int)JOB_ATR_substate].at_val.at_long = newsubstate;
-	pjob->ji_wattr[(int)JOB_ATR_substate].at_flags |= ATR_MOD_MCACHE;
 
 	job_save_db(pjob);
 }
@@ -5003,7 +4977,7 @@ update_job_finish_comment(job *pjob, int newsubstate, char *user)
 void
 svr_setjob_histinfo(job *pjob, histjob_type type)
 {
-	char newstate = 0;
+	char newstate = 'T';
 	int newsubstate = 0;
 	struct ajtrkhd *ptbl = NULL;
 

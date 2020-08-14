@@ -3177,12 +3177,11 @@ im_request(int stream, int version)
 			}
 
 			/* set remaining job structure elements */
-			pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_PRERUN;
+			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
+			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_PRERUN, SET);
+			set_attr_l(&pjob->ji_wattr[JOB_ATR_mtime], time_now, SET);
 			pjob->ji_qs.ji_stime = time_now;
 			pjob->ji_polltime = time_now;
-			pjob->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long = (long)time_now;
-			pjob->ji_wattr[(int)JOB_ATR_mtime].at_flags |= ATR_VFLAG_SET;
 
 			/* np is set from job_nodes_inner */
 
@@ -4665,8 +4664,8 @@ join_err:
 					if (i == pjob->ji_numnodes) { /* all dead */
 						DBPRT(("%s: ALL DONE, set EXITING job %s\n", __func__, jobid))
 						if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_KILLSIS) {
-							pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_EXITING;
-							pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
+							set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
+							set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
 							exiting_tasks = 1;
 						}
 					}
@@ -5954,8 +5953,8 @@ tm_request(int fd, int version)
 		(void)task_save(ptask);
 
 		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
-			pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
+			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
+			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 			job_save(pjob);
 		}
 

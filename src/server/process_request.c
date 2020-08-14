@@ -1116,8 +1116,8 @@ close_quejob(int sfds)
 					 * server again to commit.
 					 */
 					delete_link(&pjob->ji_alljobs);
-					pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_QUEUED;
-					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_QUEUED;
+					set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_QUEUED, SET);
+					set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_QUEUED, SET);
 					if (svr_enquejob(pjob))
 						(void)job_abt(pjob, msg_err_noqueue);
 

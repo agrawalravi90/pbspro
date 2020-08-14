@@ -186,11 +186,11 @@ post_py_spawn_req(struct work_task *pwt)
 void
 req_py_spawn(struct batch_request *preq)
 {
-	int             jt;		/* job type */
-	job		*pjob;
-	int		rc;
-	char		*jid = preq->rq_ind.rq_py_spawn.rq_jid;
-	int		i, offset;
+	int jt; /* job type */
+	job *pjob;
+	int rc;
+	char *jid = preq->rq_ind.rq_py_spawn.rq_jid;
+	int offset;
 
 	/*
 	 ** Returns job pointer for singleton job or "parent" of
@@ -271,14 +271,14 @@ req_py_spawn(struct batch_request *preq)
 void
 req_relnodesjob(struct batch_request *preq)
 {
-	int             jt;		/* job type */
-	job		*pjob;
-	int		rc = PBSE_NONE;
-	char		*jid;
-	int		i, offset;
-	char		*nodeslist = NULL;
-	char		msg[LOG_BUF_SIZE];
-	char		*keep_select = NULL;
+	int jt; /* job type */
+	job *pjob;
+	int rc = PBSE_NONE;
+	char *jid;
+	int offset;
+	char *nodeslist = NULL;
+	char msg[LOG_BUF_SIZE];
+	char *keep_select = NULL;
 
 
 	if (preq == NULL)

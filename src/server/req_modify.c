@@ -653,7 +653,7 @@ modify_job_attr(job *pjob, svrattrl *plist, int perm, int *bad)
 			job_attr_def[i].at_free(&pattr[i]);
 			switch (i) {
 				case JOB_ATR_state:
-					newstate = state_char2int(newattr[i].at_val.at_char);
+					newstate = newattr[i].at_val.at_char;
 					break;
 				case JOB_ATR_substate:
 					newsubstate = newattr[i].at_val.at_long;
@@ -799,8 +799,8 @@ req_modifyReservation(struct batch_request *preq)
 
 	num_jobs = presv->ri_qp->qu_numjobs;
 	if (svr_chk_history_conf()) {
-		num_jobs -= (presv->ri_qp->qu_njstate[JOB_STATE_LTR_MOVED] + presv->ri_qp->qu_njstate[JOB_STATE_LTR_FINISHED] +
-			presv->ri_qp->qu_njstate[JOB_STATE_LTR_EXPIRED]);
+		num_jobs -= (presv->ri_qp->qu_njstate[JOB_STATE_MOVED] + presv->ri_qp->qu_njstate[JOB_STATE_FINISHED] +
+			presv->ri_qp->qu_njstate[JOB_STATE_EXPIRED]);
 	}
 
 	is_standing = presv->ri_wattr[RESV_ATR_resv_standing].at_val.at_long;

@@ -1332,7 +1332,7 @@ post_suspend(job *pjob, int err)
 		else
 		{
 			snprintf(log_buffer, sizeof(log_buffer),
-				"This job can't be suspended, since the job was in %d substate",pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
+				"This job can't be suspended, since the job was in %ld substate",pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
 			log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO, pjob->ji_qs.ji_jobid,
 				log_buffer);
 		}
@@ -2001,7 +2001,7 @@ req_signaljob(struct batch_request *preq)
 			case JOB_SUBSTATE_RUNNING:
 				break;
 			default:
-				sprintf(log_buffer, "suspend failed, job substate = %d",
+				sprintf(log_buffer, "suspend failed, job substate = %ld",
 					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 					pjob->ji_qs.ji_jobid, log_buffer);
@@ -2027,7 +2027,7 @@ req_signaljob(struct batch_request *preq)
 			case JOB_SUBSTATE_SCHSUSP:
 				break;
 			default:
-				sprintf(log_buffer, "resume failed, job substate = %d",
+				sprintf(log_buffer, "resume failed, job substate = %ld",
 					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 					pjob->ji_qs.ji_jobid, log_buffer);
@@ -2066,7 +2066,7 @@ req_signaljob(struct batch_request *preq)
 	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING)
 #endif
 	{
-		sprintf(log_buffer, "cannot signal job, job substate = %d",
+		sprintf(log_buffer, "cannot signal job, job substate = %ld",
 			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
 		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, log_buffer);
@@ -2080,7 +2080,7 @@ req_signaljob(struct batch_request *preq)
 			/* No procs found, force job to exiting */
 			/* force issue of (another) job obit */
 			(void)sprintf(log_buffer,
-				"Job recycled into exiting on signal from substate %d",
+				"Job recycled into exiting on signal from substate %ld",
 				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
 			log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB, LOG_INFO,
 				pjob->ji_qs.ji_jobid, log_buffer);

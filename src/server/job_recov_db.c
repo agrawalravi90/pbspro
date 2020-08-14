@@ -111,9 +111,18 @@ job_to_db(job *pjob, pbs_db_job_info_t *dbjob)
 		savetype |= (OBJ_SAVE_NEW | OBJ_SAVE_QS);
 
 	if (compare_obj_hash(&pjob->ji_qs, sizeof(pjob->ji_qs), pjob->qs_hash) == 1) {
+		int statenum;
+
 		savetype |= OBJ_SAVE_QS;
 
-		dbjob->ji_state     = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
+		statenum = state_char2int(pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+		if (statenum == -1) {
+			log_errf(PBSE_INTERNAL, __func__, "state_char2int failed to convert state %c",
+					pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+			return -1;
+		}
+
+		dbjob->ji_state     = statenum;
 		dbjob->ji_substate  = pjob->ji_wattr[JOB_ATR_substate].at_val.at_long;
 		dbjob->ji_svrflags  = pjob->ji_qs.ji_svrflags;
 		dbjob->ji_numattr   = pjob->ji_qs.ji_numattr;
@@ -163,11 +172,20 @@ job_to_db(job *pjob, pbs_db_job_info_t *dbjob)
 static int
 db_to_job(job *pjob,  pbs_db_job_info_t *dbjob)
 {
+	char statec;
+
 	/* Variables assigned constant values are not stored in the DB */
 	pjob->ji_qs.ji_jsversion = JSVERSION;
 	strcpy(pjob->ji_qs.ji_jobid, dbjob->ji_jobid);
-	pjob->ji_wattr[JOB_ATR_state].at_val.at_char = dbjob->ji_state;
-	pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = dbjob->ji_substate;
+
+	statec = state_int2char(dbjob->ji_state);
+	if (statec == '0') {
+		log_errf(PBSE_INTERNAL, __func__, "state_int2char failed to convert state %d", dbjob->ji_state);
+		return 1;
+	}
+	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], statec, SET);
+	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], dbjob->ji_substate, SET);
+
 	pjob->ji_qs.ji_svrflags = dbjob->ji_svrflags;
 	pjob->ji_qs.ji_numattr = dbjob->ji_numattr ;
 	pjob->ji_qs.ji_ordering = dbjob->ji_ordering;

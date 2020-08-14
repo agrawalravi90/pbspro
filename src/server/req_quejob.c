@@ -1057,12 +1057,9 @@ req_quejob(struct batch_request *preq)
 
 	/* set remaining job structure elements			*/
 
-	pj->ji_wattr[JOB_ATR_state].at_val.at_char =    JOB_STATE_LTR_TRANSIT;
-	pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TRANSIN;
-	pj->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'T';
-
-	pj->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long = (long)time_now;
-	pj->ji_wattr[(int)JOB_ATR_mtime].at_flags |= ATR_SET_MOD_MCACHE;
+	set_attr_c(&pj->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_TRANSIT, SET);
+	set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRANSIN, SET);
+	set_attr_l(&pj->ji_wattr[JOB_ATR_mtime], (long) time_now, SET);
 
 	pj->ji_qs.ji_un_type = JOB_UNION_TYPE_NEW;
 	pj->ji_qs.ji_un.ji_newt.ji_fromsock = sock;
@@ -1685,11 +1682,8 @@ req_commit_now(struct batch_request *preq,  job *pj)
 		return;
 	}
 
-	pj->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_TRANSIT;
-	pj->ji_wattr[(int) JOB_ATR_state].at_val.at_char = 'T';
-	pj->ji_wattr[(int) JOB_ATR_state].at_flags |= ATR_SET_MOD_MCACHE;
-	pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TRANSICM;
-	pj->ji_wattr[(int) JOB_ATR_substate].at_flags |= ATR_SET_MOD_MCACHE;
+	set_attr_c(&pj->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_TRANSIT, SET);
+	set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRANSICM, SET);
 
 #ifdef PBS_MOM	/* MOM only */
 
@@ -1707,10 +1701,8 @@ req_commit_now(struct batch_request *preq,  job *pj)
 	 ** Set JOB_SVFLG_HERE to indicate that this is Mother Superior.
 	 */
 	pj->ji_qs.ji_svrflags |= JOB_SVFLG_HERE;
-	pj->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
-	pj->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_VFLAG_MODIFY;
-	pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_PRERUN;
-	pj->ji_wattr[(int)JOB_ATR_substate].at_flags |= ATR_VFLAG_MODIFY;
+	set_attr_c(&pj->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
+	set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_PRERUN, SET);
 	pj->ji_qs.ji_un_type = JOB_UNION_TYPE_MOM;
 	if (preq->prot) {
 		struct sockaddr_in* addr = tpp_getaddr(preq->rq_conn);

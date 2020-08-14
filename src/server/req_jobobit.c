@@ -1724,7 +1724,7 @@ job_obit(struct resc_used_update *pruu, int stream)
 		FREE_RUU(pruu)
 		return;
 	}
-	sprintf(log_buffer, "Obit received momhop:%d serverhop:%ld state:%c substate:%d",
+	sprintf(log_buffer, "Obit received momhop:%d serverhop:%ld state:%c substate:%ld",
 		pruu->ru_hop,
 		pjob->ji_wattr[(int)JOB_ATR_run_version].at_val.at_long,
 		pjob->ji_wattr[JOB_ATR_state].at_val.at_char,

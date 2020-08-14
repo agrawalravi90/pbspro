@@ -301,7 +301,7 @@ job_route(job *jobp)
 
 	if ((qp->qu_attr[(int)QA_ATR_MaxRun].at_flags & ATR_VFLAG_SET) &&
 		(qp->qu_attr[(int)QA_ATR_MaxRun].at_val.at_long <=
-		qp->qu_njstate[JOB_STATE_LTR_TRANSIT]))
+		qp->qu_njstate[JOB_STATE_TRANSIT]))
 		return (0);	/* max number of jobs being routed */
 
 	/* what is the retry time and life time of a job in this queue */

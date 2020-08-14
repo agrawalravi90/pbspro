@@ -115,8 +115,8 @@ resv_idle_delete(struct work_task *ptask)
 
 	num_jobs = presv->ri_qp->qu_numjobs;
 	if (svr_chk_history_conf()) {
-		num_jobs -= (presv->ri_qp->qu_njstate[JOB_STATE_LTR_MOVED] + presv->ri_qp->qu_njstate[JOB_STATE_LTR_FINISHED] +
-			presv->ri_qp->qu_njstate[JOB_STATE_LTR_EXPIRED]);
+		num_jobs -= (presv->ri_qp->qu_njstate[JOB_STATE_MOVED] + presv->ri_qp->qu_njstate[JOB_STATE_FINISHED] +
+			presv->ri_qp->qu_njstate[JOB_STATE_EXPIRED]);
 	}
 
 	if (num_jobs == 0) {
@@ -147,8 +147,8 @@ set_idle_delete_task(resc_resv *presv)
 
 	num_jobs = presv->ri_qp->qu_numjobs;
 	if (svr_chk_history_conf()) {
-		num_jobs -= (presv->ri_qp->qu_njstate[JOB_STATE_LTR_MOVED] + presv->ri_qp->qu_njstate[JOB_STATE_LTR_FINISHED] +
-			presv->ri_qp->qu_njstate[JOB_STATE_LTR_EXPIRED]);
+		num_jobs -= (presv->ri_qp->qu_njstate[JOB_STATE_MOVED] + presv->ri_qp->qu_njstate[JOB_STATE_FINISHED] +
+			presv->ri_qp->qu_njstate[JOB_STATE_EXPIRED]);
 	}
 
 	if (num_jobs == 0 && presv->ri_qs.ri_state == RESV_RUNNING) {

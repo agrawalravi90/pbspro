@@ -1626,8 +1626,8 @@ post_sendmom(struct work_task *pwt)
 					/* Need to force queued state so */
 					/* job_abt() call does not try   */
 					/* to issue a kill job signal to mom */
-					jobp->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_QUEUED;
-					jobp->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_QUEUED;
+					set_attr_c(&jobp->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_QUEUED, SET);
+					set_attr_l(&jobp->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_QUEUED, SET);
 					job_abt(jobp, msg_hook_reject_deletejob);
 					break;
 				} else if ((r == SEND_JOB_HOOKERR) ||

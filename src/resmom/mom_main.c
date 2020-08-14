@@ -2948,8 +2948,8 @@ do_mom_action_script(int	ae,	/* index into action table */
 		pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
 			ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
-			pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
+			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
+			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 			job_save(pjob);
 		}
 		(void)sprintf(log_buffer, "task transmogrified, %s", cmd_line);
@@ -3252,8 +3252,8 @@ do_mom_action_script(int	ae,	/* index into action table */
 		pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
 			ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
-			pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
+			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
+			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 			job_save(pjob);
 		}
 
@@ -7794,8 +7794,8 @@ dorestrict_user(void)
 			(void)task_save(ptask);
 
 			if (hjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
-				hjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
-				hjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
+				set_attr_c(&hjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
+				set_attr_l(&hjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 				job_save(hjob);
 			}
 

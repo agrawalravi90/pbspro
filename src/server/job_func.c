@@ -368,8 +368,9 @@ job_alloc(void)
 
 	job_init_wattr(pj);
 
-
 #ifndef PBS_MOM
+	svr_setjobstate(pj, JOB_STATE_LTR_TRANSIT, JOB_SUBSTATE_TRANSIN);
+
 	/* start accruing time from the time job was created */
 	pj->ji_wattr[JOB_ATR_sample_starttime].at_val.at_long = (long) time_now;
 	pj->ji_wattr[JOB_ATR_sample_starttime].at_flags |= ATR_VFLAG_SET;
@@ -1956,3 +1957,26 @@ find_aoe_from_request(resc_resv *presv)
 	return aoe_req;
 }
 #endif	/*ifndef PBS_MOM*/
+
+/**
+ * @brief	Check if the job is in the state specified
+ *
+ * @param[in]	pjob - pointer to the job
+ * @param[in]	state - the state to check
+ *
+ * @return	int
+ * @retval	1 if the job is in the state specified
+ * @retval	0 otherwise
+ */
+int
+check_job_state(job *pjob, char state)
+{
+	if (pjob == NULL)
+		return 0;
+
+	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == state)
+		return 1;
+
+	return 0;
+}
+

@@ -1829,8 +1829,8 @@ record_finish_exec(int sd)
 	pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
 		ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 
-	pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
-	pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
+	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
+	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 	job_save(pjob);
 
 	if (mom_get_sample() == PBSE_NONE) {
@@ -4783,8 +4783,8 @@ start_process(task *ptask, char **argv, char **envp, bool nodemux)
 
 		(void)task_save(ptask);
 		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
-			pjob->ji_wattr[JOB_ATR_state].at_val.at_char = JOB_STATE_LTR_RUNNING;
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
+			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
+			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 			job_save(pjob);
 		}
 		(void)sprintf(log_buffer, "task %8.8X started, %s",
