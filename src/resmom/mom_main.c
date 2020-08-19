@@ -2947,7 +2947,7 @@ do_mom_action_script(int	ae,	/* index into action table */
 		= ptask->ti_qs.ti_sid;
 		pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
 			ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
+		if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING)) {
 			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
 			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 			job_save(pjob);
@@ -3251,7 +3251,7 @@ do_mom_action_script(int	ae,	/* index into action table */
 		= sjr.sj_session;
 		pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
 			ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
+		if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING)) {
 			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
 			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 			job_save(pjob);
@@ -7713,10 +7713,7 @@ dorestrict_user(void)
 			if (pjob->ji_qs.ji_un.ji_momt.ji_exuid != uid)
 				continue;
 			/* job should be running */
-			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long !=
-				JOB_SUBSTATE_RUNNING &&
-				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long !=
-				JOB_SUBSTATE_PRERUN)
+			if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING) && !check_job_substate(pjob, JOB_SUBSTATE_PRERUN))
 				continue;
 
 			for (ptask = (pbs_task *)GET_NEXT(pjob->ji_tasks);
@@ -7793,7 +7790,7 @@ dorestrict_user(void)
 			ptask->ti_flags |= TI_FLAGS_ORPHAN;
 			(void)task_save(ptask);
 
-			if (hjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
+			if (!check_job_substate(hjob, JOB_SUBSTATE_RUNNING)) {
 				set_attr_c(&hjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
 				set_attr_l(&hjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 				job_save(hjob);
@@ -9769,7 +9766,7 @@ main(int argc, char *argv[])
 			}
 
 			if (do_tolerate_node_failures(pjob) &&
-				(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_WAITING_JOIN_JOB) &&
+				(check_job_substate(pjob, JOB_SUBSTATE_WAITING_JOIN_JOB)) &&
 				(pjob->ji_joinalarm != 0) &&
 				(pjob->ji_joinalarm < time_now)) {
 				int rcode;
@@ -9832,12 +9829,12 @@ main(int argc, char *argv[])
 			nxpjob = (job *)GET_NEXT(pjob->ji_alljobs);
 
 			/* check for job stuck waiting for Svr to ack obit */
-			if (!pjob->ji_hook_running_bg_on && pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_OBIT &&
+			if (!pjob->ji_hook_running_bg_on && check_job_substate(pjob, JOB_SUBSTATE_OBIT) &&
 				pjob->ji_sampletim < time_now - 45) {
 				send_obit(pjob, 0);	/* resend obit */
 			}
 			/* check for job stuck waiting for sister to deljob */
-			if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_DELJOB) &&
+			if ((check_job_substate(pjob, JOB_SUBSTATE_DELJOB)) &&
 				(pjob->ji_sampletim < (time_now - 2 * MAX_CHECK_POLL_TIME))) {
 				/* just delete the job and let server deal */
 				if (pjob->ji_preq) {
@@ -9854,7 +9851,7 @@ main(int argc, char *argv[])
 				JOB_SVFLG_TERMJOB)) {
 				/* job is over a limit, if it is not already  */
 				/* being terminated by action script, kill it */
-				if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TERM) && (time_now >= pjob->ji_overlmt_timestamp)) {
+				if ((!check_job_substate(pjob, JOB_SUBSTATE_TERM)) && (time_now >= pjob->ji_overlmt_timestamp)) {
 					/* Unset the TERMJOB flag for KILL signal */
 					pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_TERMJOB;
 					(void)kill_job(pjob, SIGKILL);
@@ -9862,7 +9859,7 @@ main(int argc, char *argv[])
 				}
 			}
 
-			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING)
+			if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING))
 				continue;
 
 			/* update information for my tasks */
@@ -9940,7 +9937,7 @@ main(int argc, char *argv[])
 					break;
 				}
 #endif /* localmod 153 */
-				if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING)
+				if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING))
 					continue;
 				/*
 				 ** Send message to get info from other MOM's
@@ -10045,9 +10042,9 @@ main(int argc, char *argv[])
 	if (kill_jobs_on_exit) {
 		pjob = (job *)GET_NEXT(svr_alljobs);
 		while (pjob) {
-			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING
-				|| pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND
-				|| pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SCHSUSP)
+			if (check_job_substate(pjob, JOB_SUBSTATE_RUNNING)
+				|| check_job_substate(pjob, JOB_SUBSTATE_SUSPEND)
+				|| check_job_substate(pjob, JOB_SUBSTATE_SCHSUSP))
 				(void)kill_job(pjob, SIGKILL);
 			else
 				term_job(pjob);

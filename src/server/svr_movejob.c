@@ -341,7 +341,7 @@ post_routejob(struct work_task *pwt)
 				job_purge(jobp); /* need to remove server job struct */
 			return;
 		case SEND_JOB_FATAL:		/* permanent rejection (or signal) */
-			if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_ABORT) {
+			if (check_job_substate(jobp, JOB_SUBSTATE_ABORT)) {
 
 				/* Job Delete in progress, just set to queued status */
 
@@ -842,9 +842,9 @@ send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
 		 * just want to send the commit"
 		 */
 
-		if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRNOUTCM) {
+		if (!check_job_substate(jobp, JOB_SUBSTATE_TRNOUTCM)) {
 
-			if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRNOUT) {
+			if (!check_job_substate(jobp, JOB_SUBSTATE_TRNOUT)) {
 				jobp->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TRNOUT;
 			}
 

@@ -580,7 +580,7 @@ post_doq(struct work_task *pwt)
 				snprintf(log_msg, sizeof(log_msg), "%s, %s", msg_job_moved,
 					"sending dependency request to remote server");
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO, jobid, log_msg);
-				if(ppjob && (check_job_state(ppjob, JOB_STATE_LTR_MOVED)) && (ppjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_MOVED)) {
+				if(ppjob && (check_job_state(ppjob, JOB_STATE_LTR_MOVED)) && (check_job_substate(ppjob, JOB_SUBSTATE_MOVED))) {
 					char *destin;
 					/* job destination should be <remote queue>@<remote server> */
 					destin = strchr(ppjob->ji_qs.ji_destin, (int)'@');
@@ -747,7 +747,7 @@ depend_on_que(attribute *pattr, void *pobj, int mode)
 						 (djob->ji_ajtrk != NULL &&
 						  djob->ji_ajtrk->tkm_ct != djob->ji_ajtrk->tkm_subjsct[JOB_STATE_QUEUED]) ||
 						 (check_job_state(djob, JOB_STATE_LTR_HELD) &&
-						 djob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_DEPNHOLD)) {
+						 check_job_substate(djob, JOB_SUBSTATE_DEPNHOLD))) {
 						/* If the dependent job is running or has system hold, then put this job on hold too*/
 						pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
 						pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_SET_MOD_MCACHE;
@@ -1091,7 +1091,7 @@ depend_on_term(job *pjob)
 			/* This function is also called from job_abt when the job is in held state and abort substate.
 			 * In case of a held job, release the dependency chain.
 			 */
-			if (check_job_state(pjob, JOB_STATE_LTR_HELD) && pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_ABORT) {
+			if (check_job_state(pjob, JOB_STATE_LTR_HELD) && check_job_substate(pjob, JOB_SUBSTATE_ABORT)) {
 				op = JOB_DEPEND_OP_DELETE;
 				/* In case the job being deleted is a job with runone dependency type
 				 * then there is no need to delete other dependent jobs.
@@ -1155,8 +1155,8 @@ set_depend_hold(job *pjob, attribute *pattr)
 
 		/* No (more) dependencies, clear system hold and set state */
 
-		if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SYNCHOLD) ||
-			(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_DEPNHOLD)) {
+		if ((check_job_substate(pjob, JOB_SUBSTATE_SYNCHOLD)) ||
+			(check_job_substate(pjob, JOB_SUBSTATE_DEPNHOLD))) {
 			pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long &= ~HOLD_s;
 			pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_MOD_MCACHE;
 			svr_evaljobstate(pjob, &newstate, &newsubst, 0);

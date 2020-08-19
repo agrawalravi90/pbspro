@@ -677,7 +677,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 		req_reject(PBSE_INTERNAL, 0, preq);
 		return;
 
-	} else if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN) && (forcedel == 0)) {
+	} else if ((check_job_substate(pjob, JOB_SUBSTATE_PRERUN)) && (forcedel == 0)) {
 
 		/* being sent to MOM, wait till she gets it going */
 		/* retry in one second				  */
@@ -708,8 +708,8 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 	}
 
 	if (check_job_state(pjob, JOB_STATE_LTR_RUNNING) ||
-		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_TERM)) {
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RERUN) {
+		(check_job_substate(pjob, JOB_SUBSTATE_TERM))) {
+		if (check_job_substate(pjob, JOB_SUBSTATE_RERUN)) {
 			/* rerun just started, clear that substate and */
 			/* normal delete will happen when mom replies  */
 
@@ -721,8 +721,8 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 			return;
 		}
 
-		if (((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND) ||
-			(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SCHSUSP)) &&
+		if (((check_job_substate(pjob, JOB_SUBSTATE_SUSPEND)) ||
+			(check_job_substate(pjob, JOB_SUBSTATE_SCHSUSP))) &&
 			(pjob->ji_wattr[(int) JOB_ATR_resc_released].at_flags & ATR_VFLAG_SET)) {
 			set_resc_assigned(pjob, 0, INCR);
 			job_attr_def[(int) JOB_ATR_resc_released].at_free(
@@ -736,7 +736,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 		}
 
 
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION) {
+		if (check_job_substate(pjob, JOB_SUBSTATE_PROVISION)) {
 			if (forcedel) {
 				/*
 				 * discard_job not called since job not sent
@@ -1310,7 +1310,7 @@ resend:
 			 * about this job. Going ahead and deleting could result in a
 			 * server crash, when post_sendmom completes.
 			 */
-			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN) {
+			if (check_job_substate(pjob, JOB_SUBSTATE_PRERUN)) {
 				if (pjob->ji_pmt_preq != NULL)
 					reply_preempt_jobs_request(rc, PREEMPT_METHOD_DELETE, pjob);
 				req_reject(rc, 0, preq_clt);

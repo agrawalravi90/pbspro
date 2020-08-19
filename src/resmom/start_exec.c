@@ -2585,7 +2585,7 @@ report_failed_node_hosts_task(struct work_task *ptask)
 		return;
 	}
 	if ((!check_job_state(pjob, JOB_STATE_LTR_RUNNING)) ||
-	    (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_PRERUN)) {
+	    (!check_job_substate(pjob, JOB_SUBSTATE_PRERUN))) {
 		return;	/* job not longer waiting for healthy moms */
 	}
 
@@ -4782,7 +4782,7 @@ start_process(task *ptask, char **argv, char **envp, bool nodemux)
 		ptask->ti_qs.ti_status = TI_STATE_RUNNING;
 
 		(void)task_save(ptask);
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
+		if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING)) {
 			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
 			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 			job_save(pjob);
@@ -6303,7 +6303,7 @@ start_exec(job *pjob)
 
 		free_attrlist(&phead);
 		if (do_tolerate_node_failures(pjob)) {
-			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_WAITING_JOIN_JOB) {
+			if (!check_job_substate(pjob, JOB_SUBSTATE_WAITING_JOIN_JOB)) {
 				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_WAITING_JOIN_JOB;
 				pjob->ji_joinalarm = time_now + joinjob_alarm_time;
 				sprintf(log_buffer, "job waiting up to %ld secs ($sister_join_job_alarm) for all sister moms to join", joinjob_alarm_time);

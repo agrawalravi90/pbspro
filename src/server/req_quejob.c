@@ -504,7 +504,7 @@ req_quejob(struct batch_request *preq)
 		}
 
 		/* if actually running, tell Server we already have it */
-		if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING) {
+		if (check_job_substate(pj, JOB_SUBSTATE_RUNNING)) {
 			req_reject(PBSE_JOBEXIST, 0, preq);
 			return;
 		}
@@ -1243,7 +1243,7 @@ req_jobcredential(struct batch_request *preq)
 		req_reject(PBSE_IVALREQ, 0, preq);
 		return;
 	}
-	if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSIN) {
+	if (!check_job_substate(pj, JOB_SUBSTATE_TRANSIN)) {
 		delete_link(&pj->ji_alljobs);
 		req_reject(PBSE_IVALREQ, 0, preq);
 		return;
@@ -1305,7 +1305,7 @@ req_jobscript(struct batch_request *preq)
 		req_reject(PBSE_IVALREQ, 0, preq);
 		return;
 	}
-	if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSIN) {
+	if (!check_job_substate(pj, JOB_SUBSTATE_TRANSIN)) {
 		delete_link(&pj->ji_alljobs);
 		req_reject(PBSE_IVALREQ, 0, preq);
 		return;
@@ -1677,7 +1677,7 @@ req_commit_now(struct batch_request *preq,  job *pj)
 	void *conn = (void *) svr_db_conn;
 #endif
 
-	if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSIN) {
+	if (!check_job_substate(pj, JOB_SUBSTATE_TRANSIN)) {
 		req_reject(PBSE_IVALREQ, 0, preq);
 		return;
 	}
@@ -3210,7 +3210,7 @@ copy_params_from_job(char *jobid, resc_resv *presv)
 	if (pjob == NULL)
 		return PBSE_UNKJOBID;
 
-	if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) &&
+	if ((!check_job_substate(pjob, JOB_SUBSTATE_RUNNING)) &&
 		(pjob->ji_wattr[JOB_ATR_exec_vnode].at_val.at_str == NULL))
 		return PBSE_BADSTATE;
 

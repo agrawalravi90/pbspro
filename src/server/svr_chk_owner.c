@@ -396,7 +396,7 @@ chk_job_request(char *jobid, struct batch_request *preq, int *rc, int *err)
 			return NULL;
 		}
 		if (deletehist == 1&& check_job_state(pjob, JOB_STATE_LTR_MOVED) &&
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_FINISHED) {
+			!check_job_substate(pjob, JOB_SUBSTATE_FINISHED)) {
 			job_purge(pjob);
 			req_reject(PBSE_UNKJOBID, 0, preq);
 			return NULL;

@@ -913,8 +913,6 @@ create_subjob(job *parent, char *newjid, int *rc)
 	subj->ji_qs.ji_svrflags |=  JOB_SVFLG_SubJob;
 	subj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TRANSICM;
 	svr_setjobstate(subj, JOB_STATE_LTR_QUEUED, JOB_SUBSTATE_QUEUED);
-	subj->ji_wattr[(int)JOB_ATR_state].at_flags    |= ATR_VFLAG_SET;
-	subj->ji_wattr[(int)JOB_ATR_substate].at_flags |= ATR_VFLAG_SET;
 
 	/* subjob needs to borrow eligible time from parent job array.
 	 * expecting only to accrue eligible_time and nothing else.

@@ -495,8 +495,8 @@ select_job(job *pjob, struct select_list *psel, int dosubjobs, int dohistjobs)
 			if (!sel_attr(&pjob->ji_wattr[psel->sl_atindx], psel)) {
 				if (strcmp(psel->sl_def->at_name, ATTR_state) == 0 && psel->sl_attr.at_val.at_str[0] == 'S') {
 					if (check_job_state(pjob, JOB_STATE_LTR_RUNNING) &&
-							(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SCHSUSP ||
-									pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND))
+							(check_job_substate(pjob, JOB_SUBSTATE_SCHSUSP) ||
+									check_job_substate(pjob, JOB_SUBSTATE_SUSPEND)))
 						continue;
 				}
 				return (0);

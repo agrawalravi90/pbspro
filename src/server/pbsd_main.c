@@ -1817,7 +1817,7 @@ start_hot_jobs()
 
 	pjob = (job *)GET_NEXT(svr_alljobs);
 	while (pjob) {
-		if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_QUEUED) &&
+		if ((check_job_substate(pjob, JOB_SUBSTATE_QUEUED)) &&
 			(pjob->ji_qs.ji_svrflags & JOB_SVFLG_HOTSTART)) {
 			if ((pjob->ji_wattr[(int)JOB_ATR_exec_vnode].at_flags &
 				ATR_VFLAG_SET) != 0) {

@@ -274,8 +274,8 @@ set_resc_assigned(void *pobj, int objtype, enum batch_op op)
 		}
 
 		rescp = (resource *) GET_NEXT(pjob->ji_wattr[(int) JOB_ATR_resource].at_val.at_list);
-		if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND) ||
-			(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SCHSUSP)) {
+		if ((check_job_substate(pjob, JOB_SUBSTATE_SUSPEND)) ||
+			(check_job_substate(pjob, JOB_SUBSTATE_SCHSUSP))) {
 			/* If resources_released attribute is not set for this suspended job then use release all
 			 * resources assigned to the job */
 			if ((pjob->ji_wattr[(int) JOB_ATR_resc_released].at_flags & ATR_VFLAG_SET) == 0)
@@ -4876,7 +4876,7 @@ is_runnable(job *ptr, struct prov_vnode_info *pvnfo)
 	/* failed to provision. Since, first vnode will return later, this is */
 	/* a catch to stop processing further since job would have already */
 	/* been held or re queued */
-	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_PROVISION) {
+	if (!check_job_substate(pjob, JOB_SUBSTATE_PROVISION)) {
 		DBPRT(("%s: stray provisioning for job %s\n", __func__,
 			pjob->ji_qs.ji_jobid))
 		eflag = -4;

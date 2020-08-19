@@ -1751,7 +1751,7 @@ job_obit(struct resc_used_update *pruu, int stream)
 				pruu->ru_pjobid, log_buffer);
 			FREE_RUU(pruu)
 			return;
-		} else if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TERM) {
+		} else if (!check_job_substate(pjob, JOB_SUBSTATE_TERM)) {
 			/*
 			 * not in special site script substate, Mom must have
 			 * had a problem and wants to have the post job
@@ -1843,8 +1843,8 @@ job_obit(struct resc_used_update *pruu, int stream)
 	 * may not yet have been reaped.  Update accounting for job start
 	 */
 
-	if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN) ||
-		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION)) {
+	if ((check_job_substate(pjob, JOB_SUBSTATE_PRERUN)) ||
+		(check_job_substate(pjob, JOB_SUBSTATE_PROVISION))) {
 
 		DBPRT(("%s: job %s in prerun state.\n", __func__, pruu->ru_pjobid))
 		complete_running(pjob);
@@ -2189,8 +2189,8 @@ RetryJob:
 
 	if ((exitstatus == JOB_EXEC_FAILHOOK_DELETE) ||
 		(exitstatus == JOB_EXEC_HOOK_DELETE) ||
-		((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RERUN) &&
-		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RERUN2))) {
+		(!check_job_substate(pjob, JOB_SUBSTATE_RERUN) &&
+		!check_job_substate(pjob, JOB_SUBSTATE_RERUN2))) {
 
 		DBPRT(("%s: Job %s is terminating and not rerun.\n",
 			__func__, pjob->ji_qs.ji_jobid))
@@ -2212,8 +2212,8 @@ RetryJob:
 
 	if ((exitstatus == JOB_EXEC_FAILHOOK_DELETE) ||
 		(exitstatus == JOB_EXEC_HOOK_DELETE) ||
-		((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RERUN) &&
-		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RERUN2))) {
+		(!check_job_substate(pjob, JOB_SUBSTATE_RERUN) &&
+		!check_job_substate(pjob, JOB_SUBSTATE_RERUN2))) {
 
 		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) &&
 			((pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) == 0) &&

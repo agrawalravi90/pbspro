@@ -1246,7 +1246,7 @@ reassign_resc(job *pjob)
 		}
 	}
 
-	if ( (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SCHSUSP || pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND) &&
+	if ( (check_job_substate(pjob, JOB_SUBSTATE_SCHSUSP) || check_job_substate(pjob, JOB_SUBSTATE_SUSPEND)) &&
 		(pjob->ji_wattr[(int) JOB_ATR_resc_released].at_flags & ATR_VFLAG_SET) ) {
 		/*
 		 * Allocating resources back to a suspended job is tricky.
@@ -1434,10 +1434,10 @@ pbsd_init_job(job *pjob, int type)
 			case JOB_SUBSTATE_BEGUN:
 				if (pbsd_init_reque(pjob, KEEP_STATE) == -1)
 					return -1;
-				if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING ||
-					((pjob->ji_wattr[(int) JOB_ATR_resc_released].at_flags & ATR_VFLAG_SET)
-					 && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long ==  JOB_SUBSTATE_SCHSUSP ||
-					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND))) {
+				if (check_job_substate(pjob, JOB_SUBSTATE_RUNNING) ||
+					((pjob->ji_wattr[(int) JOB_ATR_resc_released].at_flags & ATR_VFLAG_SET) &&
+							(check_job_substate(pjob, JOB_SUBSTATE_SCHSUSP) ||
+							 check_job_substate(pjob, JOB_SUBSTATE_SUSPEND)))) {
 
 					reassign_resc(pjob);
 					if (type == RECOV_HOT)

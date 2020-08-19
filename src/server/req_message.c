@@ -209,7 +209,7 @@ req_py_spawn(struct batch_request *preq)
 	if (jt == IS_ARRAY_NO) {		/* a regular job is okay */
 		/* the job must be running */
 		if ((!check_job_state(pjob, JOB_STATE_LTR_RUNNING)) ||
-			(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING)) {
+			(!check_job_substate(pjob, JOB_SUBSTATE_RUNNING))) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
@@ -238,7 +238,7 @@ req_py_spawn(struct batch_request *preq)
 			req_reject(PBSE_UNKJOBID, 0, preq);
 			return;
 		}
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
+		if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING)) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
@@ -300,7 +300,7 @@ req_relnodesjob(struct batch_request *preq)
 	if (jt == IS_ARRAY_NO) {		/* a regular job is okay */
 		/* the job must be running */
 		if ((!check_job_state(pjob, JOB_STATE_LTR_RUNNING)) ||
-			(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING)) {
+			(!check_job_substate(pjob, JOB_SUBSTATE_RUNNING))) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
@@ -329,7 +329,7 @@ req_relnodesjob(struct batch_request *preq)
 			req_reject(PBSE_UNKJOBID, 0, preq);
 			return;
 		}
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING) {
+		if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING)) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}

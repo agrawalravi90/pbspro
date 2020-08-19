@@ -293,7 +293,7 @@ req_signaljob2(struct batch_request *preq, job *pjob)
 	pbs_sched		*psched;
 
 	if ((!check_job_state(pjob, JOB_STATE_LTR_RUNNING))	||
-		((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION))) {
+		((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) && (check_job_substate(pjob, JOB_SUBSTATE_PROVISION)))) {
 		req_reject(PBSE_BADSTATE, 0, preq);
 		return;
 	}

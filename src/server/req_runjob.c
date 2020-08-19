@@ -823,7 +823,7 @@ post_stagein(struct work_task *pwt)
 		} else {
 			/* stage in was successful */
 			pjob->ji_qs.ji_svrflags |= JOB_SVFLG_StagedIn;
-			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_STAGEGO) {
+			if (check_job_substate(pjob, JOB_SUBSTATE_STAGEGO)) {
 				/* continue to start job running */
 				svr_strtjob2(pjob, NULL);
 			} else {
@@ -1011,7 +1011,7 @@ svr_startjob(job *pjob, struct batch_request *preq)
 	/* Next, are there files to be staged-in? */
 
 	if ((pjob->ji_wattr[(int)JOB_ATR_stagein].at_flags & ATR_VFLAG_SET) &&
-		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_STAGECMP)) {
+		(!check_job_substate(pjob, JOB_SUBSTATE_STAGECMP))) {
 
 		/* yes, we do that first; then start the job */
 
@@ -1103,7 +1103,7 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
 		 */
 		if (preq == NULL || (preq->rq_type == PBS_BATCH_AsyrunJob_ack) || (preq->rq_type == PBS_BATCH_AsyrunJob)) {
 			job *base_job = NULL;
-			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN){
+			if (check_job_substate(pjob, JOB_SUBSTATE_PRERUN)){
 				set_resc_assigned((void *)pjob, 0, INCR);
 				/* Just update dependencies for the first subjob that runs */
 				if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) &&
@@ -1126,8 +1126,8 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
 			pjob->ji_qs.ji_jobid,
 			"Unable to Run Job, send to Mom failed");
 
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION ||
-				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN)
+		if (check_job_substate(pjob, JOB_SUBSTATE_PROVISION) ||
+				check_job_substate(pjob, JOB_SUBSTATE_PRERUN))
 			rel_resc(pjob);
 		else
 			free_nodes(pjob);
@@ -1221,7 +1221,7 @@ complete_running(job *jobp)
 	 *   process the send_job SIGCHLD, see stat_update()
 	 * - EXITING if the Obit was received before send_job's exit status.
 	 */
-	if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION) {
+	if (check_job_substate(jobp, JOB_SUBSTATE_PROVISION)) {
 		svr_setjobstate(jobp, JOB_STATE_LTR_RUNNING, JOB_SUBSTATE_PRERUN);
 		/* above saves job structure */
 	}
@@ -1515,9 +1515,9 @@ post_sendmom(struct work_task *pwt)
 	}
 
 
-	if (!(jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN   ||
-		jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING  ||
-		jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION)) {
+	if (!(check_job_substate(jobp, JOB_SUBSTATE_PRERUN)   ||
+		check_job_substate(jobp, JOB_SUBSTATE_RUNNING)  ||
+		check_job_substate(jobp, JOB_SUBSTATE_PROVISION))) {
 		sprintf(log_buffer, "send_job returned with exit status = %d and job substate = %ld",
 			r, jobp->ji_wattr[JOB_ATR_substate].at_val.at_long);
 
@@ -1531,8 +1531,8 @@ post_sendmom(struct work_task *pwt)
 
 			if (preq)
 				reply_ack(preq);
-			if ((jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN)	||
-					(jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION))
+			if ((check_job_substate(jobp, JOB_SUBSTATE_PRERUN))	||
+					(check_job_substate(jobp, JOB_SUBSTATE_PROVISION)))
 				complete_running(jobp);
 			break;
 
@@ -1574,8 +1574,8 @@ post_sendmom(struct work_task *pwt)
 				"Unable to Run Job, MOM rejected");
 
 			/* release resources */
-			if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION ||
-					jobp->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN)
+			if (check_job_substate(jobp, JOB_SUBSTATE_PROVISION) ||
+					check_job_substate(jobp, JOB_SUBSTATE_PRERUN))
 				rel_resc(jobp);
 			else
 				free_nodes(jobp);
@@ -1591,7 +1591,7 @@ post_sendmom(struct work_task *pwt)
 			snprintf(dest_host, sizeof(dest_host), "%s", jobp->ji_qs.ji_destin);
 			clear_exec_on_run_fail(jobp);
 
-			if (jobp->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_ABORT) {
+			if (!check_job_substate(jobp, JOB_SUBSTATE_ABORT)) {
 				if (preq) {
 					if ((r == SEND_JOB_HOOKERR) ||
 						(r == SEND_JOB_HOOK_REJECT) ||
@@ -1701,15 +1701,15 @@ chk_job_torun(struct batch_request *preq, job *pjob)
 
 	if ((check_job_state(pjob, JOB_STATE_LTR_TRANSIT))       ||
 		(check_job_state(pjob, JOB_STATE_LTR_EXITING))	      ||
-		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_STAGEGO) ||
-		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN)  ||
-		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING)) {
+		(check_job_substate(pjob, JOB_SUBSTATE_STAGEGO)) ||
+		(check_job_substate(pjob, JOB_SUBSTATE_PRERUN))  ||
+		(check_job_substate(pjob, JOB_SUBSTATE_RUNNING))) {
 		req_reject(PBSE_BADSTATE, 0, preq);
 		return NULL;
 	}
 
 	if (preq->rq_type == PBS_BATCH_StageIn) {
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_STAGEIN) {
+		if (check_job_substate(pjob, JOB_SUBSTATE_STAGEIN)) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return NULL;
 		}

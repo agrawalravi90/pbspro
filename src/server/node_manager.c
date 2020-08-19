@@ -731,7 +731,7 @@ node_down_requeue(struct work_task *pwt)
 						 * Since this job is going to get requed and can run on different set of vnodes
 						 * hence to make sure provisioning failure on previous set of vnodes doesn't create problem.
 						 */
-						if(pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION) {
+						if(check_job_substate(pj, JOB_SUBSTATE_PROVISION)) {
 							cnt = parse_prov_vnode(pj->ji_wattr[(int)JOB_ATR_prov_vnode].at_val.at_str,
 												   &prov_vnode_list);
 
@@ -858,7 +858,7 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 	free(pjob->ji_discard);
 	pjob->ji_discard = NULL;
 
-	if (check_job_state(pjob, JOB_STATE_LTR_QUEUED) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_QUEUED)) {
+	if (check_job_state(pjob, JOB_STATE_LTR_QUEUED) && (check_job_substate(pjob, JOB_SUBSTATE_QUEUED))) {
 		static char nddown[] = "Job never started, execution node %s down";
 
 		/*
@@ -876,13 +876,13 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 		return;
 	}
 
-	if (check_job_state(pjob, JOB_STATE_LTR_HELD) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_HELD)) {
+	if (check_job_state(pjob, JOB_STATE_LTR_HELD) && (check_job_substate(pjob, JOB_SUBSTATE_HELD))) {
 		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, "Leaving job in held state");
 		return;
 	}
 
-	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RERUN3 || pjob->ji_discarding) {
+	if (check_job_substate(pjob, JOB_SUBSTATE_RERUN3) || pjob->ji_discarding) {
 
 		static char *ndreque;
 
@@ -2073,8 +2073,8 @@ stat_update(int stream)
 				 * it may have already been changed to:
 				 * - EXITING if the OBIT arrived first.
 				 */
-				if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN) ||
-					(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION)) {
+				if ((check_job_substate(pjob, JOB_SUBSTATE_PRERUN)) ||
+					(check_job_substate(pjob, JOB_SUBSTATE_PROVISION))) {
 					/* log acct info and make RUNNING */
 					complete_running(pjob);
 					/* this causes a save of the job */
@@ -2542,7 +2542,7 @@ deallocate_job_from_node(job *pjob, struct pbsnode *pnode)
 
 		/* call function to check and free the node from the */
 		/* prov list and reset wait_prov flag, if set */
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION)
+		if (check_job_substate(pjob, JOB_SUBSTATE_PROVISION))
 			free_prov_vnode(pnode);
 	}
 
@@ -4076,19 +4076,19 @@ mom_running_jobs(int stream)
 			}
 		}
 
-		if (pjob && !discarded && pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != substate) {
+		if (pjob && !discarded && !check_job_substate(pjob, substate)) {
 
 			/* Job substates disagree */
 
-			if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SCHSUSP) ||
-				(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND)) {
+			if ((check_job_substate(pjob, JOB_SUBSTATE_SCHSUSP)) ||
+				(check_job_substate(pjob, JOB_SUBSTATE_SUSPEND))) {
 
 				if (substate == JOB_SUBSTATE_RUNNING) {
 
 					/* tell Mom to suspend job */
 					(void)issue_signal(pjob, "SIG_SUSPEND", release_req, 0);
 				}
-			} else if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long ==JOB_SUBSTATE_RUNNING) {
+			} else if (check_job_substate(pjob, JOB_SUBSTATE_RUNNING)) {
 				if (substate == JOB_SUBSTATE_SUSPEND) {
 
 					/* tell Mom to resume job */
@@ -6627,8 +6627,8 @@ set_nodes(void *pobj, int objtype, char *execvnod_in, char **execvnod_out, char 
 				}
 			}
 			else if ((svr_init == TRUE) &&
-				((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND ||
-				  pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SCHSUSP)) &&
+				((check_job_substate(pjob, JOB_SUBSTATE_SUSPEND) ||
+				  check_job_substate(pjob, JOB_SUBSTATE_SCHSUSP))) &&
 				(pjob->ji_wattr[(int)JOB_ATR_resc_released].at_flags & ATR_VFLAG_SET))
 				/* No need to add suspended job to jobinfo structure and assign CPU slots to it*/
 				break;

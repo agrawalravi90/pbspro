@@ -881,10 +881,10 @@ job_purge(job *pjob)
 		(void)close(pjob->ji_parent2child_moms_status_pipe);
 #endif
 #else	/* not PBS_MOM */
-	if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSIN) &&
-		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSICM)) {
+	if ((!check_job_substate(pjob, JOB_SUBSTATE_TRANSIN)) &&
+		(!check_job_substate(pjob, JOB_SUBSTATE_TRANSICM))) {
 		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) && (!check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
-			if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RERUN3) || (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_QUEUED))
+			if ((check_job_substate(pjob, JOB_SUBSTATE_RERUN3)) || (check_job_substate(pjob, JOB_SUBSTATE_QUEUED)))
 				update_subjob_state(pjob, JOB_STATE_LTR_QUEUED);
 			else {
 				if (pjob->ji_terminated && pjob->ji_parentaj && pjob->ji_parentaj->ji_ajtrk)
@@ -1344,7 +1344,7 @@ do_tolerate_node_failures(job *pjob)
 	if ((pjob->ji_wattr[(int)JOB_ATR_tolerate_node_failures].at_flags & ATR_VFLAG_SET) &&
 	   ((strcmp(pjob->ji_wattr[(int)JOB_ATR_tolerate_node_failures].at_val.at_str, TOLERATE_NODE_FAILURES_ALL) == 0) ||
 	   ((strcmp(pjob->ji_wattr[(int)JOB_ATR_tolerate_node_failures].at_val.at_str, TOLERATE_NODE_FAILURES_JOB_START) == 0) &&
-	    pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING))) {
+	    !check_job_substate(pjob, JOB_SUBSTATE_RUNNING)))) {
 		return (1);
 	}
 	return (0);

@@ -165,7 +165,7 @@ req_holdjob(struct batch_request *preq)
 		return;
 	}
 	if ((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) &&
-		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION)) {
+		(check_job_substate(pjob, JOB_SUBSTATE_PROVISION))) {
 		if (pjob->ji_pmt_preq != NULL)
 			reply_preempt_jobs_request(PBSE_BADSTATE, PREEMPT_METHOD_CHECKPOINT, pjob);
 
@@ -218,7 +218,7 @@ req_holdjob(struct batch_request *preq)
 		preq->rq_host);
 
 	if ((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) &&
-		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_PRERUN) &&
+		(!check_job_substate(pjob, JOB_SUBSTATE_PRERUN)) &&
 		(pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str) &&
 		(*pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str != 'n')) {
 

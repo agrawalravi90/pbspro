@@ -1074,7 +1074,7 @@ update_jobs_status(void)
 
 		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
 			continue;	/* not Mother Superior */
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_RUNNING)
+		if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING))
 			continue;
 
 		++count;
@@ -1249,7 +1249,7 @@ send_obit(job *pjob, int exval)
 	}
 
 	pjob->ji_mompost = NULL;
-	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_OBIT) {
+	if (!check_job_substate(pjob, JOB_SUBSTATE_OBIT)) {
 		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_OBIT;
 		job_save(pjob);
 	}
@@ -1524,7 +1524,7 @@ end_loop:
 		 ** Look to see if the job has terminated.  If it is
 		 ** in any state other than EXITING continue on.
 		 */
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_EXITING)
+		if (!check_job_substate(pjob, JOB_SUBSTATE_EXITING))
 			continue;
 
 #if defined(PBS_SECURITY) && (PBS_SECURITY == KRB5)
@@ -1980,7 +1980,7 @@ init_abort_jobs(int recover)
 		 **	back to OBIT so the server can verify that
 		 **	it still has the job or not.
 		 */
-		if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_EXITED) {
+		if (check_job_substate(pj, JOB_SUBSTATE_EXITED)) {
 			/*
 			 ** We don't want to change the state if the
 			 ** job is checkpointed.
@@ -1991,7 +1991,7 @@ init_abort_jobs(int recover)
 				pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_OBIT;
 				job_save(pj);
 			}
-		} else if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_TERM) {
+		} else if (check_job_substate(pj, JOB_SUBSTATE_TERM)) {
 			/*
 			 * Mom went down while terminate action script was
 			 * running, don't know if it finished or not;  force
@@ -2002,11 +2002,11 @@ init_abort_jobs(int recover)
 			pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_OBIT;
 			job_save(pj);
 		} else if ((recover != 2) &&
-			((pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING) ||
-			(pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND) ||
-			(pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_KILLSIS)   ||
-			(pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNEPILOG) ||
-			(pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_EXITING))) {
+			((check_job_substate(pj, JOB_SUBSTATE_RUNNING)) ||
+			(check_job_substate(pj, JOB_SUBSTATE_SUSPEND)) ||
+			(check_job_substate(pj, JOB_SUBSTATE_KILLSIS))   ||
+			(check_job_substate(pj, JOB_SUBSTATE_RUNEPILOG)) ||
+			(check_job_substate(pj, JOB_SUBSTATE_EXITING)))) {
 
 			if (recover)
 				(void)kill_job(pj, SIGKILL);
@@ -2053,7 +2053,7 @@ init_abort_jobs(int recover)
 				ptask->ti_flags |= TI_FLAGS_ORPHAN;
 			}
 
-			if (pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING) {
+			if (check_job_substate(pj, JOB_SUBSTATE_RUNNING)) {
 				recover_walltime(pj);
 				start_walltime(pj);
 			}
