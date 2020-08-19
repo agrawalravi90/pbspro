@@ -128,9 +128,9 @@ req_movejob(struct batch_request *req)
 		return;
 	}
 
-	if (jobp->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_QUEUED &&
-			jobp->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_HELD &&
-			jobp->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_WAITING) {
+	if (!check_job_state(jobp, JOB_STATE_LTR_QUEUED) &&
+			!check_job_state(jobp, JOB_STATE_LTR_HELD) &&
+			!check_job_state(jobp, JOB_STATE_LTR_WAITING)) {
 #ifndef NDEBUG
 		(void)sprintf(log_buffer, "(%s) %s, state=%d",
 			__func__, msg_badstate, jobp->ji_wattr[JOB_ATR_state].at_val.at_char);
@@ -208,10 +208,10 @@ req_orderjob(struct batch_request *req)
 		return;
 	}
 
-	if (((pjob = pjob1)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) ||
-		((pjob = pjob2)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) ||
-		((pjob = pjob1)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_BEGUN)   ||
-		((pjob = pjob2)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_BEGUN)) {
+	if (check_job_state(pjob = pjob1, JOB_STATE_LTR_RUNNING) ||
+		check_job_state(pjob = pjob2,  JOB_STATE_LTR_RUNNING) ||
+		check_job_state(pjob = pjob1, JOB_STATE_LTR_BEGUN)  ||
+		check_job_state(pjob = pjob2, JOB_STATE_LTR_BEGUN)) {
 #ifndef NDEBUG
 		(void)sprintf(log_buffer, "(%s) %s, state=%d",
 			__func__, msg_badstate, pjob->ji_wattr[JOB_ATR_state].at_val.at_char);

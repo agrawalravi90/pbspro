@@ -2806,11 +2806,11 @@ get_bgl_jobs(void)
 			/* 2. PBS job is being killed by a signal (qrerun)    */
 			/* 3. PBS job was running and sent an obit            */
 			/*                                                    */
-			if (((pj->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) &&
+			if ((check_job_state(pj, JOB_STATE_LTR_RUNNING) &&
 				(pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING)) ||
-				((pj->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXITING) &&
+				(check_job_state(pj, JOB_STATE_LTR_EXITING) &&
 				(pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_KILLSIS)) ||
-				((pj->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) &&
+				(check_job_state(pj, JOB_STATE_LTR_RUNNING) &&
 				(pj->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_OBIT)))
 				bjparts=bgl_job_put_pbs_jobid(bjparts, part,
 					(char *)pj->ji_qs.ji_jobid);

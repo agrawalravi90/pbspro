@@ -201,7 +201,7 @@ svr_shutdown(int type)
 	while ((pjob = pnxt) != NULL) {
 		pnxt = (job *)GET_NEXT(pjob->ji_alljobs);
 
-		if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) {
+		if (check_job_state(pjob, JOB_STATE_LTR_RUNNING)) {
 
 			pjob->ji_qs.ji_svrflags |= JOB_SVFLG_HOTSTART;
 			pjob->ji_qs.ji_svrflags |= JOB_SVFLG_HASRUN;
@@ -333,7 +333,7 @@ shutdown_preempt_chkpt(job *pjob)
 
 	if (relay_to_mom(pjob, phold, func) == 0) {
 
-		if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_TRANSIT)
+		if (check_job_state(pjob, JOB_STATE_LTR_TRANSIT))
 			svr_setjobstate(pjob, JOB_STATE_LTR_RUNNING, JOB_SUBSTATE_RUNNING);
 		pjob->ji_qs.ji_svrflags |= (JOB_SVFLG_HASRUN | JOB_SVFLG_CHKPT | JOB_SVFLG_HASHOLD);
 		(void)job_save_db(pjob);
@@ -379,7 +379,7 @@ post_chkpt(struct work_task *ptask)
 			pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_CHKPT;
 			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
 			job_save_db(pjob);
-			if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING)
+			if (check_job_state(pjob, JOB_STATE_LTR_RUNNING))
 				rerun_or_kill(pjob, msg_on_shutdown);
 		}
 	}

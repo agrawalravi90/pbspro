@@ -101,7 +101,7 @@ job_to_db(job *pjob, pbs_db_job_info_t *dbjob)
 
 	strcpy(dbjob->ji_jobid, pjob->ji_qs.ji_jobid);
 
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED)
+	if (check_job_state(pjob, JOB_STATE_LTR_FINISHED))
 		save_all_attrs = 1;
 
 	if ((encode_attr_db(job_attr_def, pjob->ji_wattr, JOB_ATR_LAST, &dbjob->db_attr_list, save_all_attrs)) != 0)

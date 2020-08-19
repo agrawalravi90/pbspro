@@ -303,7 +303,7 @@ status_job(job *pjob, struct batch_request *preq, svrattrl *pal, pbs_list_head *
 	append_link(pstathd, &pstat->brp_stlink, pstat);
 
 	/* Temporarily set suspend/user suspend states for the stat */
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) {
+	if (check_job_state(pjob, JOB_STATE_LTR_RUNNING)) {
 		if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) {
 			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_SUSPENDED, SET);
 			revert_state_r = 1;

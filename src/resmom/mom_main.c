@@ -10709,7 +10709,7 @@ idle_jobs(void)
 	for (pjob = (job *)GET_NEXT(svr_alljobs);
 		pjob;
 		pjob = (job *)GET_NEXT(pjob->ji_alljobs)) {
-		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) &&
+		if (check_job_state(pjob, JOB_STATE_LTR_RUNNING) &&
 			((pjob->ji_qs.ji_svrflags & JOB_SVFLG_Actsuspd) == 0)) {
 			/* right now we can only handle one node jobs */
 			if (pjob->ji_numnodes == 1) {
@@ -10741,7 +10741,7 @@ activate_jobs(void)
 	for (pjob = (job *)GET_NEXT(svr_alljobs);
 		pjob;
 		pjob = (job *)GET_NEXT(pjob->ji_alljobs)) {
-		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) &&
+		if (check_job_state(pjob, JOB_STATE_LTR_RUNNING) &&
 			((pjob->ji_qs.ji_svrflags & JOB_SVFLG_Actsuspd) != 0)) {
 			if (pjob->ji_numnodes == 1) {
 				update_state_flag = 1;

@@ -229,9 +229,9 @@ que_purge(pbs_queue *pque)
 				 * If it is not a history job (MOVED/FINISHED), then
 				 * return with PBSE_OBJBUSY error.
 				 */
-				if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_MOVED) &&
-					(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_FINISHED) &&
-					(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXPIRED))
+				if ((!check_job_state(pjob, JOB_STATE_LTR_MOVED)) &&
+					(!check_job_state(pjob, JOB_STATE_LTR_FINISHED)) &&
+					(!check_job_state(pjob, JOB_STATE_LTR_EXPIRED)))
 					return (PBSE_OBJBUSY);
 				pjob = (job *)GET_NEXT(pjob->ji_jobque);
 			}

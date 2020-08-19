@@ -858,7 +858,7 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 	free(pjob->ji_discard);
 	pjob->ji_discard = NULL;
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_QUEUED) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_QUEUED)) {
+	if (check_job_state(pjob, JOB_STATE_LTR_QUEUED) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_QUEUED)) {
 		static char nddown[] = "Job never started, execution node %s down";
 
 		/*
@@ -876,7 +876,7 @@ post_discard_job(job *pjob, mominfo_t *pmom, int newstate)
 		return;
 	}
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_HELD) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_HELD)) {
+	if (check_job_state(pjob, JOB_STATE_LTR_HELD) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_HELD)) {
 		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, "Leaving job in held state");
 		return;
@@ -1952,9 +1952,8 @@ stat_update(int stream)
 		}
 		DBPRT(("stat_update: update for %s\n", rused.ru_pjobid))
 
-		if (((pjob = find_job(rused.ru_pjobid)) != NULL)     &&
-			((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) ||
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXITING)) &&
+		if (((pjob = find_job(rused.ru_pjobid)) != NULL) &&
+			(check_job_state(pjob, JOB_STATE_LTR_RUNNING) || check_job_state(pjob, JOB_STATE_LTR_EXITING)) &&
 			(pjob->ji_wattr[(int)JOB_ATR_run_version].at_val.at_long == rused.ru_hop)) {
 
 			long old_sid = 0;  /* used to save prior sid of job */
@@ -4096,8 +4095,8 @@ mom_running_jobs(int stream)
 					(void)issue_signal(pjob, "SIG_RESUME", release_req, 0);
 				}
 
-			} else if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXITING) &&
-				(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING)) {
+			} else if ((!check_job_state(pjob, JOB_STATE_LTR_EXITING)) &&
+				(!check_job_state(pjob, JOB_STATE_LTR_RUNNING))) {
 
 				/* for any other disagreement of state except */
 				/* in Exiting or RUNNING, discard job         */
@@ -4818,9 +4817,9 @@ found:
 				if (ret != DIS_SUCCESS)
 					goto err;
 
-				if (((pjob = find_job(jid)) != NULL)               &&
-					((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) ||
-					(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXITING))  &&
+				if (((pjob = find_job(jid)) != NULL) &&
+					(check_job_state(pjob, JOB_STATE_LTR_RUNNING) ||
+					check_job_state(pjob, JOB_STATE_LTR_EXITING)) &&
 					(pjob->ji_wattr[(int)JOB_ATR_run_version].at_val.at_long == runct)) {
 					/* set the Exit_status job attribute */
 					/* to be later checked in job_obit() */

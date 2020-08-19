@@ -151,8 +151,8 @@ do_stat_of_a_job(struct batch_request *preq, job *pjob, int dohistjobs, int dosu
 
 	/* if history job and not asking for them, just return */
 	if ((!dohistjobs) &&
-			((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED))) {
+			((check_job_state(pjob, JOB_STATE_LTR_FINISHED)) ||
+			(check_job_state(pjob, JOB_STATE_LTR_MOVED)))) {
 		return (PBSE_NONE);	/* just return nothing */
 	}
 

@@ -1033,7 +1033,8 @@ extern int   update_eligible_time(long, job *);
 #define	TOLERATE_NODE_FAILURES_JOB_START	"job_start"
 #define	TOLERATE_NODE_FAILURES_NONE	"none"
 extern int   do_tolerate_node_failures(job *);
-int check_job_state(job *pjob, char state);
+int check_job_state(const job *pjob, char state);
+int check_job_substate(const job *pjob, int substate);
 /*
  *	The filesystem related recovery/save routines are renamed
  *	with the suffix "_fs", and the database versions of them

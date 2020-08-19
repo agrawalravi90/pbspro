@@ -231,8 +231,8 @@ svr_enquejob(job *pjob)
 		 * 0 (SUCCESS). INFO: The job is not associated with any
 		 * queue as the queue has been already purged.
 		 */
-		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED)) {
+		if ((check_job_state(pjob, JOB_STATE_LTR_MOVED)) ||
+			(check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
 			if (is_linked(&svr_alljobs, &pjob->ji_alljobs) == 0) {
 				if (pbs_idx_insert(jobs_idx, pjob->ji_qs.ji_jobid, pjob) != PBS_IDX_RET_OK) {
 					log_joberr(PBSE_INTERNAL, __func__, "Failed add history job in index", pjob->ji_qs.ji_jobid);
@@ -325,8 +325,8 @@ svr_enquejob(job *pjob)
 	if (state_num != -1)
 		pque->qu_njstate[state_num]++;
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED)) {
+	if ((check_job_state(pjob, JOB_STATE_LTR_MOVED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
 		if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_ArrayJob) {
 			int indx;
 			struct ajtrkhd *ptbl = pjob->ji_ajtrk;
@@ -426,7 +426,7 @@ svr_enquejob(job *pjob)
 
 		if (((pjob->ji_wattr[(int)JOB_ATR_etime].at_flags &
 			ATR_VFLAG_SET) == 0) &&
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_QUEUED)) {
+			(check_job_state(pjob, JOB_STATE_LTR_QUEUED))) {
 			pjob->ji_wattr[(int)JOB_ATR_etime].at_val.at_long = time_now;
 			pjob->ji_wattr[(int)JOB_ATR_etime].at_flags |= ATR_SET_MOD_MCACHE;
 
@@ -557,8 +557,8 @@ svr_setjobstate(job *pjob, char newstate, int newsubstate)
 	 * If the job has already finished, then do not make any new changes
 	 * to job state or substate.
 	 */
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED ||
-		((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == newstate) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == newsubstate)))
+	if (check_job_state(pjob, JOB_STATE_LTR_FINISHED) ||
+		((check_job_state(pjob, newstate)) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == newsubstate)))
 		return (0);
 
 	/*
@@ -567,11 +567,11 @@ svr_setjobstate(job *pjob, char newstate, int newsubstate)
 	 */
 
 	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSICM) {
-		char oldstate;
+		char oldstate = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
 
 		/* if the state is changing, also update the state counts */
 
-		if ((oldstate = pjob->ji_wattr[JOB_ATR_state].at_val.at_char) != newstate) {
+		if (oldstate != newstate) {
 			int oldstatenum;
 			int newstatenum;
 
@@ -682,16 +682,16 @@ svr_evaljobstate(job *pjob, char *newstate, int *newsub, int forceeval)
 	*newstate = JOB_STATE_LTR_HELD;
 	*newsub = JOB_SUBSTATE_HELD;
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED)) {
+	if ((check_job_state(pjob, JOB_STATE_LTR_MOVED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
 
 		/* History job, just return state/sub-state. */
 		*newstate = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
 		*newsub   = pjob->ji_wattr[JOB_ATR_substate].at_val.at_long;
 
 	} else if ((forceeval == 0) &&
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_TRANSIT ||
-			pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING)) {
+			(check_job_state(pjob, JOB_STATE_LTR_TRANSIT) ||
+			check_job_state(pjob, JOB_STATE_LTR_RUNNING))) {
 
 		/* Leave as is. */
 		*newstate = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
@@ -1238,7 +1238,7 @@ svr_chkque(job *pjob, pbs_queue *pque, char *hostname, int mtype)
 
 		/* 7b. Check limit on number of jobs per entity in server only if */
 		/*     this is a new job defined by state == JOB_STATE_LTR_TRANSIT    */
-		if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_TRANSIT) {
+		if (check_job_state(pjob, JOB_STATE_LTR_TRANSIT)) {
 			i = check_entity_ct_limit_max(pjob, NULL);
 			if (i != 0)
 				return i;
@@ -1508,8 +1508,8 @@ job_wait_over(struct work_task *pwt)
 	pjob = (job *)pwt->wt_parm1;
 
 	/* If history job, just return from here */
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED))
+	if ((check_job_state(pjob, JOB_STATE_LTR_MOVED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_FINISHED)))
 		return;
 
 #ifndef NDEBUG
@@ -1571,8 +1571,7 @@ job_set_wait(attribute *pattr, void *pjob, int mode)
 	long		  when;
 
 	/* Return 0 if it is history job */
-	if ((((job *)pjob)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
-		(((job *)pjob)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED))
+	if (check_job_state((job *) pjob, JOB_STATE_LTR_MOVED) || check_job_state((job *) pjob, JOB_STATE_LTR_FINISHED))
 		return (0);
 
 	if ((pattr->at_flags & ATR_VFLAG_SET) == 0)
@@ -3176,7 +3175,7 @@ delete_occurrence_jobs(resc_resv *presv)
 		 * of job_abt
 		 */
 		pnxj = (job *)GET_NEXT(pjob->ji_jobque);
-		if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING && pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_ABORT)
+		if (check_job_state(pjob, JOB_STATE_LTR_RUNNING) && pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_ABORT)
 			(void) job_abt(pjob, "Deleting running job at end of reservation occurrence");
 
 		pjob = pnxj;
@@ -4459,13 +4458,13 @@ determine_accruetype(job* pjob)
 	/* have to determine accrue type */
 
 	/* if job is truely running or provisioning */
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING &&
+	if (check_job_state(pjob, JOB_STATE_LTR_RUNNING) &&
 		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING ||
 		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION))
 		return JOB_RUNNING;
 
 	/* if job exit */
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXITING)
+	if (check_job_state(pjob, JOB_STATE_LTR_EXITING))
 		return JOB_EXIT;
 
 	/* handling qsub -a, waiting with substate 30 ; accrue ineligible time */
@@ -4504,7 +4503,7 @@ determine_accruetype(job* pjob)
 			return JOB_ELIGIBLE;
 
 	/* The job doesn't have any reason to not accrue eligible time (e.g. on hold), so it should accrue it */
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_TRANSIT &&
+	if (check_job_state(pjob, JOB_STATE_LTR_TRANSIT) &&
 		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_TRANSIN)
 		return JOB_ELIGIBLE;
 
@@ -4737,12 +4736,12 @@ svr_clean_job_history(struct work_task *pwt)
 		/* save the next job */
 		nxpjob = (job *)GET_NEXT(pjob->ji_alljobs);
 
-		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED && pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_FINISHED) ||
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED)) {
+		if ((check_job_state(pjob, JOB_STATE_LTR_MOVED) && pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_FINISHED) ||
+			(check_job_state(pjob, JOB_STATE_LTR_FINISHED)) ||
+			(check_job_state(pjob, JOB_STATE_LTR_EXPIRED))) {
 
 			if (!(pjob->ji_wattr[(int) JOB_ATR_history_timestamp].at_flags & ATR_VFLAG_SET)) {
-				if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED)
+				if (check_job_state(pjob, JOB_STATE_LTR_MOVED))
 					pjob->ji_wattr[(int) JOB_ATR_history_timestamp].at_val.at_long = time_now;
 				else {
 					if (((walltime_used = get_used_wall(pjob)) == -1) ||
@@ -5117,9 +5116,9 @@ svr_setjob_histinfo(job *pjob, histjob_type type)
 	/* if the job is not already in MOVED or FINISHED state, then */
 	/* decrement the entity job counts and entity resource sums   */
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_MOVED) &&
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXPIRED) &&
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_FINISHED)) {
+	if ((!check_job_state(pjob, JOB_STATE_LTR_MOVED)) &&
+		(!check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) &&
+		(!check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
 		account_entity_limit_usages(pjob, NULL, NULL, DECR,
 				pjob->ji_etlimit_decr_queued ? ETLIM_ACC_ALL_MAX : ETLIM_ACC_ALL);
 		account_entity_limit_usages(pjob, pjob->ji_qhdr, NULL, DECR,
@@ -5548,8 +5547,8 @@ recreate_exec_vnode(job *pjob, char *vnodelist, char *keep_select, char *err_msg
 		return (1);
 	}
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) &&
-	    (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXITING)) {
+	if ((!check_job_state(pjob, JOB_STATE_LTR_RUNNING)) &&
+	    (!check_job_state(pjob, JOB_STATE_LTR_EXITING))) {
 		log_err(-1, __func__, "job not in running or exiting state");
 		return (1);
 

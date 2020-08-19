@@ -285,7 +285,7 @@ track_history_job(struct rq_track *prqt, char *extend)
 	 */
 	if ((pjob == NULL) ||
 		((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_MOVED)) {
+		(!check_job_state(pjob, JOB_STATE_LTR_MOVED))) {
 		return;
 	}
 

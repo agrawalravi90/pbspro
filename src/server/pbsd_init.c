@@ -1387,7 +1387,7 @@ pbsd_init_job(job *pjob, int type)
 
 			case JOB_SUBSTATE_TRNOUTCM:
 
-				if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) {
+				if (check_job_state(pjob, JOB_STATE_LTR_RUNNING)) {
 					/* was sending to Mom, requeue for now */
 
 					svr_evaljobstate(pjob, &newstate, &newsubstate, 1);
@@ -1485,7 +1485,7 @@ pbsd_init_job(job *pjob, int type)
 				break;
 
 			case JOB_SUBSTATE_RERUN:
-				if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXITING)
+				if (check_job_state(pjob, JOB_STATE_LTR_EXITING))
 					set_task(WORK_Immed, 0, on_job_rerun, (void *)pjob);
 				if (pbsd_init_reque(pjob, KEEP_STATE) == -1)
 					return -1;

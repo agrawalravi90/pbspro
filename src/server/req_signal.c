@@ -184,7 +184,7 @@ req_signaljob(struct batch_request *preq)
 
 		/* The Array Job itself ... */
 
-		if (parent->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_BEGUN) {
+		if (!check_job_state(parent, JOB_STATE_LTR_BEGUN)) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
@@ -292,8 +292,8 @@ req_signaljob2(struct batch_request *preq, job *pjob)
 	int			resume = 0;
 	pbs_sched		*psched;
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING)	||
-		((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION))) {
+	if ((!check_job_state(pjob, JOB_STATE_LTR_RUNNING))	||
+		((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) && (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION))) {
 		req_reject(PBSE_BADSTATE, 0, preq);
 		return;
 	}
@@ -480,7 +480,7 @@ post_signal_req(struct work_task *pwt)
 
 		/* everything went ok for signal request at Mom */
 
-		if (suspend && pjob && (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING)) {
+		if (suspend && pjob && (check_job_state(pjob, JOB_STATE_LTR_RUNNING))) {
 			if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) == 0) {
 				if (preq->rq_fromsvr == 1 || pjob->ji_pmt_preq != NULL)
 					ss = JOB_SUBSTATE_SCHSUSP;
@@ -506,7 +506,7 @@ post_signal_req(struct work_task *pwt)
 					set_admin_suspend(pjob, 1);
 
 			}
-		} else if (resume && pjob && (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING)) {
+		} else if (resume && pjob && (check_job_state(pjob, JOB_STATE_LTR_RUNNING))) {
 			/* note - the resources have already been reallocated */
 			pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Suspend;
 			if(strcmp(preq->rq_ind.rq_signal.rq_signame, SIG_ADMIN_RESUME) == 0)

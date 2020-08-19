@@ -1732,10 +1732,10 @@ job_obit(struct resc_used_update *pruu, int stream)
 	log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO,
 		pruu->ru_pjobid, log_buffer);
 
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) {
+	if (!check_job_state(pjob, JOB_STATE_LTR_RUNNING)) {
 		DBPRT(("%s: job %s not in running state!\n",
 			__func__, pruu->ru_pjobid))
-		if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXITING) {
+		if (!check_job_state(pjob, JOB_STATE_LTR_EXITING)) {
 
 			/* not running and not exiting - bad news   */
 			/* may be from old Mom and job was requeued */

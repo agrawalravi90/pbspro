@@ -8994,7 +8994,7 @@ pbsv1mod_meth_iter_nextfunc(PyObject *self, PyObject *args, PyObject *kwds)
 					/* skip jobs according to filters requested for the iterator */
 					job *njob = (job *) iter_entry->data;
 					while (njob != NULL &&
-						((ignore_fin && njob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
+						((ignore_fin && check_job_state(njob, JOB_STATE_LTR_FINISHED)) ||
 						(filter2 != NULL && filter2[0] != '\0' && strcmp(filter2, njob->ji_qs.ji_queue)) ||
 						(filter_user != NULL && filter_user[0] != '\0' && njob->ji_wattr[JOB_ATR_euser].at_flags & ATR_VFLAG_SET && njob->ji_wattr[JOB_ATR_euser].at_val.at_str != NULL && strcmp(filter_user, njob->ji_wattr[JOB_ATR_euser].at_val.at_str)))) {
 						njob = (job *)GET_NEXT(njob->ji_alljobs);
@@ -9093,7 +9093,7 @@ pbsv1mod_meth_iter_nextfunc(PyObject *self, PyObject *args, PyObject *kwds)
 					/* skip jobs according to filters requested for the iterator */
 					job *njob = (job *) iter_entry->data;
 					while (njob != NULL &&
-						((ignore_fin && njob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
+						((ignore_fin && check_job_state(njob, JOB_STATE_LTR_FINISHED)) ||
 						(filter2 != NULL && filter2[0] != '\0' && strcmp(filter2, njob->ji_qs.ji_queue)) ||
 						(filter_user != NULL && filter_user[0] != '\0' && njob->ji_wattr[JOB_ATR_euser].at_val.at_str != NULL && strcmp(filter_user, njob->ji_wattr[JOB_ATR_euser].at_val.at_str)))) {
 						njob = (job *)GET_NEXT(njob->ji_alljobs);

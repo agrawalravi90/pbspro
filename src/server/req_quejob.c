@@ -442,7 +442,7 @@ req_quejob(struct batch_request *preq)
 	 */
 	if (pj != NULL) {
 		if ((svr_chk_history_conf()) &&
-			(pj->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED)) {
+			(check_job_state(pj, JOB_STATE_LTR_MOVED))) {
 			job_purge(pj);
 		} else {
 			/* server rejects the queue request */

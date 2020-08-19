@@ -1846,8 +1846,8 @@ terminate_job(job *pjob, int internal)
 	if ((chk_mom_action(TerminateAction) == Script) &&
 		((i = do_mom_action_script(TerminateAction, pjob, NULL, NULL,
 		post_terminate)) == 1)) {
-		pjob->ji_wattr[JOB_ATR_state].at_val.at_char    = JOB_STATE_LTR_EXITING;
-		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TERM;
+		set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
+		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TERM, SET);
 	} else {
 		if (internal == -1)
 			s = SIGKILL;

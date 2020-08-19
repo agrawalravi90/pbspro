@@ -110,7 +110,7 @@ req_locatejob(struct batch_request *preq)
 	 * return the location if job is not history (i.e. state is not
 	 * JOB_STATE_LTR_MOVED) else search in tracking table.
 	 */
-	if (pjob && (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_MOVED)) {
+	if (pjob && (!check_job_state(pjob, JOB_STATE_LTR_MOVED))) {
 		location = pbs_server_name;
 	} else {
 		int	job_array_ret;

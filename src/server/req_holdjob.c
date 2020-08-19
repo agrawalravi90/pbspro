@@ -164,7 +164,7 @@ req_holdjob(struct batch_request *preq)
 		req_reject(PBSE_IVALREQ, 0, preq);
 		return;
 	}
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) &&
+	if ((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) &&
 		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION)) {
 		if (pjob->ji_pmt_preq != NULL)
 			reply_preempt_jobs_request(PBSE_BADSTATE, PREEMPT_METHOD_CHECKPOINT, pjob);
@@ -217,7 +217,7 @@ req_holdjob(struct batch_request *preq)
 	(void)sprintf(log_buffer, msg_jobholdset, pset, preq->rq_user,
 		preq->rq_host);
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) &&
+	if ((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) &&
 		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_PRERUN) &&
 		(pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str) &&
 		(*pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str != 'n')) {
@@ -331,7 +331,7 @@ req_releasejob(struct batch_request *preq)
 		int i;
 		for(i = 0 ; i < pjob->ji_ajtrk->tkm_ct ; i++) {
 			job *psubjob = pjob->ji_ajtrk->tkm_tbl[i].trk_psubjob;
-			if (psubjob && (psubjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_HELD)) {
+			if (psubjob && (check_job_state(psubjob, JOB_STATE_LTR_HELD))) {
 #ifndef NAS
 				old_hold = psubjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long;
 				rc =

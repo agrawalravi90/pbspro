@@ -2200,8 +2200,8 @@ node_bailout(job *pjob, hnodent *np)
 				}
 				if (i == pjob->ji_numnodes) {	/* all dead */
 					if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_KILLSIS) {
-						pjob->ji_wattr[JOB_ATR_state].at_val.at_char    = JOB_STATE_LTR_EXITING;
-						pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
+						set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
+						set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
 						exiting_tasks = 1;
 					}
 				}
@@ -3578,8 +3578,8 @@ join_err:
 			DBPRT(("%s: KILL_JOB %s\n", __func__, jobid))
 			reply = 0;	/* reply will be deferred */
 			kill_job(pjob, SIGKILL);
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
-			pjob->ji_wattr[JOB_ATR_state].at_val.at_char    = JOB_STATE_LTR_EXITING;
+			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
 			pjob->ji_obit = event;
 			exiting_tasks = 1;
 

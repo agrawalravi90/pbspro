@@ -1402,8 +1402,8 @@ scan_for_exiting(void)
 				int	*exitstat =
 					&pjob->ji_qs.ji_un.ji_momt.ji_exitstat;
 
-				pjob->ji_wattr[JOB_ATR_state].at_val.at_char    = JOB_STATE_LTR_EXITING;
-				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_KILLSIS;
+				set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
+				set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_KILLSIS, SET);
 				if (*exitstat >= 0)
 					*exitstat = ptask->ti_qs.ti_exitstat;
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,

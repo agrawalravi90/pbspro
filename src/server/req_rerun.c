@@ -277,7 +277,7 @@ req_rerunjob(struct batch_request *preq)
 
 		/* The Array Job itself ... */
 
-		if (parent->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_BEGUN) {
+		if (!check_job_state(parent, JOB_STATE_LTR_BEGUN)) {
 			if (parent->ji_pmt_preq != NULL)
 				reply_preempt_jobs_request(PBSE_BADSTATE, PREEMPT_METHOD_REQUEUE, parent);
 			req_reject(PBSE_BADSTATE, 0, preq);
@@ -295,7 +295,7 @@ req_rerunjob(struct batch_request *preq)
 
 		for (i=0; i<parent->ji_ajtrk->tkm_ct; i++) {
 			if ((pjob = parent->ji_ajtrk->tkm_tbl[i].trk_psubjob)) {
-				if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING)
+				if (check_job_state(pjob, JOB_STATE_LTR_RUNNING))
 					dup_br_for_subjob(preq, pjob, req_rerunjob2);
 				else
 					force_reque(pjob);
@@ -432,7 +432,7 @@ req_rerunjob2(struct batch_request *preq, job *pjob)
 
 	/* the job must be running */
 
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) {
+	if (!check_job_state(pjob, JOB_STATE_LTR_RUNNING)) {
 		if (pjob->ji_pmt_preq != NULL)
 			reply_preempt_jobs_request(PBSE_BADSTATE, PREEMPT_METHOD_REQUEUE, pjob);
 

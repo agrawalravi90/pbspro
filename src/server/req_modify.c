@@ -200,7 +200,7 @@ req_modifyjob(struct batch_request *preq)
 	/* allow scheduler to modify job */
 	if (psched == NULL) {
 		/* provisioning job is not allowed to be modified */
-		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) &&
+		if ((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) &&
 			(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PROVISION)) {
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
@@ -209,7 +209,7 @@ req_modifyjob(struct batch_request *preq)
 
 	/* cannot be in exiting or transit, exiting has already be checked */
 
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_TRANSIT) {
+	if (check_job_state(pjob, JOB_STATE_LTR_TRANSIT)) {
 		req_reject(PBSE_BADSTATE, 0, preq);
 		return;
 	}
@@ -228,7 +228,7 @@ req_modifyjob(struct batch_request *preq)
 	 *	   altered.
 	 */
 
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) {
+	if (check_job_state(pjob, JOB_STATE_LTR_RUNNING)) {
 		running = 1;
 	}
 	while (plist) {
@@ -378,7 +378,7 @@ req_modifyjob(struct batch_request *preq)
 		log_alter_records_for_attrs(pjob, plist);
 
 	/* if job is not running, may need to change its state */
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) {
+	if (!check_job_state(pjob, JOB_STATE_LTR_RUNNING)) {
 		svr_evaljobstate(pjob, &newstate, &newsubstate, 0);
 		svr_setjobstate(pjob, newstate, newsubstate);
 	}
@@ -520,7 +520,7 @@ modify_job_attr(job *pjob, svrattrl *plist, int perm, int *bad)
 		/* So, the following checks are made only if not the Op/Admin */
 
 		if ((perm & (ATR_DFLAG_MGWR | ATR_DFLAG_OPWR)) == 0) {
-			if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) {
+			if (check_job_state(pjob, JOB_STATE_LTR_RUNNING)) {
 
 				/* regular user cannot raise the limits of a running job */
 

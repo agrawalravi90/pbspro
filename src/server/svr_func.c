@@ -486,7 +486,7 @@ int
 keepfiles_action(attribute *pattr, void *pobject, int mode) {
     if ((mode != ATR_ACTION_ALTER) && (mode != ATR_ACTION_NEW))
         return PBSE_NONE;
-    if (pobject && ((job *)pobject)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING)
+    if (pobject && check_job_state((job *) pobject, JOB_STATE_LTR_RUNNING))
         return PBSE_MODATRRUN;
     return verify_keepfiles_common(pattr->at_val.at_str);
 }
@@ -508,7 +508,7 @@ int
 removefiles_action(attribute *pattr, void *pobject, int mode) {
     if ((mode != ATR_ACTION_ALTER) && (mode != ATR_ACTION_NEW))
         return PBSE_NONE;
-    if (pobject && ((job *)pobject)->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING)
+    if (pobject && check_job_state((job *) pobject, JOB_STATE_LTR_RUNNING))
         return PBSE_MODATRRUN;
     return verify_removefiles_common(pattr->at_val.at_str);
 }
@@ -1236,9 +1236,9 @@ unset_job_history_enable(void)
 		/* save the next */
 		nxpjob = (job *)GET_NEXT(pjob->ji_alljobs);
 
-		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED)) {
+		if ((check_job_state(pjob, JOB_STATE_LTR_MOVED)) ||
+			(check_job_state(pjob, JOB_STATE_LTR_FINISHED)) ||
+			(check_job_state(pjob, JOB_STATE_LTR_EXPIRED))) {
 			job_purge(pjob);
 			pjob = NULL;
 		}
@@ -3251,10 +3251,10 @@ set_entity_ct_sum_queued(job *pjob, pbs_queue *pque, enum batch_op op)
 	/* also return if the entity limits for this job were 		  */
 	/* decremented before.						  */
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED) ||
-		((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) && (op == INCR))) {
+	if ((check_job_state(pjob, JOB_STATE_LTR_MOVED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_FINISHED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) ||
+		((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) && (op == INCR))) {
 		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
 		return 0;
 	}
@@ -3364,9 +3364,9 @@ set_entity_ct_sum_max(job *pjob, pbs_queue *pque, enum batch_op op)
 	/* then just return,  the job's resources were removed from the   */
 	/* entity sums when it went into the MOVED/FINISHED state	  */
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED)) {
+	if ((check_job_state(pjob, JOB_STATE_LTR_MOVED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
 		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
 		return 0;
 	}
@@ -3548,10 +3548,10 @@ set_entity_resc_sum_queued(job *pjob, pbs_queue *pque, attribute *altered_resc,
 	/* also return if the entity limits for this job were 		  */
 	/* decremented before.						  */
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED) ||
-		((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) && (op == INCR))) {
+	if ((check_job_state(pjob, JOB_STATE_LTR_MOVED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_FINISHED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) ||
+		((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) && (op == INCR))) {
 		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
 		return 0;
 	}
@@ -3786,9 +3786,9 @@ set_entity_resc_sum_max(job *pjob, pbs_queue *pque, attribute *altered_resc,
 	/* then just return,  the job's resources were removed from the   */
 	/* entity sums when it went into the MOVED/FINISHED state	  */
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED)) {
+	if ((check_job_state(pjob, JOB_STATE_LTR_MOVED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
 		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
 		return 0;
 	}

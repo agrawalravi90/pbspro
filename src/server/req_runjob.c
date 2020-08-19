@@ -1171,8 +1171,8 @@ complete_running(job *jobp)
 		/* if this is first subjob to run, mark */
 		/* parent Array as state "Begun"	*/
 		parent = jobp->ji_parentaj;
-		if (parent->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_QUEUED ||
-			(parent->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_BEGUN && parent->ji_qs.ji_stime == 0)) {
+		if (check_job_state(parent, JOB_STATE_LTR_QUEUED) ||
+			(check_job_state(parent, JOB_STATE_LTR_BEGUN) && parent->ji_qs.ji_stime == 0)) {
 			svr_setjobstate(parent, JOB_STATE_LTR_BEGUN, JOB_SUBSTATE_BEGUN);
 
 			/* Also set the parent job's stime */
@@ -1489,7 +1489,7 @@ post_sendmom(struct work_task *pwt)
 				 * array starts its comment is set to a begun message and
 				 * should not change after that
 				 */
-				if (jobp->ji_parentaj->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_QUEUED) {
+				if (check_job_state(jobp->ji_parentaj, JOB_STATE_LTR_QUEUED)) {
 					job_attr_def[(int) JOB_ATR_Comment].at_decode(
 						&jobp->ji_parentaj->ji_wattr[(int) JOB_ATR_Comment],
 						NULL, NULL, log_buffer);
@@ -1699,8 +1699,8 @@ chk_job_torun(struct batch_request *preq, job *pjob)
 		return pjob;
 
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_TRANSIT)       ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXITING)	      ||
+	if ((check_job_state(pjob, JOB_STATE_LTR_TRANSIT))       ||
+		(check_job_state(pjob, JOB_STATE_LTR_EXITING))	      ||
 		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_STAGEGO) ||
 		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_PRERUN)  ||
 		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RUNNING)) {

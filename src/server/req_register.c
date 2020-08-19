@@ -276,7 +276,7 @@ req_register(struct batch_request *preq)
 		return;
 	}
 
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED)
+	if (check_job_state(pjob, JOB_STATE_LTR_FINISHED))
 		is_finished = TRUE;
 
 	pattr = &pjob->ji_wattr[(int)JOB_ATR_depend];
@@ -292,7 +292,7 @@ req_register(struct batch_request *preq)
 		(void)strcpy(preq->rq_ind.rq_register.rq_svr, preq->rq_host);
 	}
 
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) {
+	if (check_job_state(pjob, JOB_STATE_LTR_MOVED)) {
 		snprintf(log_buffer, sizeof(log_buffer), "Parent %s%s", msg_movejob, pjob->ji_qs.ji_destin);
 		log_event(PBSEVENT_DEBUG|PBSEVENT_SYSTEM|PBSEVENT_ERROR,
 			PBS_EVENTCLASS_REQUEST, LOG_INFO,
@@ -580,7 +580,7 @@ post_doq(struct work_task *pwt)
 				snprintf(log_msg, sizeof(log_msg), "%s, %s", msg_job_moved,
 					"sending dependency request to remote server");
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO, jobid, log_msg);
-				if(ppjob && (ppjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) && (ppjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_MOVED)) {
+				if(ppjob && (check_job_state(ppjob, JOB_STATE_LTR_MOVED)) && (ppjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_MOVED)) {
 					char *destin;
 					/* job destination should be <remote queue>@<remote server> */
 					destin = strchr(ppjob->ji_qs.ji_destin, (int)'@');
@@ -742,11 +742,11 @@ depend_on_que(attribute *pattr, void *pobj, int mode)
 					 * To avoid such cases, verify that count of queued subjobs is equal
 					 * to the number of subjobs
 					 */
-					else if (djob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING ||
-						 djob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_BEGUN ||
+					else if (check_job_state(djob, JOB_STATE_LTR_RUNNING) ||
+						 check_job_state(djob, JOB_STATE_LTR_BEGUN) ||
 						 (djob->ji_ajtrk != NULL &&
 						  djob->ji_ajtrk->tkm_ct != djob->ji_ajtrk->tkm_subjsct[JOB_STATE_QUEUED]) ||
-						 (djob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_HELD &&
+						 (check_job_state(djob, JOB_STATE_LTR_HELD) &&
 						 djob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_DEPNHOLD)) {
 						/* If the dependent job is running or has system hold, then put this job on hold too*/
 						pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
@@ -1091,7 +1091,7 @@ depend_on_term(job *pjob)
 			/* This function is also called from job_abt when the job is in held state and abort substate.
 			 * In case of a held job, release the dependency chain.
 			 */
-			if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_HELD && pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_ABORT) {
+			if (check_job_state(pjob, JOB_STATE_LTR_HELD) && pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_ABORT) {
 				op = JOB_DEPEND_OP_DELETE;
 				/* In case the job being deleted is a job with runone dependency type
 				 * then there is no need to delete other dependent jobs.

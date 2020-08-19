@@ -883,7 +883,7 @@ job_purge(job *pjob)
 #else	/* not PBS_MOM */
 	if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSIN) &&
 		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_TRANSICM)) {
-		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) && (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_FINISHED)) {
+		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) && (!check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
 			if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RERUN3) || (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_QUEUED))
 				update_subjob_state(pjob, JOB_STATE_LTR_QUEUED);
 			else {
@@ -1969,7 +1969,7 @@ find_aoe_from_request(resc_resv *presv)
  * @retval	0 otherwise
  */
 int
-check_job_state(job *pjob, char state)
+check_job_state(const job *pjob, char state)
 {
 	if (pjob == NULL)
 		return 0;
@@ -1979,4 +1979,27 @@ check_job_state(job *pjob, char state)
 
 	return 0;
 }
+
+/**
+ * @brief	Check if the job is in the substate specified
+ *
+ * @param[in]	pjob - pointer to the job
+ * @param[in]	substate - the substate to check
+ *
+ * @return	int
+ * @retval	1 if the job is in the state specified
+ * @retval	0 otherwise
+ */
+int
+check_job_substate(const job *pjob, int substate)
+{
+	if (pjob == NULL)
+		return 0;
+
+	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == substate)
+		return 1;
+
+	return 0;
+}
+
 

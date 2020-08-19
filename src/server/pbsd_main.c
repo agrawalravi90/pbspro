@@ -542,10 +542,10 @@ clear_exec_vnode()
 
 	for (pjob = (job *)GET_NEXT(svr_alljobs); pjob;
 		pjob = (job *)GET_NEXT(pjob->ji_alljobs)) {
-		if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) &&
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_FINISHED) &&
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_MOVED) &&
-			(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXITING)) {
+		if ((!check_job_state(pjob, JOB_STATE_LTR_RUNNING)) &&
+			(!check_job_state(pjob, JOB_STATE_LTR_FINISHED)) &&
+			(!check_job_state(pjob, JOB_STATE_LTR_MOVED)) &&
+			(!check_job_state(pjob, JOB_STATE_LTR_EXITING))) {
 			if (((pjob->ji_wattr[(int)JOB_ATR_exec_vnode].at_flags &
 				ATR_VFLAG_SET) != 0) &&
 				((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) == 0)) {

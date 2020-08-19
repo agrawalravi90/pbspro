@@ -246,7 +246,7 @@ check_deletehistoryjob(struct batch_request * preq)
 			log_buffer);
 
 		/* Issue history job delete request to remote server if job is moved. */
-		if (histpjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED)
+		if (check_job_state(histpjob, JOB_STATE_LTR_MOVED))
 			issue_delete(histpjob);
 
 		if (histpjob->ji_qs.ji_svrflags & JOB_SVFLG_ArrayJob) {
@@ -473,7 +473,7 @@ req_deletejob(struct batch_request *preq)
 			if ((pjob = parent->ji_ajtrk->tkm_tbl[i].trk_psubjob)) {
 				if (delhist)
 					pjob->ji_deletehistory = 1;
-				if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED) {
+				if (check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) {
 					snprintf(log_buffer, sizeof(log_buffer),
 						msg_job_history_delete, preq->rq_user,
 						preq->rq_host);
@@ -554,7 +554,7 @@ req_deletejob(struct batch_request *preq)
 			if ((pjob = parent->ji_ajtrk->tkm_tbl[idx].trk_psubjob)) {
 				if (delhist)
 					pjob->ji_deletehistory = 1;
-				if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED) {
+				if (check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) {
 					log_eventf(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO, pjob->ji_qs.ji_jobid, msg_job_history_delete, preq->rq_user, preq->rq_host);
 					job_purge(pjob);
 				} else
@@ -630,7 +630,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 
 	jt = is_job_array(pjob->ji_qs.ji_jobid);
 
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_TRANSIT) {
+	if (check_job_state(pjob, JOB_STATE_LTR_TRANSIT)) {
 
 		/*
 		 * Find pid of router from existing work task entry,
@@ -692,8 +692,8 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 
 		return;
 	} else if (((jt != IS_ARRAY_Range) && (jt != IS_ARRAY_Single)) &&
-		   ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_QUEUED) ||
-		    (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_HELD))) {
+		   (check_job_state(pjob, JOB_STATE_LTR_QUEUED) ||
+		    check_job_state(pjob, JOB_STATE_LTR_HELD))) {
 		struct depend *dp;
 		dp = find_depend(JOB_DEPEND_TYPE_RUNONE, &pjob->ji_wattr[(int)JOB_ATR_depend]);
 		if (dp != NULL)
@@ -707,7 +707,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 		pjob->ji_qs.ji_un.ji_exect.ji_exitstat = SIGKILL + 0x100;
 	}
 
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_RUNNING) ||
+	if (check_job_state(pjob, JOB_STATE_LTR_RUNNING) ||
 		(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_TERM)) {
 		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_RERUN) {
 			/* rerun just started, clear that substate and */
@@ -873,7 +873,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 	if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_ArrayJob) && !forcedel)
 		chk_array_doneness(pjob);
 	else if (abortjob) {
-		if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXITING)
+		if (check_job_state(pjob, JOB_STATE_LTR_EXITING))
 			discard_job(pjob, "Forced Delete", 1);
 		rel_resc(pjob);
 		if (pjob->ji_pmt_preq != NULL)
@@ -1123,16 +1123,16 @@ req_deleteReservation(struct batch_request *preq)
 			 * issued delete request
 			 */
 			for (; pnxj != NULL && (pnxj->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) &&
-			     pnxj->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_EXPIRED; pnxj = (job *) GET_NEXT(pnxj->ji_jobque))
+			     check_job_state(pnxj, JOB_STATE_LTR_EXPIRED); pnxj = (job *) GET_NEXT(pnxj->ji_jobque))
 				;
 			/*
 			 * If a history job (job state is JOB_STATE_LTR_MOVED
 			 * or JOB_STATE_LTR_FINISHED, then no need to delete
 			 * it again as it is already deleted.
 			 */
-			if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED) ||
+			if (check_job_state(pjob, JOB_STATE_LTR_MOVED) ||
 				(pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) ||
-				(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED)) {
+				check_job_state(pjob, JOB_STATE_LTR_FINISHED)) {
 				pjob = pnxj;
 				continue;
 			}
@@ -1197,9 +1197,9 @@ req_deleteReservation(struct batch_request *preq)
 			if (presv && presv->ri_qp)
 				pjob = (job *) GET_NEXT(presv->ri_qp->qu_jobs);
 			while (pjob != NULL) {
-				if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_MOVED) &&
-					(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_FINISHED) &&
-					(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXPIRED))
+				if ((!check_job_state(pjob, JOB_STATE_LTR_MOVED)) &&
+					(!check_job_state(pjob, JOB_STATE_LTR_FINISHED)) &&
+					(!check_job_state(pjob, JOB_STATE_LTR_EXPIRED)))
 					break;
 				pjob = (job *) GET_NEXT(pjob->ji_jobque);
 			}
@@ -1390,9 +1390,9 @@ struct work_task *pwt;
 		if (presv->ri_qp)
 			pjob = (job *) GET_NEXT(presv->ri_qp->qu_jobs);
 		while (pjob != NULL) {
-			if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_MOVED) &&
-				(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_FINISHED) &&
-				(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXPIRED))
+			if ((!check_job_state(pjob, JOB_STATE_LTR_MOVED)) &&
+				(!check_job_state(pjob, JOB_STATE_LTR_FINISHED)) &&
+				(!check_job_state(pjob, JOB_STATE_LTR_EXPIRED)))
 				break;
 			pjob = (job *) GET_NEXT(pjob->ji_jobque);
 		}

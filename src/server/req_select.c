@@ -469,14 +469,14 @@ select_job(job *pjob, struct select_list *psel, int dosubjobs, int dohistjobs)
 	 * them otherwise include them. i.e. if the batch request has the special
 	 * extended flag 'x'.
 	 */
-	if ((!dohistjobs) && ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_FINISHED) ||
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_MOVED))) {
+	if ((!dohistjobs) && ((check_job_state(pjob, JOB_STATE_LTR_FINISHED)) ||
+		(check_job_state(pjob, JOB_STATE_LTR_MOVED)))) {
 		return 0;
 	}
 
 	if ((dosubjobs == 2) && (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) &&
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_EXITING) &&
-		(pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING)) /* select only exiting or running subjobs */
+		(!check_job_state(pjob, JOB_STATE_LTR_EXITING)) &&
+		(!check_job_state(pjob, JOB_STATE_LTR_RUNNING))) /* select only exiting or running subjobs */
 		return 0;
 
 	if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_ArrayJob) == 0)
@@ -485,18 +485,23 @@ select_job(job *pjob, struct select_list *psel, int dosubjobs, int dohistjobs)
 		(pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob))
 		return 0;	/* don't bother to look at sub job */
 
-	while (psel) {
+	for (; psel; psel = psel->sl_next) {
 
 		if (psel->sl_atindx == (int)JOB_ATR_userlst) {
 			if (!acl_check(&psel->sl_attr, pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str, ACL_User))
 				return (0);
 
 		} else if (!dosubjobs || (psel->sl_atindx != JOB_ATR_state)) {
-
-			if (!sel_attr(&pjob->ji_wattr[psel->sl_atindx], psel))
+			if (!sel_attr(&pjob->ji_wattr[psel->sl_atindx], psel)) {
+				if (strcmp(psel->sl_def->at_name, ATTR_state) == 0 && psel->sl_attr.at_val.at_str[0] == 'S') {
+					if (check_job_state(pjob, JOB_STATE_LTR_RUNNING) &&
+							(pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SCHSUSP ||
+									pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == JOB_SUBSTATE_SUSPEND))
+						continue;
+				}
 				return (0);
+			}
 		}
-		psel = psel->sl_next;
 	}
 
 	return (1);

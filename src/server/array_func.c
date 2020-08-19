@@ -440,7 +440,7 @@ chk_array_doneness(job *parent)
 		parent->ji_qs.ji_un.ji_exect.ji_exitstat = e;
 
 		check_block(parent, "");
-		if (parent->ji_wattr[JOB_ATR_state].at_val.at_char == JOB_STATE_LTR_BEGUN) {
+		if (check_job_state(parent, JOB_STATE_LTR_BEGUN)) {
 			/* if BEGUN, issue 'E' account record */
 			sprintf(acctbuf, msg_job_end_stat, e);
 			account_job_update(parent, PBS_ACCT_LAST);
@@ -738,7 +738,7 @@ setup_arrayjob_attrs(attribute *pattr, void *pobj, int mode)
 		return PBSE_BADATVAL;	/* not an Array Job */
 
 	if (mode == ATR_ACTION_ALTER) {
-		if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_QUEUED)
+		if (!check_job_state(pjob, JOB_STATE_LTR_QUEUED))
 			return PBSE_MODATRRUN;	/* cannot modify once begun */
 
 		/* clear "array_indices_remaining" so can be reset */

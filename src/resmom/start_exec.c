@@ -2584,7 +2584,7 @@ report_failed_node_hosts_task(struct work_task *ptask)
 		log_err(-1, __func__, "task structure contains reference to NULL job");
 		return;
 	}
-	if ((pjob->ji_wattr[JOB_ATR_state].at_val.at_char != JOB_STATE_LTR_RUNNING) ||
+	if ((!check_job_state(pjob, JOB_STATE_LTR_RUNNING)) ||
 	    (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long != JOB_SUBSTATE_PRERUN)) {
 		return;	/* job not longer waiting for healthy moms */
 	}
