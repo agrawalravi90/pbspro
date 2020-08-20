@@ -369,8 +369,10 @@ job_alloc(void)
 	job_init_wattr(pj);
 
 #ifndef PBS_MOM
-	svr_setjobstate(pj, JOB_STATE_LTR_TRANSIT, JOB_SUBSTATE_TRANSIN);
-
+	/*
+	set_attr_c(&pj->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_TRANSIT, SET);
+	set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRANSIN, SET);
+*/
 	/* start accruing time from the time job was created */
 	pj->ji_wattr[JOB_ATR_sample_starttime].at_val.at_long = (long) time_now;
 	pj->ji_wattr[JOB_ATR_sample_starttime].at_flags |= ATR_VFLAG_SET;

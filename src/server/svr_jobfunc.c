@@ -5116,9 +5116,9 @@ svr_setjob_histinfo(job *pjob, histjob_type type)
 	/* if the job is not already in MOVED or FINISHED state, then */
 	/* decrement the entity job counts and entity resource sums   */
 
-	if ((!check_job_state(pjob, JOB_STATE_LTR_MOVED)) &&
-		(!check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) &&
-		(!check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
+	if (!check_job_state(pjob, JOB_STATE_LTR_MOVED) &&
+		!check_job_state(pjob, JOB_STATE_LTR_EXPIRED) &&
+		!check_job_state(pjob, JOB_STATE_LTR_FINISHED)) {
 		account_entity_limit_usages(pjob, NULL, NULL, DECR,
 				pjob->ji_etlimit_decr_queued ? ETLIM_ACC_ALL_MAX : ETLIM_ACC_ALL);
 		account_entity_limit_usages(pjob, pjob->ji_qhdr, NULL, DECR,
