@@ -911,7 +911,7 @@ create_subjob(job *parent, char *newjid, int *rc)
 
 	subj->ji_qs.ji_svrflags &= ~JOB_SVFLG_ArrayJob;
 	subj->ji_qs.ji_svrflags |=  JOB_SVFLG_SubJob;
-	subj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TRANSICM;
+	set_attr_l(&subj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRANSICM, SET);
 	svr_setjobstate(subj, JOB_STATE_LTR_QUEUED, JOB_SUBSTATE_QUEUED);
 
 	/* subjob needs to borrow eligible time from parent job array.

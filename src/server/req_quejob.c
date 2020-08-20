@@ -512,7 +512,7 @@ req_quejob(struct batch_request *preq)
 		/* if checkpointed, then keep old and skip rest of process */
 
 		if (pj->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) {
-			pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TRANSIN;
+			set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRANSIN, SET);
 			int prot = preq->prot;
 			if (reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Queue) == 0) {
 				delete_link(&pj->ji_alljobs);

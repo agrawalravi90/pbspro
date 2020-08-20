@@ -4675,13 +4675,13 @@ svr_saveorpurge_finjobhist(job *pjob)
 		 */
 		if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) {
 			if (pjob->ji_terminated)
-				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_TERMINATED;
+				set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TERMINATED, SET);
 			else if ((pjob->ji_wattr[(int) JOB_ATR_exit_status].at_flags) &
 				 ATR_VFLAG_SET) {
 				if (pjob->ji_wattr[(int) JOB_ATR_exit_status].at_val.at_long)
-					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_FAILED;
+					set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_FAILED, SET);
 				else if (check_job_substate(pjob, JOB_SUBSTATE_EXITED))
-					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_FINISHED;
+					set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_FINISHED, SET);
 			}
 		}
 		job_purge(pjob);

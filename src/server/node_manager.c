@@ -750,7 +750,7 @@ node_down_requeue(struct work_task *pwt)
 						}
 						/* Set for requeuing the job if job is rerunnable */
 						if (pj->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long != 0) {
-							pj->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RERUN3;
+							set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RERUN3, SET);
 							if (pj->ji_acctrec != NULL) {
 								if (pbs_asprintf(&tmp_acctrec, "%s %s", pj->ji_acctrec, log_buffer) == -1) {
 									free(tmp_acctrec); /* free 1 byte malloc'd in pbs_asprintf() */

@@ -1519,7 +1519,7 @@ setrerun(job *pjob)
 {
 	if ((pjob->ji_qs.ji_un.ji_exect.ji_exitstat == JOB_EXEC_RETRY) ||
 		(pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long != 0)) {
-		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RERUN;
+		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RERUN, SET);
 		return 0;
 	} else {
 		svr_mailowner(pjob, MAIL_ABORT, MAIL_FORCE, msg_init_abt);
@@ -2042,7 +2042,7 @@ job_obit(struct resc_used_update *pruu, int stream)
 				pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_bad_password;
 				pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_SET_MOD_MCACHE;
 
-				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_HELD;
+				set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_HELD, SET);
 				svr_evaljobstate(pjob, &newstate, &newsubst, 0);
 				(void)svr_setjobstate(pjob, newstate, newsubst);
 
@@ -2090,7 +2090,7 @@ RetryJob:
 				} else {
 					/* have mom remove job files, not saving them,	*/
 					/* and requeue job				*/
-					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RERUN2;
+					set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RERUN2, SET);
 				}
 				check_failed_attempts(pjob);
 				break;
@@ -2156,9 +2156,9 @@ RetryJob:
 				case JOB_EXEC_RERUN:
 				case JOB_EXEC_RERUN_SIS_FAIL:
 					if (pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long) {
-						pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RERUN;
+						set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RERUN, SET);
 					} else {
-						pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
+						set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
 						svr_mailowner(pjob, MAIL_ABORT, MAIL_NORMAL,
 							"Non-rerunable job deleted on requeue");
 					}

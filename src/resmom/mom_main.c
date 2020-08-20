@@ -9774,7 +9774,7 @@ main(int argc, char *argv[])
 				snprintf(log_buffer, sizeof(log_buffer), "sister_join_job_alarm wait time %ld secs exceeded", joinjob_alarm_time);
 				log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_JOB,
 					  LOG_INFO, pjob->ji_qs.ji_jobid, log_buffer);
-				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_PRERUN;
+				set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_PRERUN, SET);
 
 				rcode = pre_finish_exec(pjob, 1);
 				if (rcode == PRE_FINISH_SUCCESS)
@@ -10641,7 +10641,7 @@ active_idle(job *pjob, int which)
 
 	time_now = time(0);
 	if (which == 1) {	/* suspend */
-		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long =  JOB_SUBSTATE_SUSPEND;
+		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_SUSPEND, SET);
 		pjob->ji_qs.ji_svrflags |= JOB_SVFLG_Actsuspd;
 		send_wk_job_idle(pjob->ji_qs.ji_jobid, which);
 		if ((pjob->ji_qs.ji_svrflags &
@@ -10651,7 +10651,7 @@ active_idle(job *pjob, int which)
 	} else {		/* resume */
 		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) == 0) {
 			start_walltime(pjob);
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
+			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 		}
 		pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Actsuspd;
 		send_wk_job_idle(pjob->ji_qs.ji_jobid, which);

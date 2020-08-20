@@ -438,8 +438,7 @@ req_deletejob(struct batch_request *preq)
 			req_deletejob2(preq, pjob);
 		} else {
 			acct_del_write(jid, parent, preq, 0);
-			parent->ji_ajtrk->tkm_tbl[offset].trk_substate =
-				JOB_SUBSTATE_TERMINATED;
+			parent->ji_ajtrk->tkm_tbl[offset].trk_substate = JOB_SUBSTATE_TERMINATED;
 			set_subjob_tblstate(parent, offset, JOB_STATE_LTR_EXPIRED);
 			parent->ji_ajtrk->tkm_dsubjsct++;
 
@@ -486,8 +485,7 @@ req_deletejob(struct batch_request *preq)
 			} else {
 				/* Queued, Waiting, Held, just set to expired */
 				if (sjst != JOB_STATE_LTR_EXPIRED) {
-					parent->ji_ajtrk->tkm_tbl[i].trk_substate =
-						JOB_SUBSTATE_TERMINATED;
+					parent->ji_ajtrk->tkm_tbl[i].trk_substate = JOB_SUBSTATE_TERMINATED;
 					set_subjob_tblstate(parent, i, JOB_STATE_LTR_EXPIRED);
 					decr_single_subjob_usage(parent);
 				}
@@ -657,7 +655,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 					pwtnew->wt_aux = pwtold->wt_aux;
 
 					kill((pid_t) pwtold->wt_event, SIGTERM);
-					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_ABORT;
+					set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_ABORT, SET);
 					return; /* all done for now */
 
 				} else {
@@ -713,7 +711,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 			/* rerun just started, clear that substate and */
 			/* normal delete will happen when mom replies  */
 
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
+			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 			log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 				  pjob->ji_qs.ji_jobid, "deleting instead of rerunning");
 			acct_del_write(pjob->ji_qs.ji_jobid, pjob, preq, 0);
@@ -787,8 +785,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 		 * deleted from mom as well.
 		 */
 		if ((rc || is_mgr) && forcedel) {
-			svr_setjobstate(pjob, JOB_STATE_LTR_EXITING,
-				JOB_SUBSTATE_EXITED);
+			svr_setjobstate(pjob, JOB_STATE_LTR_EXITING, JOB_SUBSTATE_EXITED);
 			if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
 				issue_track(pjob);
 			log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
@@ -843,8 +840,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 
 		/* job has restart file at mom, do end job processing */
 
-		svr_setjobstate(pjob, JOB_STATE_LTR_EXITING,
-			JOB_SUBSTATE_EXITING);
+		svr_setjobstate(pjob, JOB_STATE_LTR_EXITING, JOB_SUBSTATE_EXITING);
 		pjob->ji_momhandle = -1; /* force new connection */
 		pjob->ji_mom_prot = PROT_INVALID;
 		set_task(WORK_Immed, 0, on_job_exit, (void *) pjob);

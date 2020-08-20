@@ -2455,7 +2455,7 @@ im_eof(int stream, int ret)
 				"lost connection to MS on %s", np->hn_host);
 			log_joberr(-1, __func__, log_buffer, pjob->ji_qs.ji_jobid);
 			kill_job(pjob, SIGKILL);
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
+			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
 			exiting_tasks = 1;
 		}
 	}
@@ -4528,7 +4528,7 @@ join_err:
 						 */
  						if (!do_tolerate_node_failures(pjob) || (check_job_substate(pjob, JOB_SUBSTATE_WAITING_JOIN_JOB))) {
 							if (check_job_substate(pjob, JOB_SUBSTATE_WAITING_JOIN_JOB)) {
-								pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_PRERUN;
+								set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_PRERUN, SET);
 								job_save(pjob);
 							}
 							finish_exec(pjob);
@@ -5054,7 +5054,7 @@ join_err:
 						 ** finish_exec and launch the job.
 						 */
 						if (check_job_substate(pjob, JOB_SUBSTATE_WAITING_JOIN_JOB)) {
-							pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_PRERUN;
+							set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_PRERUN, SET);
 							job_save(pjob);
 						}
 						finish_exec(pjob);
@@ -5207,7 +5207,7 @@ join_err:
 					}
 					if (i == pjob->ji_numnodes) {	/* all dead */
 						if (check_job_substate(pjob, JOB_SUBSTATE_KILLSIS)) {
-							pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
+							set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
 							exiting_tasks = 1;
 						}
 					}

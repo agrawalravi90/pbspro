@@ -479,7 +479,7 @@ exec_bail(job *pjob, int code, char *txt)
 			nodes, pjob->ji_numnodes-1);
 		log_joberr(-1, __func__, log_buffer, pjob->ji_qs.ji_jobid);
 	}
-	pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_EXITING;
+	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
 	pjob->ji_qs.ji_un.ji_momt.ji_exitstat = code;
 	exiting_tasks = 1;
 	if (pjob->ji_stdout > 0)
@@ -6304,7 +6304,7 @@ start_exec(job *pjob)
 		free_attrlist(&phead);
 		if (do_tolerate_node_failures(pjob)) {
 			if (!check_job_substate(pjob, JOB_SUBSTATE_WAITING_JOIN_JOB)) {
-				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_WAITING_JOIN_JOB;
+				set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_WAITING_JOIN_JOB, SET);
 				pjob->ji_joinalarm = time_now + joinjob_alarm_time;
 				sprintf(log_buffer, "job waiting up to %ld secs ($sister_join_job_alarm) for all sister moms to join", joinjob_alarm_time);
 				log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_JOB, LOG_INFO, pjob->ji_qs.ji_jobid, log_buffer);

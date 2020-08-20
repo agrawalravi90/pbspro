@@ -377,7 +377,7 @@ post_chkpt(struct work_task *ptask)
 		/* need to try rerun if possible or just abort the job */
 		if (preq->rq_reply.brp_code != PBSE_CKPBSY) {
 			pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_CHKPT;
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
+			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
 			job_save_db(pjob);
 			if (check_job_state(pjob, JOB_STATE_LTR_RUNNING))
 				rerun_or_kill(pjob, msg_on_shutdown);
