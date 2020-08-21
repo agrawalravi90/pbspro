@@ -296,8 +296,6 @@ track_history_job(struct rq_track *prqt, char *extend)
 	 */
 	if (*prqt->rq_state == 'E') {
 		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_FINISHED, SET);
-		pjob->ji_wattr[(int)JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_FINISHED;
-		pjob->ji_wattr[(int)JOB_ATR_substate].at_flags |= ATR_MOD_MCACHE;
 		/* over write the default comment message */
 		comment = "Job finished at";
 	}

@@ -4866,7 +4866,6 @@ svr_histjob_update(job * pjob, char newstate, int newsubstate)
 	}
 	/* set the job state and state char */
 	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], newstate, SET);
-	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], newsubstate, SET);
 
 	/* For subjob update the state */
 	if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) {
@@ -4888,6 +4887,8 @@ svr_histjob_update(job * pjob, char newstate, int newsubstate)
 			}
 		}
 	}
+
+	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], newsubstate, SET);
 
 	job_save_db(pjob);
 }

@@ -292,8 +292,8 @@ req_signaljob2(struct batch_request *preq, job *pjob)
 	int			resume = 0;
 	pbs_sched		*psched;
 
-	if ((!check_job_state(pjob, JOB_STATE_LTR_RUNNING))	||
-		((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) && (check_job_substate(pjob, JOB_SUBSTATE_PROVISION)))) {
+	if (!check_job_state(pjob, JOB_STATE_LTR_RUNNING)	||
+		(check_job_state(pjob, JOB_STATE_LTR_RUNNING) && check_job_substate(pjob, JOB_SUBSTATE_PROVISION))) {
 		req_reject(PBSE_BADSTATE, 0, preq);
 		return;
 	}
