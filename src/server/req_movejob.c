@@ -133,7 +133,7 @@ req_movejob(struct batch_request *req)
 			!check_job_state(jobp, JOB_STATE_LTR_WAITING)) {
 #ifndef NDEBUG
 		(void)sprintf(log_buffer, "(%s) %s, state=%d",
-			__func__, msg_badstate, jobp->ji_wattr[JOB_ATR_state].at_val.at_char);
+			__func__, msg_badstate, get_job_state(jobp));
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 			jobp->ji_qs.ji_jobid, log_buffer);
 #endif /* NDEBUG */
@@ -214,7 +214,7 @@ req_orderjob(struct batch_request *req)
 		check_job_state(pjob = pjob2, JOB_STATE_LTR_BEGUN)) {
 #ifndef NDEBUG
 		(void)sprintf(log_buffer, "(%s) %s, state=%d",
-			__func__, msg_badstate, pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+			__func__, msg_badstate, get_job_state(pjob));
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 			pjob->ji_qs.ji_jobid, log_buffer);
 #endif	/* NDEBUG */

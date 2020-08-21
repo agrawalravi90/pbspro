@@ -1969,7 +1969,7 @@ job_start_error(job *pjob, int code, char *nodename, char *cmd)
 #endif
 		return;
 	}
-	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long >= JOB_SUBSTATE_EXITING)
+	if (get_job_substate(pjob) >= JOB_SUBSTATE_EXITING)
 		return;
 
 	if (code == PBSE_HOOK_REJECT_DELETEJOB)

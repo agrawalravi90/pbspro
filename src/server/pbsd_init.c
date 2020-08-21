@@ -1345,10 +1345,10 @@ pbsd_init_job(job *pjob, int type)
 			pjob->ji_subjindx = subjob_index_to_offset(pjob->ji_parentaj, get_index_from_jid(pjob->ji_qs.ji_jobid));
 			pjob->ji_parentaj->ji_ajtrk->tkm_tbl[pjob->ji_subjindx].trk_psubjob = pjob;
 			/* update the tracking table */
-			set_subjob_tblstate(pjob->ji_parentaj, pjob->ji_subjindx, pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+			set_subjob_tblstate(pjob->ji_parentaj, pjob->ji_subjindx, get_job_state(pjob));
 		}
 
-		switch (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long) {
+		switch (get_job_substate(pjob)) {
 
 			case JOB_SUBSTATE_TRANSICM:
 				if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) {
@@ -1501,7 +1501,7 @@ pbsd_init_job(job *pjob, int type)
 
 			default:
 				(void)sprintf(log_buffer,
-					msg_init_unkstate, pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
+					msg_init_unkstate, get_job_substate(pjob));
 				log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB,
 					LOG_NOTICE,
 					pjob->ji_qs.ji_jobid, log_buffer);
@@ -1652,7 +1652,7 @@ pbsd_init_reque(job *pjob, int change_state)
 	int rc;
 
 	(void)sprintf(logbuf, msg_init_substate,
-		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
+		get_job_substate(pjob));
 
 	/* re-enqueue the job into the queue it was in */
 

@@ -1301,7 +1301,7 @@ post_suspend(job *pjob, int err)
 		stop_walltime(pjob);
 
 		pjob->ji_polltime = 0;	/* don't check polling */
-		if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long < JOB_SUBSTATE_EXITING) {
+		if (get_job_substate(pjob) < JOB_SUBSTATE_EXITING) {
 			mom_hook_input_t  hook_input;
 			mom_hook_output_t hook_output;
 			char		  hook_msg[HOOK_MSG_SIZE+1];
@@ -1332,7 +1332,7 @@ post_suspend(job *pjob, int err)
 		else
 		{
 			snprintf(log_buffer, sizeof(log_buffer),
-				"This job can't be suspended, since the job was in %ld substate",pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
+				"This job can't be suspended, since the job was in %ld substate",get_job_substate(pjob));
 			log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO, pjob->ji_qs.ji_jobid,
 				log_buffer);
 		}
@@ -1997,12 +1997,12 @@ req_signaljob(struct batch_request *preq)
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
-		switch (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long) {
+		switch (get_job_substate(pjob)) {
 			case JOB_SUBSTATE_RUNNING:
 				break;
 			default:
 				sprintf(log_buffer, "suspend failed, job substate = %ld",
-					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
+					get_job_substate(pjob));
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 					pjob->ji_qs.ji_jobid, log_buffer);
 				req_reject(PBSE_BADSTATE, 0, preq);
@@ -2022,13 +2022,13 @@ req_signaljob(struct batch_request *preq)
 			req_reject(PBSE_BADSTATE, 0, preq);
 			return;
 		}
-		switch (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long) {
+		switch (get_job_substate(pjob)) {
 			case JOB_SUBSTATE_SUSPEND:
 			case JOB_SUBSTATE_SCHSUSP:
 				break;
 			default:
 				sprintf(log_buffer, "resume failed, job substate = %ld",
-					pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
+					get_job_substate(pjob));
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 					pjob->ji_qs.ji_jobid, log_buffer);
 				req_reject(PBSE_BADSTATE, 0, preq);
@@ -2067,7 +2067,7 @@ req_signaljob(struct batch_request *preq)
 #endif
 	{
 		sprintf(log_buffer, "cannot signal job, job substate = %ld",
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
+			get_job_substate(pjob));
 		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, log_buffer);
 		req_reject(PBSE_BADSTATE, 0, preq);
@@ -2075,13 +2075,13 @@ req_signaljob(struct batch_request *preq)
 	}
 	/* Now, send signal to the MOM's child process */
 	if (kill_job(pjob, sig) == 0) {
-		if ((pjob->ji_wattr[JOB_ATR_substate].at_val.at_long <= JOB_SUBSTATE_EXITING) ||
+		if ((get_job_substate(pjob) <= JOB_SUBSTATE_EXITING) ||
 			(check_job_substate(pjob, JOB_SUBSTATE_TERM))) {
 			/* No procs found, force job to exiting */
 			/* force issue of (another) job obit */
 			(void)sprintf(log_buffer,
 				"Job recycled into exiting on signal from substate %ld",
-				pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
+				get_job_substate(pjob));
 			log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB, LOG_INFO,
 				pjob->ji_qs.ji_jobid, log_buffer);
 			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);

@@ -756,7 +756,7 @@ on_job_exit(struct work_task *ptask)
 		mom_tasklist_ptr = &(((mom_svrinfo_t *)(pmom->mi_data))->msr_deferred_cmds);
 	}
 
-	switch (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long) {
+	switch (get_job_substate(pjob)) {
 
 		case JOB_SUBSTATE_EXITING:
 		case JOB_SUBSTATE_ABORT:
@@ -1193,7 +1193,7 @@ on_job_rerun(struct work_task *ptask)
 		mom_tasklist_ptr = &(((mom_svrinfo_t *)(pmom->mi_data))->msr_deferred_cmds);
 	}
 
-	switch (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long) {
+	switch (get_job_substate(pjob)) {
 
 
 		case JOB_SUBSTATE_RERUN:
@@ -1727,8 +1727,8 @@ job_obit(struct resc_used_update *pruu, int stream)
 	sprintf(log_buffer, "Obit received momhop:%d serverhop:%ld state:%c substate:%ld",
 		pruu->ru_hop,
 		pjob->ji_wattr[(int)JOB_ATR_run_version].at_val.at_long,
-		pjob->ji_wattr[JOB_ATR_state].at_val.at_char,
-		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
+		get_job_state(pjob),
+		get_job_substate(pjob));
 	log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO,
 		pruu->ru_pjobid, log_buffer);
 
@@ -1788,7 +1788,7 @@ job_obit(struct resc_used_update *pruu, int stream)
 				pjob->ji_momhandle = -1;
 				pjob->ji_mom_prot = PROT_INVALID;
 			}
-			if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long < JOB_SUBSTATE_RERUN)
+			if (get_job_substate(pjob) < JOB_SUBSTATE_RERUN)
 				eojproc = on_job_exit;
 			else
 				eojproc = on_job_rerun;
@@ -2260,7 +2260,7 @@ RetryJob:
 		}
 
 		(void)svr_setjobstate(pjob, JOB_STATE_LTR_EXITING,
-			pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
+			get_job_substate(pjob));
 
 		ptask = set_task(WORK_Immed, 0, on_job_rerun, (void *)pjob);
 		append_link(&pjob->ji_svrtask, &ptask->wt_linkobj, ptask);

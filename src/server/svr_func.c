@@ -3255,7 +3255,7 @@ set_entity_ct_sum_queued(job *pjob, pbs_queue *pque, enum batch_op op)
 		(check_job_state(pjob, JOB_STATE_LTR_FINISHED)) ||
 		(check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) ||
 		((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) && (op == INCR))) {
-		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
+		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, get_job_state(pjob))
 		return 0;
 	}
 
@@ -3367,7 +3367,7 @@ set_entity_ct_sum_max(job *pjob, pbs_queue *pque, enum batch_op op)
 	if ((check_job_state(pjob, JOB_STATE_LTR_MOVED)) ||
 		(check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) ||
 		(check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
-		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
+		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, get_job_state(pjob))
 		return 0;
 	}
 
@@ -3552,7 +3552,7 @@ set_entity_resc_sum_queued(job *pjob, pbs_queue *pque, attribute *altered_resc,
 		(check_job_state(pjob, JOB_STATE_LTR_FINISHED)) ||
 		(check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) ||
 		((check_job_state(pjob, JOB_STATE_LTR_RUNNING)) && (op == INCR))) {
-		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
+		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, get_job_state(pjob))
 		return 0;
 	}
 
@@ -3789,7 +3789,7 @@ set_entity_resc_sum_max(job *pjob, pbs_queue *pque, attribute *altered_resc,
 	if ((check_job_state(pjob, JOB_STATE_LTR_MOVED)) ||
 		(check_job_state(pjob, JOB_STATE_LTR_EXPIRED)) ||
 		(check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
-		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, pjob->ji_wattr[JOB_ATR_state].at_val.at_char)
+		ET_LIM_DBG("exiting, ret 0 [job in %c state]", __func__, get_job_state(pjob))
 		return 0;
 	}
 

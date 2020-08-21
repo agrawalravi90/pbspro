@@ -314,7 +314,7 @@ req_register(struct batch_request *preq)
 						rc = PBSE_HISTJOBID;
 						break;
 					}
-					if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long >= JOB_SUBSTATE_RUNNING) {
+					if (get_job_substate(pjob) >= JOB_SUBSTATE_RUNNING) {
 						/* Job already running, setup task to send
 						 * release back to child and continue with
 						 * registration process.

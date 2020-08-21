@@ -181,5 +181,21 @@ set_attr_c(attribute *pattr, char value, enum batch_op op)
 	pattr->at_flags |= ATR_SET_MOD_MCACHE;
 }
 
+char
+get_attr_c(const attribute *pattr)
+{
+	if (pattr != NULL) {
+		return  pattr->at_val.at_char;
+	}
+	return -1;
+}
 
+long
+get_attr_l(const attribute *pattr)
+{
+	if (pattr != NULL) {
+		return  pattr->at_val.at_long;
+	}
+	return -1;
+}
 

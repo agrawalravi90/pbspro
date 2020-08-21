@@ -318,7 +318,7 @@ req_preemptjobs(struct batch_request *preq)
 
 		if (!check_job_state(pjob, JOB_STATE_LTR_RUNNING)) {
 			sprintf(preempt_jobs_list[preempt_index].job_id, "%s", ppj->job_id);
-			switch (pjob->ji_wattr[JOB_ATR_state].at_val.at_char) {
+			switch (get_job_state(pjob)) {
 				case JOB_STATE_LTR_QUEUED:
 					strcpy(preempt_jobs_list[preempt_index].order, "Q");
 					preempt_index++;

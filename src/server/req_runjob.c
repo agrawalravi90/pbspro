@@ -1066,8 +1066,8 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
 	int	old_subst;
 
 
-	old_state = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
-	old_subst = pjob->ji_wattr[JOB_ATR_substate].at_val.at_long;
+	old_state = get_job_state(pjob);
+	old_subst = get_job_substate(pjob);
 	pjob->ji_qs.ji_stime = 0;	/* updated in complete_running() */
 
 	/* if not restarting a checkpointed job, increment the run/hop count */
@@ -1373,7 +1373,7 @@ post_sendmom(struct work_task *pwt)
 		return;
 	}
 
-	DBPRT(("post_sendmom: %s substate is %d", jobp->ji_qs.ji_jobid, jobp->ji_wattr[JOB_ATR_substate].at_val.at_long))
+	DBPRT(("post_sendmom: %s substate is %d", jobp->ji_qs.ji_jobid, get_job_substate(jobp)))
 
 	if (jobp->ji_prunreq)
 		jobp->ji_prunreq = NULL;	/* set in svr_strtjob2() */
@@ -1519,7 +1519,7 @@ post_sendmom(struct work_task *pwt)
 		check_job_substate(jobp, JOB_SUBSTATE_RUNNING)  ||
 		check_job_substate(jobp, JOB_SUBSTATE_PROVISION))) {
 		sprintf(log_buffer, "send_job returned with exit status = %d and job substate = %ld",
-			r, jobp->ji_wattr[JOB_ATR_substate].at_val.at_long);
+			r, get_job_substate(jobp));
 
 		log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_INFO,
 			jobp->ji_qs.ji_jobid, log_buffer);
@@ -1556,7 +1556,7 @@ post_sendmom(struct work_task *pwt)
 			 */
 			job_abt(jobp, log_buffer);
 
-			snprintf(log_buffer, LOG_BUF_SIZE, msg_init_substate, jobp->ji_wattr[JOB_ATR_substate].at_val.at_long);
+			snprintf(log_buffer, LOG_BUF_SIZE, msg_init_substate, get_job_substate(jobp));
 			log_event(PBSEVENT_SYSTEM|PBSEVENT_JOB|PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO, jobp->ji_qs.ji_jobid, log_buffer);
 
 			/* Force requeue the job since the job has been aborted by the server */

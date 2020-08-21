@@ -614,6 +614,10 @@ void set_attr_with_attr(attribute_def *pdef, attribute *oattr, attribute *nattr,
 void set_attr_l(attribute *pattr, long value, enum batch_op op);
 void set_attr_c(attribute *pattr, char value, enum batch_op op);
 
+/* Attr getters */
+char get_attr_c(const attribute *pattr);
+long get_attr_l(const attribute *pattr);
+
 /* "type" to pass to acl_check() */
 #define ACL_Host  1
 #define ACL_User  2

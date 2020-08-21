@@ -1035,6 +1035,9 @@ extern int   update_eligible_time(long, job *);
 extern int   do_tolerate_node_failures(job *);
 int check_job_state(const job *pjob, char state);
 int check_job_substate(const job *pjob, int substate);
+char get_job_state(const job *pjob);
+int get_job_state_num(const job *pjob);
+long get_job_substate(const job *pjob);
 /*
  *	The filesystem related recovery/save routines are renamed
  *	with the suffix "_fs", and the database versions of them

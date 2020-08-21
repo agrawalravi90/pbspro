@@ -326,5 +326,5 @@ track_history_job(struct rq_track *prqt, char *extend)
 		NULL,
 		NULL,
 		log_buffer);
-	svr_histjob_update(pjob, pjob->ji_wattr[JOB_ATR_state].at_val.at_char, pjob->ji_wattr[JOB_ATR_substate].at_val.at_long);
+	svr_histjob_update(pjob, get_job_state(pjob), get_job_substate(pjob));
 }

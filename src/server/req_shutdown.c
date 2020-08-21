@@ -409,7 +409,7 @@ rerun_or_kill(job *pjob, char *text)
 		/* job is rerunable, mark it to be requeued */
 
 		(void)issue_signal(pjob, "SIGKILL", release_req, 0);
-		pjob->ji_wattr[JOB_ATR_substate].at_val.at_long  = JOB_SUBSTATE_RERUN;
+		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RERUN, SET);
 		(void)strcpy(log_buffer, msg_init_queued);
 		(void)strcat(log_buffer, pjob->ji_qhdr->qu_qs.qu_name);
 		(void)strcat(log_buffer, text);

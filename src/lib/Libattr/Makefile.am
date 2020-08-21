@@ -47,6 +47,7 @@ libattr_a_CPPFLAGS = \
 
 libattr_a_SOURCES = \
 	attr_atomic.c \
+	attr_get_set.c \
 	attr_fn_acl.c \
 	attr_fn_arst.c \
 	attr_fn_b.c \
@@ -65,7 +66,6 @@ libattr_a_SOURCES = \
 	attr_func.c \
 	attr_node_func.c \
 	attr_resc_func.c \
-	attr_setters.c \
 	job_attr_def.c \
 	Long_.c \
 	LTostr.c \

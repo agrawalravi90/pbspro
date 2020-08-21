@@ -510,7 +510,7 @@ update_subjob_state(job *pjob, char newstate)
 				ptbl->tkm_tbl[pjob->ji_subjindx].trk_exitstat = 1;
 			}
 		}
-		ptbl->tkm_tbl[pjob->ji_subjindx].trk_substate = pjob->ji_wattr[JOB_ATR_substate].at_val.at_long;
+		ptbl->tkm_tbl[pjob->ji_subjindx].trk_substate = get_job_substate(pjob);
 	}
 	chk_array_doneness(parent);
 }

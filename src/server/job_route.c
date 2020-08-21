@@ -259,7 +259,7 @@ job_route(job *jobp)
 
 	/* see if the job is able to be routed */
 
-	switch (jobp->ji_wattr[JOB_ATR_state].at_val.at_char) {
+	switch (get_job_state(jobp)) {
 
 		case JOB_STATE_LTR_TRANSIT:
 			return (0);		/* already going, ignore it */
@@ -287,7 +287,7 @@ job_route(job *jobp)
 
 		default:
 			(void)sprintf(log_buffer, "(%s) %s, state=%d",
-				__func__, msg_badstate, jobp->ji_wattr[JOB_ATR_state].at_val.at_char);
+				__func__, msg_badstate, get_job_state(jobp));
 			log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 				jobp->ji_qs.ji_jobid, log_buffer);
 			return (0);

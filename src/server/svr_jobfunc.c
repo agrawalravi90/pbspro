@@ -218,7 +218,7 @@ svr_enquejob(job *pjob)
 	pbs_sched *psched;
 	int state_num;
 
-	state_num = state_char2int(pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+	state_num = get_job_state_num(pjob);
 
 	/* make sure queue is still there, there exist a small window ... */
 
@@ -249,7 +249,7 @@ svr_enquejob(job *pjob)
 					int indx;
 
 					for (indx = 0; indx < ptbl->tkm_ct; ++indx)
-						set_subjob_tblstate(pjob, indx, pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+						set_subjob_tblstate(pjob, indx, get_job_state(pjob));
 				}
 			}
 			return (0);
@@ -261,8 +261,8 @@ svr_enquejob(job *pjob)
 	/* add job to server's all job list and update server counts */
 
 #ifndef NDEBUG
-	(void)sprintf(log_buffer, "enqueuing into %s, state %x hop %ld",
-		pque->qu_qs.qu_name, pjob->ji_wattr[JOB_ATR_state].at_val.at_char,
+	(void)sprintf(log_buffer, "enqueuing into %s, state %c hop %ld",
+		pque->qu_qs.qu_name, get_job_state(pjob),
 		pjob->ji_wattr[(int)JOB_ATR_hopcount].at_val.at_long);
 	log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 		pjob->ji_qs.ji_jobid, log_buffer);
@@ -334,7 +334,7 @@ svr_enquejob(job *pjob)
 				for (indx = 0; indx < ptbl->tkm_ct; ++indx)
 					set_subjob_tblstate(pjob,
 						indx,
-						pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+						get_job_state(pjob));
 			}
 		}
 		return (0);
@@ -489,7 +489,7 @@ svr_dequejob(job *pjob)
 		if (--server.sv_qs.sv_numjobs < 0)
 			bad_ct = 1;
 
-		state_num = state_char2int(pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+		state_num = get_job_state_num(pjob);
 		if (state_num != -1) {
 			if (--server.sv_jobstates[state_num] < 0)
 				bad_ct = 1;
@@ -509,7 +509,7 @@ svr_dequejob(job *pjob)
 			if (--pque->qu_numjobs < 0)
 				bad_ct = 1;
 
-			state_num = state_char2int(pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+			state_num = get_job_state_num(pjob);
 			if (state_num != -1) {
 				if (--pque->qu_njstate[state_num] < 0)
 					bad_ct = 1;
@@ -520,7 +520,7 @@ svr_dequejob(job *pjob)
 
 #ifndef NDEBUG
 	sprintf(log_buffer, "dequeuing from %s, state %x",
-		pque ? pque->qu_qs.qu_name : "", pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+		pque ? pque->qu_qs.qu_name : "", get_job_state(pjob));
 	log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 		pjob->ji_qs.ji_jobid, log_buffer);
 	if (bad_ct) 		/* state counts are all messed up */
@@ -567,7 +567,7 @@ svr_setjobstate(job *pjob, char newstate, int newsubstate)
 	 */
 
 	if (!check_job_substate(pjob, JOB_SUBSTATE_TRANSICM)) {
-		char oldstate = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
+		char oldstate = get_job_state(pjob);
 
 		/* if the state is changing, also update the state counts */
 
@@ -686,16 +686,16 @@ svr_evaljobstate(job *pjob, char *newstate, int *newsub, int forceeval)
 		(check_job_state(pjob, JOB_STATE_LTR_FINISHED))) {
 
 		/* History job, just return state/sub-state. */
-		*newstate = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
-		*newsub   = pjob->ji_wattr[JOB_ATR_substate].at_val.at_long;
+		*newstate = get_job_state(pjob);
+		*newsub   = get_job_substate(pjob);
 
 	} else if ((forceeval == 0) &&
 			(check_job_state(pjob, JOB_STATE_LTR_TRANSIT) ||
 			check_job_state(pjob, JOB_STATE_LTR_RUNNING))) {
 
 		/* Leave as is. */
-		*newstate = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
-		*newsub   = pjob->ji_wattr[JOB_ATR_substate].at_val.at_long;
+		*newstate = get_job_state(pjob);
+		*newsub   = get_job_substate(pjob);
 	} else if (pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long) {
 
 		*newstate = JOB_STATE_LTR_HELD;
@@ -703,7 +703,7 @@ svr_evaljobstate(job *pjob, char *newstate, int *newsub, int forceeval)
 		if ((check_job_substate(pjob, JOB_SUBSTATE_SYNCHOLD)) ||
 			(check_job_substate(pjob, JOB_SUBSTATE_DEPNHOLD))) {
 			/* Retain substate. */
-			*newsub   = pjob->ji_wattr[JOB_ATR_substate].at_val.at_long;
+			*newsub   = get_job_substate(pjob);
 		} else {
 			*newsub   = JOB_SUBSTATE_HELD;
 		}
@@ -2394,7 +2394,7 @@ correct_ct(pbs_queue *pqj)
 		pjob = (job *)GET_NEXT(pjob->ji_alljobs)) {
 		int state_num;
 
-		state_num = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
+		state_num = get_job_state(pjob);
 		server.sv_qs.sv_numjobs++;
 		if (state_num != -1)
 			server.sv_jobstates[state_num]++;
@@ -4843,7 +4843,7 @@ svr_clean_job_history(struct work_task *pwt)
 void
 svr_histjob_update(job * pjob, char newstate, int newsubstate)
 {
-	char oldstate = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
+	char oldstate = get_job_state(pjob);
 	pbs_queue *pque = pjob->ji_qhdr;
 
 	/* update the state count in queue and server */
@@ -5171,7 +5171,7 @@ svr_chk_histjob(job *pjob)
 	 * return PBSE_HISTJOBID otherwise PBSE_NONE.
 	 */
 	if (pjob) {
-		switch (pjob->ji_wattr[JOB_ATR_state].at_val.at_char) {
+		switch (get_job_state(pjob)) {
 			case JOB_STATE_LTR_FINISHED:
 				rc = PBSE_HISTJOBID;
 				break;

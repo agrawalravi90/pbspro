@@ -442,7 +442,7 @@ chk_job_request(char *jobid, struct batch_request *preq, int *rc, int *err)
 		}
 
 		(void)sprintf(log_buffer, "%s, state=%d", msg_badstate,
-			pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+			get_job_state(pjob));
 		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO,
 			pjob->ji_qs.ji_jobid, log_buffer);
 		if (err != NULL)

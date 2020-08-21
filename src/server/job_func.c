@@ -216,12 +216,12 @@ job_abt(job *pjob, char *text)
 		return 0; /* nothing to do */
 	/* save old state and update state to Exiting */
 
-	old_state = pjob->ji_wattr[JOB_ATR_state].at_val.at_char;
+	old_state = get_job_state(pjob);
 
 	if (old_state == JOB_STATE_LTR_FINISHED)
 		return 0;	/* nothing to do for this job */
 
-	old_substate = pjob->ji_wattr[JOB_ATR_substate].at_val.at_long;
+	old_substate = get_job_substate(pjob);
 
 	/* notify user of abort if notification was requested */
 
@@ -369,10 +369,7 @@ job_alloc(void)
 	job_init_wattr(pj);
 
 #ifndef PBS_MOM
-	/*
-	set_attr_c(&pj->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_TRANSIT, SET);
-	set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRANSIN, SET);
-*/
+
 	/* start accruing time from the time job was created */
 	pj->ji_wattr[JOB_ATR_sample_starttime].at_val.at_long = (long) time_now;
 	pj->ji_wattr[JOB_ATR_sample_starttime].at_flags |= ATR_VFLAG_SET;
@@ -1976,7 +1973,7 @@ check_job_state(const job *pjob, char state)
 	if (pjob == NULL)
 		return 0;
 
-	if (pjob->ji_wattr[JOB_ATR_state].at_val.at_char == state)
+	if (get_job_state(pjob) == state)
 		return 1;
 
 	return 0;
@@ -1998,10 +1995,74 @@ check_job_substate(const job *pjob, int substate)
 	if (pjob == NULL)
 		return 0;
 
-	if (pjob->ji_wattr[JOB_ATR_substate].at_val.at_long == substate)
+	if (get_job_substate(pjob) == substate)
 		return 1;
 
 	return 0;
 }
 
+/**
+ * @brief	Get the state character value of a job
+ *
+ * @param[in]	pjob - the job object
+ *
+ * @return char
+ * @return state character
+ * @return -1 for error
+ */
+char
+get_job_state(const job *pjob)
+{
+	if (pjob != NULL) {
+		return get_attr_c(&pjob->ji_wattr[JOB_ATR_state]);
+	}
+
+	return -1;
+}
+
+/**
+ * @brief	Convenience function to get the numeric representation of job state value
+ *
+ * @param[in]	pjob - job object
+ *
+ * @return int
+ * @retval numeric form of job state
+ * @retvam -1 for error
+ */
+int
+get_job_state_num(const job *pjob)
+{
+	char statec;
+	int staten;
+
+	if (pjob == NULL)
+		return -1;
+
+	statec = get_attr_c(&pjob->ji_wattr[JOB_ATR_state]);
+	if (statec == -1)
+		return -1;
+
+	staten = state_char2int(statec);
+
+	return staten;
+}
+
+/**
+ * @brief	Get the substate value of a job
+ *
+ * @param[in]	pjob - the job object
+ *
+ * @return long
+ * @return substate value
+ * @return -1 for error
+ */
+long
+get_job_substate(const job *pjob)
+{
+	if (pjob != NULL) {
+		return get_attr_l(&pjob->ji_wattr[JOB_ATR_substate]);
+	}
+
+	return -1;
+}
 

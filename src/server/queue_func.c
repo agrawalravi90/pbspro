@@ -243,7 +243,7 @@ que_purge(pbs_queue *pque)
 			 * header pointer of job(pjob->ji_qhdr) to NULL.
 			 */
 			pjob = (job *)GET_NEXT(pque->qu_jobs);
-			state_num = state_char2int(pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+			state_num = get_job_state_num(pjob);
 			while (pjob) {
 				nxpjob = (job *)GET_NEXT(pjob->ji_jobque);
 				delete_link(&pjob->ji_jobque);

@@ -115,15 +115,15 @@ job_to_db(job *pjob, pbs_db_job_info_t *dbjob)
 
 		savetype |= OBJ_SAVE_QS;
 
-		statenum = state_char2int(pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+		statenum = get_job_state_num(pjob);
 		if (statenum == -1) {
-			log_errf(PBSE_INTERNAL, __func__, "state_char2int failed to convert state %c",
-					pjob->ji_wattr[JOB_ATR_state].at_val.at_char);
+			log_errf(PBSE_INTERNAL, __func__, "get_job_state_num failed for job state %c",
+					get_job_state(pjob));
 			return -1;
 		}
 
 		dbjob->ji_state     = statenum;
-		dbjob->ji_substate  = pjob->ji_wattr[JOB_ATR_substate].at_val.at_long;
+		dbjob->ji_substate  = get_job_substate(pjob);
 		dbjob->ji_svrflags  = pjob->ji_qs.ji_svrflags;
 		dbjob->ji_numattr   = pjob->ji_qs.ji_numattr;
 		dbjob->ji_ordering  = pjob->ji_qs.ji_ordering;

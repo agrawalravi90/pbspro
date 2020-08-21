@@ -336,7 +336,7 @@ registermom(int stream, int combine_msg)
 
 		if ((ret = diswst(stream, pjob->ji_qs.ji_jobid)) != DIS_SUCCESS)
 			goto err;
-		if ((ret = diswsi(stream, pjob->ji_wattr[JOB_ATR_substate].at_val.at_long)) != DIS_SUCCESS)
+		if ((ret = diswsi(stream, get_job_substate(pjob))) != DIS_SUCCESS)
 			goto err;
 
 		if (pjob->ji_wattr[(int)JOB_ATR_run_version].at_flags & ATR_VFLAG_SET) {
