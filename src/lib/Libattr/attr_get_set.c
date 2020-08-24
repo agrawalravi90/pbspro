@@ -52,6 +52,8 @@
 
 /**
  * @brief	Generic attribute setter function, accepts all values as string regardless of the type
+ * 			Tip: use this when you want at_set() and at_decode() to be invoked, otherwise use the
+ * 			type based setters below
  *
  * @param[in]	pattr	-	pointer to attribute being set
  * @param[in]	pdef 	-	attribute definition
