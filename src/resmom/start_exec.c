@@ -1824,7 +1824,8 @@ record_finish_exec(int sd)
 
 	start_walltime(pjob);
 
-	pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long = sjr.sj_session;
+	pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long
+	= sjr.sj_session;
 	pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
 		ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 
@@ -1842,7 +1843,10 @@ record_finish_exec(int sd)
 
 	pjob->ji_wattr[(int)JOB_ATR_errpath].at_flags |= ATR_VFLAG_MODIFY;
 	pjob->ji_wattr[(int)JOB_ATR_outpath].at_flags |= ATR_VFLAG_MODIFY;
+	pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags |= ATR_VFLAG_MODIFY;
 	pjob->ji_wattr[(int)JOB_ATR_altid].at_flags |= ATR_VFLAG_MODIFY;
+	pjob->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_VFLAG_MODIFY;
+	pjob->ji_wattr[(int)JOB_ATR_substate].at_flags |= ATR_VFLAG_MODIFY;
 	pjob->ji_wattr[(int)JOB_ATR_jobdir].at_flags |= ATR_VFLAG_MODIFY;
 	pjob->ji_wattr[(int)JOB_ATR_altid2].at_flags |= ATR_VFLAG_MODIFY;
 	pjob->ji_wattr[(int)JOB_ATR_acct_id].at_flags |= ATR_VFLAG_MODIFY;

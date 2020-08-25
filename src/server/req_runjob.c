@@ -1107,7 +1107,7 @@ svr_strtjob2(job *pjob, struct batch_request *preq)
 				set_resc_assigned((void *)pjob, 0, INCR);
 				/* Just update dependencies for the first subjob that runs */
 				if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) &&
-						check_job_state(pjob->ji_parentaj, JOB_STATE_LTR_BEGUN))
+						!check_job_state(pjob->ji_parentaj, JOB_STATE_LTR_BEGUN))
 					base_job = pjob->ji_parentaj;
 				else
 					base_job = pjob;

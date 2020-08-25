@@ -4866,6 +4866,7 @@ svr_histjob_update(job * pjob, char newstate, int newsubstate)
 	}
 	/* set the job state and state char */
 	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], newstate, SET);
+	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], newsubstate, SET);
 
 	/* For subjob update the state */
 	if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) {
@@ -4880,15 +4881,19 @@ svr_histjob_update(job * pjob, char newstate, int newsubstate)
 			/* update the subjob state table */
 			for (indx = 0; indx < ptbl->tkm_ct; ++indx) {
 				job *psubj = ptbl->tkm_tbl[indx].trk_psubjob;
-				if (psubj)
-					svr_histjob_update(psubj, newstate, newsubstate);
-				else
+				if (psubj) {
+					if (!check_job_substate(psubj, JOB_SUBSTATE_TERMINATED) &&
+						!check_job_substate(psubj, JOB_SUBSTATE_FINISHED) &&
+						!check_job_substate(psubj, JOB_SUBSTATE_FAILED) &&
+						!check_job_substate(psubj, JOB_SUBSTATE_MOVED))
+						svr_histjob_update(psubj, newstate, newsubstate);
+					else
+						svr_histjob_update(psubj, newstate, get_job_substate(psubj));
+				} else
 					set_subjob_tblstate(pjob, indx, newstate);
 			}
 		}
 	}
-
-	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], newsubstate, SET);
 
 	job_save_db(pjob);
 }
