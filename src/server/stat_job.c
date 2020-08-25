@@ -415,9 +415,8 @@ status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pb
 	 * and comment to that of the subjob
 	 */
 	subjob_state = get_subjob_state(pjob, subj);
-	realstate = pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char;
-	pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char = subjob_state;
-	pjob->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_MOD_MCACHE;
+	realstate = get_job_state(pjob);
+	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], subjob_state, SET);
 
 	if (subjob_state == JOB_STATE_LTR_EXPIRED || subjob_state == JOB_STATE_LTR_FINISHED) {
 		if (pjob->ji_ajtrk->tkm_tbl[subj].trk_substate == JOB_SUBSTATE_FINISHED) {
@@ -475,9 +474,7 @@ status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pb
 		rc =  PBSE_NOATTR;
 
 	/* Set the parent state back to what it really is */
-
-	pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char = realstate;
-	pjob->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_MOD_MCACHE;
+	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], realstate, SET);
 
 	/* Set the parent comment back to what it really is */
 	if (old_subjob_comment != NULL) {

@@ -245,7 +245,7 @@ issue_track(job *pjob)
 	preq->rq_ind.rq_track.rq_hopcount = pjob->ji_wattr[(int)JOB_ATR_hopcount].at_val.at_long;
 	(void)strcpy(preq->rq_ind.rq_track.rq_jid, pjob->ji_qs.ji_jobid);
 	(void)strcpy(preq->rq_ind.rq_track.rq_location, pbs_server_name);
-	preq->rq_ind.rq_track.rq_state[0] = pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char;
+	preq->rq_ind.rq_track.rq_state[0] = get_job_state(pjob);
 	preq->rq_extend = (char *)malloc(PBS_MAXROUTEDEST+1);
 	if (preq->rq_extend != NULL)
 		(void)strncpy(preq->rq_extend, pjob->ji_qs.ji_queue, PBS_MAXROUTEDEST+1);

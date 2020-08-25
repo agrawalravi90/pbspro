@@ -239,8 +239,7 @@ job_abt(job *pjob, char *text)
 			log_err(-1, __func__, log_buffer);
 			if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0) {
 				/* notify creator that job is exited */
-				pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char
-				= 'E';
+				set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
 				issue_track(pjob);
 			}
 			/*

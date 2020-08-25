@@ -653,13 +653,13 @@ modify_job_attr(job *pjob, svrattrl *plist, int perm, int *bad)
 			job_attr_def[i].at_free(&pattr[i]);
 			switch (i) {
 				case JOB_ATR_state:
-					newstate = newattr[i].at_val.at_char;
+					newstate = get_attr_c(&newattr[i]);
 					break;
 				case JOB_ATR_substate:
-					newsubstate = newattr[i].at_val.at_long;
+					newsubstate = get_attr_l(&newattr[i]);
 					break;
 				case JOB_ATR_accrue_type:
-					newaccruetype = newattr[i].at_val.at_long;
+					newaccruetype = get_attr_l(&newattr[i]);
 					break;
 				default:
 					if ((newattr[i].at_type == ATR_TYPE_LIST) ||
