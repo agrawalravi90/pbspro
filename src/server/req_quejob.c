@@ -512,7 +512,7 @@ req_quejob(struct batch_request *preq)
 		/* if checkpointed, then keep old and skip rest of process */
 
 		if (pj->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) {
-			set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRANSIN, SET);
+			set_job_substate(pj, JOB_SUBSTATE_TRANSIN);
 			int prot = preq->prot;
 			if (reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Queue) == 0) {
 				delete_link(&pj->ji_alljobs);
@@ -1057,8 +1057,8 @@ req_quejob(struct batch_request *preq)
 
 	/* set remaining job structure elements			*/
 
-	set_attr_c(&pj->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_TRANSIT, SET);
-	set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRANSIN, SET);
+	set_job_state(pj, JOB_STATE_LTR_TRANSIT);
+	set_job_substate(pj, JOB_SUBSTATE_TRANSIN);
 	set_attr_l(&pj->ji_wattr[JOB_ATR_mtime], (long) time_now, SET);
 
 	pj->ji_qs.ji_un_type = JOB_UNION_TYPE_NEW;
@@ -1682,8 +1682,8 @@ req_commit_now(struct batch_request *preq,  job *pj)
 		return;
 	}
 
-	set_attr_c(&pj->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_TRANSIT, SET);
-	set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRANSICM, SET);
+	set_job_state(pj, JOB_STATE_LTR_TRANSIT);
+	set_job_substate(pj, JOB_SUBSTATE_TRANSICM);
 
 #ifdef PBS_MOM	/* MOM only */
 
@@ -1701,8 +1701,8 @@ req_commit_now(struct batch_request *preq,  job *pj)
 	 ** Set JOB_SVFLG_HERE to indicate that this is Mother Superior.
 	 */
 	pj->ji_qs.ji_svrflags |= JOB_SVFLG_HERE;
-	set_attr_c(&pj->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
-	set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_PRERUN, SET);
+	set_job_state(pj, JOB_STATE_LTR_RUNNING);
+	set_job_substate(pj, JOB_SUBSTATE_PRERUN);
 	pj->ji_qs.ji_un_type = JOB_UNION_TYPE_MOM;
 	if (preq->prot) {
 		struct sockaddr_in* addr = tpp_getaddr(preq->rq_conn);

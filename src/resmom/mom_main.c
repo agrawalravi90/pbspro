@@ -2948,8 +2948,8 @@ do_mom_action_script(int	ae,	/* index into action table */
 		pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
 			ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 		if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING)) {
-			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
+			set_job_state(pjob, JOB_STATE_LTR_RUNNING);
+			set_job_substate(pjob, JOB_SUBSTATE_RUNNING);
 			job_save(pjob);
 		}
 		(void)sprintf(log_buffer, "task transmogrified, %s", cmd_line);
@@ -3252,8 +3252,8 @@ do_mom_action_script(int	ae,	/* index into action table */
 		pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
 			ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 		if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING)) {
-			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
+			set_job_state(pjob, JOB_STATE_LTR_RUNNING);
+			set_job_substate(pjob, JOB_SUBSTATE_RUNNING);
 			job_save(pjob);
 		}
 
@@ -7791,8 +7791,8 @@ dorestrict_user(void)
 			(void)task_save(ptask);
 
 			if (!check_job_substate(hjob, JOB_SUBSTATE_RUNNING)) {
-				set_attr_c(&hjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
-				set_attr_l(&hjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
+				set_job_state(hjob, JOB_STATE_LTR_RUNNING);
+				set_job_substate(hjob, JOB_SUBSTATE_RUNNING);
 				job_save(hjob);
 			}
 
@@ -9774,7 +9774,7 @@ main(int argc, char *argv[])
 				snprintf(log_buffer, sizeof(log_buffer), "sister_join_job_alarm wait time %ld secs exceeded", joinjob_alarm_time);
 				log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_JOB,
 					  LOG_INFO, pjob->ji_qs.ji_jobid, log_buffer);
-				set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_PRERUN, SET);
+				set_job_substate(pjob, JOB_SUBSTATE_PRERUN);
 
 				rcode = pre_finish_exec(pjob, 1);
 				if (rcode == PRE_FINISH_SUCCESS)
@@ -10641,7 +10641,7 @@ active_idle(job *pjob, int which)
 
 	time_now = time(0);
 	if (which == 1) {	/* suspend */
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_SUSPEND, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_SUSPEND);
 		pjob->ji_qs.ji_svrflags |= JOB_SVFLG_Actsuspd;
 		send_wk_job_idle(pjob->ji_qs.ji_jobid, which);
 		if ((pjob->ji_qs.ji_svrflags &
@@ -10651,7 +10651,7 @@ active_idle(job *pjob, int which)
 	} else {		/* resume */
 		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) == 0) {
 			start_walltime(pjob);
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_RUNNING);
 		}
 		pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Actsuspd;
 		send_wk_job_idle(pjob->ji_qs.ji_jobid, which);

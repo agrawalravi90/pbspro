@@ -1359,8 +1359,8 @@ pbsd_init_job(job *pjob, int type)
 					 * arround to recommit, so auto-commit now
 					 */
 
-					set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_QUEUED, SET);
-					set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_QUEUED, SET);
+					set_job_state(pjob, JOB_STATE_LTR_QUEUED);
+					set_job_substate(pjob, JOB_SUBSTATE_QUEUED);
 
 					if (pbsd_init_reque(pjob, CHANGE_STATE) == -1)
 						return -1;
@@ -1378,8 +1378,8 @@ pbsd_init_job(job *pjob, int type)
 				break;
 
 			case JOB_SUBSTATE_TRNOUT:
-				set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_QUEUED, SET);
-				set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_QUEUED, SET);
+				set_job_state(pjob, JOB_STATE_LTR_QUEUED);
+				set_job_substate(pjob, JOB_SUBSTATE_QUEUED);
 				/* requeue as queued */
 				if (pbsd_init_reque(pjob, CHANGE_STATE) == -1)
 					return -1;
@@ -1660,8 +1660,8 @@ pbsd_init_reque(job *pjob, int change_state)
 		/* update the state, typically to some form of QUEUED */
 		unset_extra_attributes(pjob);
 		svr_evaljobstate(pjob, &newstate, &newsubstate, 1);
-		set_attr_c(&pjob->ji_wattr[JOB_ATR_state], newstate, SET);
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], newsubstate, SET);
+		set_job_state(pjob, newstate);
+		set_job_substate(pjob, newsubstate);
 		if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob)
 			set_subjob_tblstate(pjob->ji_parentaj, pjob->ji_subjindx, newstate);
 	}

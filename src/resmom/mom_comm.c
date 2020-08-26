@@ -2200,8 +2200,8 @@ node_bailout(job *pjob, hnodent *np)
 				}
 				if (i == pjob->ji_numnodes) {	/* all dead */
 					if (check_job_substate(pjob, JOB_SUBSTATE_KILLSIS)) {
-						set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
-						set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+						set_job_state(pjob, JOB_STATE_LTR_EXITING);
+						set_job_substate(pjob, JOB_SUBSTATE_EXITING);
 						exiting_tasks = 1;
 					}
 				}
@@ -2455,7 +2455,7 @@ im_eof(int stream, int ret)
 				"lost connection to MS on %s", np->hn_host);
 			log_joberr(-1, __func__, log_buffer, pjob->ji_qs.ji_jobid);
 			kill_job(pjob, SIGKILL);
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_EXITING);
 			exiting_tasks = 1;
 		}
 	}
@@ -3177,8 +3177,8 @@ im_request(int stream, int version)
 			}
 
 			/* set remaining job structure elements */
-			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_PRERUN, SET);
+			set_job_state(pjob, JOB_STATE_LTR_RUNNING);
+			set_job_substate(pjob, JOB_SUBSTATE_PRERUN);
 			set_attr_l(&pjob->ji_wattr[JOB_ATR_mtime], time_now, SET);
 			pjob->ji_qs.ji_stime = time_now;
 			pjob->ji_polltime = time_now;
@@ -3578,8 +3578,8 @@ join_err:
 			DBPRT(("%s: KILL_JOB %s\n", __func__, jobid))
 			reply = 0;	/* reply will be deferred */
 			kill_job(pjob, SIGKILL);
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
-			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_EXITING);
+			set_job_state(pjob, JOB_STATE_LTR_EXITING);
 			pjob->ji_obit = event;
 			exiting_tasks = 1;
 
@@ -4528,7 +4528,7 @@ join_err:
 						 */
  						if (!do_tolerate_node_failures(pjob) || (check_job_substate(pjob, JOB_SUBSTATE_WAITING_JOIN_JOB))) {
 							if (check_job_substate(pjob, JOB_SUBSTATE_WAITING_JOIN_JOB)) {
-								set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_PRERUN, SET);
+								set_job_substate(pjob, JOB_SUBSTATE_PRERUN);
 								job_save(pjob);
 							}
 							finish_exec(pjob);
@@ -4664,8 +4664,8 @@ join_err:
 					if (i == pjob->ji_numnodes) { /* all dead */
 						DBPRT(("%s: ALL DONE, set EXITING job %s\n", __func__, jobid))
 						if (check_job_substate(pjob, JOB_SUBSTATE_KILLSIS)) {
-							set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
-							set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+							set_job_state(pjob, JOB_STATE_LTR_EXITING);
+							set_job_substate(pjob, JOB_SUBSTATE_EXITING);
 							exiting_tasks = 1;
 						}
 					}
@@ -5054,7 +5054,7 @@ join_err:
 						 ** finish_exec and launch the job.
 						 */
 						if (check_job_substate(pjob, JOB_SUBSTATE_WAITING_JOIN_JOB)) {
-							set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_PRERUN, SET);
+							set_job_substate(pjob, JOB_SUBSTATE_PRERUN);
 							job_save(pjob);
 						}
 						finish_exec(pjob);
@@ -5207,7 +5207,7 @@ join_err:
 					}
 					if (i == pjob->ji_numnodes) {	/* all dead */
 						if (check_job_substate(pjob, JOB_SUBSTATE_KILLSIS)) {
-							set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+							set_job_substate(pjob, JOB_SUBSTATE_EXITING);
 							exiting_tasks = 1;
 						}
 					}
@@ -5947,8 +5947,8 @@ tm_request(int fd, int version)
 		(void)task_save(ptask);
 
 		if (!check_job_substate(pjob, JOB_SUBSTATE_RUNNING)) {
-			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
+			set_job_state(pjob, JOB_STATE_LTR_RUNNING);
+			set_job_substate(pjob, JOB_SUBSTATE_RUNNING);
 			job_save(pjob);
 		}
 

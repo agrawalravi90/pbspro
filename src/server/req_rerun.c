@@ -469,7 +469,7 @@ req_rerunjob2(struct batch_request *preq, job *pjob)
 		if (pjob->ji_pmt_preq != NULL)
 			reply_preempt_jobs_request(rc, PREEMPT_METHOD_REQUEUE, pjob);
 
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RERUN3, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_RERUN3);
 		discard_job(pjob, "Force rerun", 0);
 		pjob->ji_discarding = 1;
 		/**

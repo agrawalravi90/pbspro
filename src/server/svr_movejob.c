@@ -844,9 +844,8 @@ send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
 
 		if (!check_job_substate(jobp, JOB_SUBSTATE_TRNOUTCM)) {
 
-			if (!check_job_substate(jobp, JOB_SUBSTATE_TRNOUT)) {
-				set_attr_l(&jobp->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRNOUT, SET);
-			}
+			if (!check_job_substate(jobp, JOB_SUBSTATE_TRNOUT))
+				set_job_substate(jobp, JOB_SUBSTATE_TRNOUT);
 
 			pqjatr = &((svrattrl *)GET_NEXT(attrl))->al_atopl;
 			if (PBSD_queuejob(con, jobp->ji_qs.ji_jobid, destin, pqjatr, NULL, PROT_TCP, NULL, NULL) == 0) {
@@ -920,7 +919,7 @@ send_job(job *jobp, pbs_net_t hostaddr, int port, int move_type,
 					continue;
 			}
 
-			set_attr_l(&jobp->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRNOUTCM, SET);
+			set_job_substate(jobp, JOB_SUBSTATE_TRNOUTCM);
 		}
 
 		if (PBSD_rdytocmt(con, job_id, PROT_TCP, NULL) != 0)

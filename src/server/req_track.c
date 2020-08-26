@@ -295,7 +295,7 @@ track_history_job(struct rq_track *prqt, char *extend)
 	 * and update the comment message.
 	 */
 	if (*prqt->rq_state == 'E') {
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_FINISHED, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_FINISHED);
 		/* over write the default comment message */
 		comment = "Job finished at";
 	}

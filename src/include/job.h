@@ -1038,6 +1038,9 @@ int check_job_substate(const job *pjob, int substate);
 char get_job_state(const job *pjob);
 int get_job_state_num(const job *pjob);
 long get_job_substate(const job *pjob);
+void set_job_state(job *pjob, char val);
+void set_job_substate(job *pjob, long val);
+
 /*
  *	The filesystem related recovery/save routines are renamed
  *	with the suffix "_fs", and the database versions of them

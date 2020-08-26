@@ -1309,7 +1309,7 @@ post_suspend(job *pjob, int err)
 			unsigned int	hook_fail_action =  0;
 			int		reject_errcode = 0;
 
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_SUSPEND, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_SUSPEND);
 			pjob->ji_qs.ji_svrflags |= JOB_SVFLG_Suspend;
 			(void)job_save(pjob);
 
@@ -1368,7 +1368,7 @@ post_resume(job *pjob, int err)
 		/* if I'm not MS, start to check for polling again */
 		if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
 			pjob->ji_polltime = time_now;
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_RUNNING);
 		pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Suspend;
 		(void)job_save(pjob);
 	}
@@ -1801,7 +1801,7 @@ post_terminate(job *pjob, int err)
 		/* kill job */
 		if (kill_job(pjob, SIGKILL) == 0) {
 			/* no processes around, force into exiting */
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_EXITING);
 			exiting_tasks = 1;
 		}
 	}
@@ -1846,8 +1846,8 @@ terminate_job(job *pjob, int internal)
 	if ((chk_mom_action(TerminateAction) == Script) &&
 		((i = do_mom_action_script(TerminateAction, pjob, NULL, NULL,
 		post_terminate)) == 1)) {
-		set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TERM, SET);
+		set_job_state(pjob, JOB_STATE_LTR_EXITING);
+		set_job_substate(pjob, JOB_SUBSTATE_TERM);
 	} else {
 		if (internal == -1)
 			s = SIGKILL;
@@ -1864,7 +1864,7 @@ terminate_job(job *pjob, int internal)
 		}
 		if (kill_job(pjob, s) == 0) {
 			/* no processes around, force into exiting */
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_EXITING);
 			exiting_tasks = 1;
 		}
 		i = -2;
@@ -2084,7 +2084,7 @@ req_signaljob(struct batch_request *preq)
 				get_job_substate(pjob));
 			log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB, LOG_INFO,
 				pjob->ji_qs.ji_jobid, log_buffer);
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_EXITING);
 			ptask = GET_NEXT(pjob->ji_tasks);
 			if (ptask)
 				ptask->ti_qs.ti_status = TI_STATE_EXITED;
@@ -2454,7 +2454,7 @@ req_rerunjob(struct batch_request *preq)
 		/* change substate so Mom doesn't send another obit     */
 		/* do not record to disk, so Obit is resent on recovery */
 		if (check_job_substate(pjob, JOB_SUBSTATE_OBIT))
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITED, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_EXITED);
 		return;
 	} else if (rc < 0) {
 		req_reject(-rc, 0, preq);
@@ -2569,7 +2569,7 @@ post_cpyfile(struct work_task *pwt)
 				 * on to next step in End of Job processing quickly
 				 * we will resend obit, see mom_main.c
 				 */
-				set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_OBIT, SET);
+				set_job_substate(pjob, JOB_SUBSTATE_OBIT);
 				pjob->ji_sampletim = time(0);
 			}
 			reply_ack(preq);
@@ -2717,7 +2717,7 @@ req_cpyfile(struct batch_request *preq)
 		 * do not record to disk, so Obit is resent on recovery
 		 */
 		if (check_job_substate(pjob, JOB_SUBSTATE_OBIT))
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITED, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_EXITED);
 	}
 
 	dir  = (rqcpf->rq_dir & STAGE_DIRECTION)? STAGE_DIR_OUT : STAGE_DIR_IN;
@@ -2969,7 +2969,7 @@ req_delfile(struct batch_request *preq)
 			/* change substate so Mom doesn't send another obit
 			 * do not record to disk, so Obit is resent on recovery
 			 */
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITED, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_EXITED);
 		}
 	}
 
@@ -3066,7 +3066,7 @@ post_cpyfile(job *pjob, int ev)
 		/* reset substate to OBIT,  if server doesn't move  */
 		/* on to next step in End of Job processing quickly */
 		/* we will resend obit, see mom_main.c              */
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_OBIT, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_OBIT);
 		pjob->ji_sampletim = time(0);
 	}
 }
@@ -3153,7 +3153,7 @@ req_cpyfile(struct batch_request *preq)
 		/* change substate so Mom doesn't send another obit     */
 		/* do not record to disk, so Obit is resent on recovery */
 		if (check_job_substate(pjob, JOB_SUBSTATE_OBIT))
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITED, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_EXITED);
 	}
 
 	dir  = (rqcpf->rq_dir & STAGE_DIRECTION)? STAGE_DIR_OUT : STAGE_DIR_IN;
@@ -3220,7 +3220,7 @@ req_cpyfile(struct batch_request *preq)
 			/* change substate so Mom doesn't send another obit     */
 			/* do not record to disk, so Obit is resent on recovery */
 			if (check_job_substate(pjob, JOB_SUBSTATE_OBIT))
-				set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITED, SET);
+				set_job_substate(pjob, JOB_SUBSTATE_EXITED);
 			pjob->ji_momsubt = pid;
 			pjob->ji_mompost = post_cpyfile;
 			if (preq->prot == PROT_TPP)
@@ -3398,7 +3398,7 @@ post_delfile(job *pjob, int ev)
 		/* reset substate to OBIT,  if server doesn't move  */
 		/* on to next step in End of Job processing quickly */
 		/* we will resend obit, see mom_main.c              */
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_OBIT, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_OBIT);
 		pjob->ji_sampletim = time(0);
 	} else {
 		/* child that was doing file copies had major error */
@@ -3474,7 +3474,7 @@ req_delfile(struct batch_request *preq)
 			pjob->ji_momsubt = pid;
 			pjob->ji_mompost = post_delfile;
 			pjob->ji_sampletim = time(0);
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITED, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_EXITED);
 		}
 		return; /* parent - continue with someother task */
 	} else if (pid < 0) {
@@ -4338,7 +4338,7 @@ post_restart(job *pjob, int ev)
 		/*
 		 ** If we get here, an error happened.
 		 */
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_EXITING);
 		exiting_tasks = 1;
 		return;
 	}
@@ -4375,7 +4375,7 @@ post_restart(job *pjob, int ev)
 			}
 		}
 
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_RUNNING);
 		start_walltime(pjob);
 
 		if (mom_get_sample() != PBSE_NONE) {
@@ -4383,7 +4383,7 @@ post_restart(job *pjob, int ev)
 			(void)mom_set_use(pjob);
 		}
 	} else {
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_SUSPEND, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_SUSPEND);
 		stop_walltime(pjob);
 	}
 	if (pjob->ji_preq) {

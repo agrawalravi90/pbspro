@@ -183,8 +183,8 @@ db_to_job(job *pjob,  pbs_db_job_info_t *dbjob)
 		log_errf(PBSE_INTERNAL, __func__, "state_int2char failed to convert state %d", dbjob->ji_state);
 		return 1;
 	}
-	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], statec, SET);
-	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], dbjob->ji_substate, SET);
+	set_job_state(pjob, statec);
+	set_job_substate(pjob, dbjob->ji_substate);
 
 	pjob->ji_qs.ji_svrflags = dbjob->ji_svrflags;
 	pjob->ji_qs.ji_numattr = dbjob->ji_numattr ;

@@ -1250,7 +1250,7 @@ send_obit(job *pjob, int exval)
 
 	pjob->ji_mompost = NULL;
 	if (!check_job_substate(pjob, JOB_SUBSTATE_OBIT)) {
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_OBIT, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_OBIT);
 		job_save(pjob);
 	}
 	if (server_stream >= 0) {
@@ -1402,8 +1402,8 @@ scan_for_exiting(void)
 				int	*exitstat =
 					&pjob->ji_qs.ji_un.ji_momt.ji_exitstat;
 
-				set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
-				set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_KILLSIS, SET);
+				set_job_state(pjob, JOB_STATE_LTR_EXITING);
+				set_job_substate(pjob, JOB_SUBSTATE_KILLSIS);
 				if (*exitstat >= 0)
 					*exitstat = ptask->ti_qs.ti_exitstat;
 				log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
@@ -1425,7 +1425,7 @@ scan_for_exiting(void)
 				 */
 
 				if (send_sisters(pjob, IM_KILL_JOB, NULL) == 0) {
-					set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+					set_job_substate(pjob, JOB_SUBSTATE_EXITING);
 					/*
 					 ** if the job was checkpointed ok,
 					 ** reset ji_nodekill to prevent mom_comm
@@ -1720,7 +1720,7 @@ end_loop:
 			pjob->ji_momsubt = cpid;
 			pjob->ji_actalarm = 0;
 			pjob->ji_mompost = send_obit;
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNEPILOG, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_RUNEPILOG);
 
 			if (found_one++ < 20) {
 				continue; /* look for more exiting jobs */
@@ -1986,7 +1986,7 @@ init_abort_jobs(int recover)
 			if ((pj->ji_qs.ji_svrflags &
 				(JOB_SVFLG_CHKPT|
 				JOB_SVFLG_ChkptMig)) == 0) {
-				set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_OBIT, SET);
+				set_job_substate(pj, JOB_SUBSTATE_OBIT);
 				job_save(pj);
 			}
 		} else if (check_job_substate(pj, JOB_SUBSTATE_TERM)) {
@@ -1997,7 +1997,7 @@ init_abort_jobs(int recover)
 			 */
 			if (recover)
 				(void)kill_job(pj, SIGKILL);
-			set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_OBIT, SET);
+			set_job_substate(pj, JOB_SUBSTATE_OBIT);
 			job_save(pj);
 		} else if ((recover != 2) &&
 			((check_job_substate(pj, JOB_SUBSTATE_RUNNING)) ||
@@ -2037,8 +2037,7 @@ init_abort_jobs(int recover)
 			if (sisters > 0) {
 				(void)send_sisters(pj, IM_DELETE_JOB, NULL);
 			}
-
-			set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+			set_job_substate(pj, JOB_SUBSTATE_EXITING);
 			job_save(pj);
 			exiting_tasks = 1;
 		} else if (recover == 2) {
@@ -2374,7 +2373,7 @@ mom_deljob_wait(job *pjob)
 	del_job_resc(pjob);	/* rm tmpdir, etc. */
 
 	if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) {	/* MS */
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_DELJOB, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_DELJOB);
 		pjob->ji_sampletim      = time_now;
 		/*
 		 * The SISTER_KILLDONE flag needs to be reset so
@@ -2489,7 +2488,7 @@ send_sisters_deljob_wait(job *pjob)
 	int	i;
 
 	if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) {	/* MS */
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_DELJOB, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_DELJOB);
 		pjob->ji_sampletim = time_now;
 		/*
 		 * The SISTER_KILLDONE flag needs to be reset so
@@ -2529,7 +2528,7 @@ set_job_toexited(char *jobid)
 
 	pjob = find_job(jobid);
 	if (pjob) {
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITED, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_EXITED);
 		if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) {
 			/* if checkpointed, save state to disk, otherwise  */
 			/* leave unchanges on disk so recovery will resend */

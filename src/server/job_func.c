@@ -239,7 +239,7 @@ job_abt(job *pjob, char *text)
 			log_err(-1, __func__, log_buffer);
 			if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0) {
 				/* notify creator that job is exited */
-				set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
+				set_job_state(pjob, JOB_STATE_LTR_EXITING);
 				issue_track(pjob);
 			}
 			/*
@@ -368,8 +368,8 @@ job_alloc(void)
 	job_init_wattr(pj);
 
 #ifndef PBS_MOM
-	set_attr_c(&pj->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_TRANSIT, SET);
-	set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TRANSIN, SET);
+	set_job_state(pj, JOB_STATE_LTR_TRANSIT);
+	set_job_substate(pj, JOB_SUBSTATE_TRANSIN);
 
 	/* start accruing time from the time job was created */
 	pj->ji_wattr[JOB_ATR_sample_starttime].at_val.at_long = (long) time_now;
@@ -2065,5 +2065,37 @@ get_job_substate(const job *pjob)
 	}
 
 	return -1;
+}
+
+/**
+ * @brief	Setter for job state
+ *
+ * @param[in]	job - pointer to job
+ * @param[in]	val - state val
+ *
+ * @return	void
+ */
+void
+set_job_state(job *pjob, char val)
+{
+	if (pjob != NULL) {
+		set_attr_c(&pjob->ji_wattr[JOB_ATR_state], val, SET);
+	}
+}
+
+/**
+ * @brief	Setter for job substate
+ *
+ * @param[in]	job - pointer to job
+ * @param[in]	val - substate val
+ *
+ * @return	void
+ */
+void
+set_job_substate(job *pjob, long val)
+{
+	if (pjob != NULL) {
+		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], val, SET);
+	}
 }
 

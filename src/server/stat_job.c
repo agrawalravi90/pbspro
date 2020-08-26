@@ -305,10 +305,10 @@ status_job(job *pjob, struct batch_request *preq, svrattrl *pal, pbs_list_head *
 	/* Temporarily set suspend/user suspend states for the stat */
 	if (check_job_state(pjob, JOB_STATE_LTR_RUNNING)) {
 		if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) {
-			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_SUSPENDED, SET);
+			set_job_state(pjob, JOB_STATE_LTR_SUSPENDED);
 			revert_state_r = 1;
 		} else if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_Actsuspd) {
-			set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_USUSPENDED, SET);
+			set_job_state(pjob, JOB_STATE_LTR_USUSPENDED);
 			revert_state_r = 1;
 		}
 	}
@@ -336,7 +336,7 @@ status_job(job *pjob, struct batch_request *preq, svrattrl *pal, pbs_list_head *
 	}
 
 	if (revert_state_r)
-		set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
+		set_job_state(pjob, JOB_STATE_LTR_RUNNING);
 
 	return (0);
 }
@@ -416,7 +416,7 @@ status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pb
 	 */
 	subjob_state = get_subjob_state(pjob, subj);
 	realstate = get_job_state(pjob);
-	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], subjob_state, SET);
+	set_job_state(pjob, subjob_state);
 
 	if (subjob_state == JOB_STATE_LTR_EXPIRED || subjob_state == JOB_STATE_LTR_FINISHED) {
 		if (pjob->ji_ajtrk->tkm_tbl[subj].trk_substate == JOB_SUBSTATE_FINISHED) {
@@ -474,7 +474,7 @@ status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pb
 		rc =  PBSE_NOATTR;
 
 	/* Set the parent state back to what it really is */
-	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], realstate, SET);
+	set_job_state(pjob, realstate);
 
 	/* Set the parent comment back to what it really is */
 	if (old_subjob_comment != NULL) {

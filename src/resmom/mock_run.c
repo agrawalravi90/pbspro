@@ -97,8 +97,8 @@ mock_run_finish_exec(job *pjob)
 void
 mock_run_record_finish_exec(job *pjob)
 {
-	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
-	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
+	set_job_state(pjob, JOB_STATE_LTR_RUNNING);
+	set_job_substate(pjob, JOB_SUBSTATE_RUNNING);
 
 	job_save(pjob);
 
@@ -131,8 +131,8 @@ mock_run_end_job_task(struct work_task *ptask)
 
 	pjob = ptask->wt_parm1;
 
-	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_EXITING, SET);
-	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_EXITING, SET);
+	set_job_state(pjob, JOB_STATE_LTR_EXITING);
+	set_job_substate(pjob, JOB_SUBSTATE_EXITING);
 
 	pjob->ji_qs.ji_un.ji_momt.ji_exitstat = JOB_EXEC_OK;
 

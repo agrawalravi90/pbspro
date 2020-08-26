@@ -377,7 +377,7 @@ post_chkpt(struct work_task *ptask)
 		/* need to try rerun if possible or just abort the job */
 		if (preq->rq_reply.brp_code != PBSE_CKPBSY) {
 			pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_CHKPT;
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_RUNNING);
 			job_save_db(pjob);
 			if (check_job_state(pjob, JOB_STATE_LTR_RUNNING))
 				rerun_or_kill(pjob, msg_on_shutdown);
@@ -409,7 +409,7 @@ rerun_or_kill(job *pjob, char *text)
 		/* job is rerunable, mark it to be requeued */
 
 		(void)issue_signal(pjob, "SIGKILL", release_req, 0);
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RERUN, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_RERUN);
 		(void)strcpy(log_buffer, msg_init_queued);
 		(void)strcat(log_buffer, pjob->ji_qhdr->qu_qs.qu_name);
 		(void)strcat(log_buffer, text);

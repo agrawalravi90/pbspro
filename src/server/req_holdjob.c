@@ -499,7 +499,7 @@ post_hold(struct work_task *pwt)
 	} else if (code == 0) {
 
 		/* record that MOM has a checkpoint file */
-		set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RERUN, SET);
+		set_job_substate(pjob, JOB_SUBSTATE_RERUN);
 		if (preq->rq_reply.brp_auxcode)	/* chkpt can be moved */
 			pjob->ji_qs.ji_svrflags =
 				(pjob->ji_qs.ji_svrflags & ~JOB_SVFLG_CHKPT) |

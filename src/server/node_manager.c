@@ -750,7 +750,7 @@ node_down_requeue(struct work_task *pwt)
 						}
 						/* Set for requeuing the job if job is rerunnable */
 						if (pj->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long != 0) {
-							set_attr_l(&pj->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RERUN3, SET);
+							set_job_substate(pj, JOB_SUBSTATE_RERUN3);
 							if (pj->ji_acctrec != NULL) {
 								if (pbs_asprintf(&tmp_acctrec, "%s %s", pj->ji_acctrec, log_buffer) == -1) {
 									free(tmp_acctrec); /* free 1 byte malloc'd in pbs_asprintf() */
@@ -2459,7 +2459,7 @@ recv_wk_job_idle(int stream)
 	if (pjob) {
 		/* suspend or resume job */
 
-		set_attr_c(&pjob->ji_wattr[JOB_ATR_state], JOB_STATE_LTR_RUNNING, SET);
+		set_job_state(pjob, JOB_STATE_LTR_RUNNING);
 
 		if (which)
 			pjob->ji_qs.ji_svrflags |= JOB_SVFLG_Actsuspd;

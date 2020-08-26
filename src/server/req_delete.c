@@ -655,7 +655,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 					pwtnew->wt_aux = pwtold->wt_aux;
 
 					kill((pid_t) pwtold->wt_event, SIGTERM);
-					set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_ABORT, SET);
+					set_job_substate(pjob, JOB_SUBSTATE_ABORT);
 					return; /* all done for now */
 
 				} else {
@@ -711,7 +711,7 @@ req_deletejob2(struct batch_request *preq, job *pjob)
 			/* rerun just started, clear that substate and */
 			/* normal delete will happen when mom replies  */
 
-			set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_RUNNING, SET);
+			set_job_substate(pjob, JOB_SUBSTATE_RUNNING);
 			log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 				  pjob->ji_qs.ji_jobid, "deleting instead of rerunning");
 			acct_del_write(pjob->ji_qs.ji_jobid, pjob, preq, 0);

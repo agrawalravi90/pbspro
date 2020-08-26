@@ -519,7 +519,7 @@ svr_dequejob(job *pjob)
 	}
 
 #ifndef NDEBUG
-	sprintf(log_buffer, "dequeuing from %s, state %x",
+	sprintf(log_buffer, "dequeuing from %s, state %c",
 		pque ? pque->qu_qs.qu_name : "", get_job_state(pjob));
 	log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG,
 		pjob->ji_qs.ji_jobid, log_buffer);
@@ -624,8 +624,8 @@ svr_setjobstate(job *pjob, char newstate, int newsubstate)
 	}
 
 	/* set the states accordingly */
-	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], newstate, SET);
-	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], newsubstate, SET);
+	set_job_state(pjob, newstate);
+	set_job_substate(pjob, newsubstate);
 
 	/* eligible_time_enable */
 	if (server.sv_attr[SVR_ATR_EligibleTimeEnable].at_val.at_long == 1) {
@@ -4675,13 +4675,13 @@ svr_saveorpurge_finjobhist(job *pjob)
 		 */
 		if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) {
 			if (pjob->ji_terminated)
-				set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_TERMINATED, SET);
+				set_job_substate(pjob, JOB_SUBSTATE_TERMINATED);
 			else if ((pjob->ji_wattr[(int) JOB_ATR_exit_status].at_flags) &
 				 ATR_VFLAG_SET) {
 				if (pjob->ji_wattr[(int) JOB_ATR_exit_status].at_val.at_long)
-					set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_FAILED, SET);
+					set_job_substate(pjob, JOB_SUBSTATE_FAILED);
 				else if (check_job_substate(pjob, JOB_SUBSTATE_EXITED))
-					set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], JOB_SUBSTATE_FINISHED, SET);
+					set_job_substate(pjob, JOB_SUBSTATE_FINISHED);
 			}
 		}
 		job_purge(pjob);
@@ -4865,8 +4865,8 @@ svr_histjob_update(job * pjob, char newstate, int newsubstate)
 		}
 	}
 	/* set the job state and state char */
-	set_attr_c(&pjob->ji_wattr[JOB_ATR_state], newstate, SET);
-	set_attr_l(&pjob->ji_wattr[JOB_ATR_substate], newsubstate, SET);
+	set_job_state(pjob, newstate);
+	set_job_substate(pjob, newsubstate);
 
 	/* For subjob update the state */
 	if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SubJob) {
