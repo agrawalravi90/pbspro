@@ -308,11 +308,7 @@ track_history_job(struct rq_track *prqt, char *extend)
 		(void)strcat(dest_queue, "@");
 		(void)strcat(dest_queue, prqt->rq_location);
 		/* Set the new queue attribute to destination */
-		(void)job_attr_def[(int)JOB_ATR_in_queue].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_in_queue],
-			NULL,
-			NULL,
-			dest_queue);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_in_queue], &job_attr_def[JOB_ATR_in_queue], dest_queue, SET);
 	}
 
 	/*

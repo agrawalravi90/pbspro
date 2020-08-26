@@ -345,7 +345,7 @@ svr_enquejob(job *pjob)
 	pdef    = &job_attr_def[(int)JOB_ATR_in_queue];
 	pattrjb = &pjob->ji_wattr[(int)JOB_ATR_in_queue];
 	pdef->at_free(pattrjb);
-	pdef->at_decode(pattrjb, NULL, NULL, pque->qu_qs.qu_name);
+	set_attr_generic(pattrjb, pdef, pque_qu_qs.qu_name, SET);
 
 	if (pque->qu_attr[(int)QA_ATR_QType].at_val.at_str == NULL) {
 		sprintf(log_buffer, "queue type must be set for queue `%s`",
@@ -5031,20 +5031,12 @@ svr_setjob_histinfo(job *pjob, histjob_type type)
 			"%.*s", PBS_MAXQUEUENAME, qname);
 
 		/* Set the queue attribute to destination */
-		(void)job_attr_def[(int)JOB_ATR_in_queue].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_in_queue],
-			NULL,
-			NULL,
-			destination);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_in_queue], &job_attr_def[JOB_ATR_in_queue], destination, SET);
 
 		/* set the job comment attr with destination */
-		sprintf(log_buffer, "Job has been moved to \"%s\"",
-			destination);
-		(void)job_attr_def[(int)JOB_ATR_Comment].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_Comment],
-			NULL,
-			NULL,
-			log_buffer);
+		sprintf(log_buffer, "Job has been moved to \"%s\"", destination);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], log_buffer, SET);
+
 		/*
 		 * SET the NEW STATE/SUB-STATE for the job (which is moved).
 		 * New STATE for the job will be JOB_STATE_LTR_MOVED and new

@@ -60,13 +60,15 @@
  * @param[in]	pobj	-	pointer to attribute definition
  * @param[in]	value	-	value to be set
  *
- * @return	void
+ * @return	int
+ * @retval	0 for success
+ * @retval	1 for failure
  *
  * @par MT-Safe: No
  * @par Side Effects: None
  *
  */
-void
+int
 set_attr_generic(attribute *pattr, attribute_def *pdef, char *value, enum batch_op op)
 {
 	int rc;
@@ -74,16 +76,20 @@ set_attr_generic(attribute *pattr, attribute_def *pdef, char *value, enum batch_
 
 	if (pattr == NULL || pdef == NULL) {
 		log_err(-1, __func__, "Invalid pointer to attribute or its definition");
-		return;
+		return 1;
 	}
 
 	clear_attr(&tempat, pdef);
-	if ((rc = pdef->at_decode(&tempat, pdef->at_name, NULL, value)) != 0)
+	if ((rc = pdef->at_decode(&tempat, pdef->at_name, NULL, value)) != 0) {
 		log_errf(rc, __func__, "decode of %s failed", pdef->at_name);
+		return 1;
+	}
 
-	set_attr_with_attr(pdef, pattr, &tempat, op);
+	rc = set_attr_with_attr(pdef, pattr, &tempat, op);
 
 	pdef->at_free(&tempat);
+
+	return rc;
 }
 
 /**
@@ -94,19 +100,23 @@ set_attr_generic(attribute *pattr, attribute_def *pdef, char *value, enum batch_
  * @param[in]	nattr	-	pointer to attribute to set with
  * @param[in]	op		-	operation to do
  *
- * @return	void
+ * @return	int
+ * @retval	0 for success
+ * @retval	1 for failure
  *
  * @par MT-Safe: No
  * @par Side Effects: None
  *
  */
-void
+int
 set_attr_with_attr(attribute_def *pdef, attribute *oattr, attribute *nattr, enum batch_op op)
 {
 	int rc;
 
 	if ((rc = pdef->at_set(oattr, nattr, op)) != 0)
 		log_errf(rc, __func__, "set of %s failed", pdef->at_name);
+
+	return rc;
 }
 
 /**
