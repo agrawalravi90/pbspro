@@ -8476,7 +8476,7 @@ pbsv1mod_meth_validate_input(PyObject *self, PyObject *args, PyObject *kwds)
 			if (job_attr_def[attr_idx].at_decode) {
 
 				clear_attr(&attr, job_attr_def);
-				rc = job_attr_def[attr_idx].at_decode(&attr, name, NULL, value_tmp);
+				rc = set_attr_generic(&attr, &job_attr_def[attr_idx], value_tmp, SET);
 				if (job_attr_def[attr_idx].at_free) {
 					job_attr_def[attr_idx].at_free(&attr);
 				}

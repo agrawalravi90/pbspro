@@ -425,8 +425,7 @@ status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pb
 				if (old_subjob_comment == NULL)
 					return (PBSE_SYSTEM);
 			}
-			if (job_attr_def[(int)JOB_ATR_Comment].at_decode(&pjob->ji_wattr[(int)JOB_ATR_Comment],
-				NULL, NULL, "Subjob finished") == PBSE_SYSTEM) {
+			if (set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], "Subjob finished", SET) == PBSE_SYSTEM) {
 				free(old_subjob_comment);
 				return (PBSE_SYSTEM);
 			}
@@ -436,8 +435,7 @@ status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pb
 				if (old_subjob_comment == NULL)
 					return (PBSE_SYSTEM);
 			}
-			if (job_attr_def[(int)JOB_ATR_Comment].at_decode(&pjob->ji_wattr[(int)JOB_ATR_Comment],
-				NULL, NULL, "Subjob failed") == PBSE_SYSTEM) {
+			if (set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], "Subjob failed", SET) == PBSE_SYSTEM) {
 				free(old_subjob_comment);
 				return (PBSE_SYSTEM);
 			}
@@ -447,8 +445,7 @@ status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pb
 				if (old_subjob_comment == NULL)
 					return (PBSE_SYSTEM);
 			}
-			if (job_attr_def[(int)JOB_ATR_Comment].at_decode(&pjob->ji_wattr[(int)JOB_ATR_Comment],
-				NULL, NULL, "Subjob terminated") == PBSE_SYSTEM) {
+			if (set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], "Subjob terminated", SET) == PBSE_SYSTEM) {
 				free(old_subjob_comment);
 				return (PBSE_SYSTEM);
 			}
@@ -478,8 +475,7 @@ status_subjob(job *pjob, struct batch_request *preq, svrattrl *pal, int subj, pb
 
 	/* Set the parent comment back to what it really is */
 	if (old_subjob_comment != NULL) {
-		if (job_attr_def[(int)JOB_ATR_Comment].at_decode(&pjob->ji_wattr[(int)JOB_ATR_Comment],
-			NULL, NULL, old_subjob_comment) == PBSE_SYSTEM) {
+		if (set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], old_subjob_comment, SET) == PBSE_SYSTEM) {
 			free(old_subjob_comment);
 			return (PBSE_SYSTEM);
 		}

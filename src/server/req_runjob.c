@@ -196,10 +196,8 @@ check_and_provision_job(struct batch_request *preq, job *pjob, int *need_prov)
 		pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
 		pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_SET_MOD_MCACHE;
 		svr_setjobstate(pjob, JOB_STATE_LTR_HELD, JOB_SUBSTATE_HELD);
-		job_attr_def[(int)JOB_ATR_Comment].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_Comment],
-			NULL, NULL,
-			"job held, provisioning failed to start");
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment],
+			"job held, provisioning failed to start", SET);
 
 		/* not offlining vnodes, since its not a vnode's fault. vnode */
 		/* is good to run other jobs, so why waste resource. */
@@ -951,10 +949,8 @@ svr_startjob(job *pjob, struct batch_request *preq)
 	/* into an attribute accessable to MOM				   */
 
 	if (!(pjob->ji_wattr[(int)JOB_ATR_hashname].at_flags & ATR_VFLAG_SET))
-		if (job_attr_def[(int)JOB_ATR_hashname].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_hashname],
-			NULL, NULL,
-			pjob->ji_qs.ji_jobid))
+		if (set_attr_generic(&pjob->ji_wattr[JOB_ATR_hashname], &job_attr_def[JOB_ATR_hashname],
+			pjob->ji_qs.ji_jobid, SET))
 			return (PBSE_SYSTEM);
 
 	/* clear Exit_status which may have been set in a hook and requeued */
@@ -1181,10 +1177,8 @@ complete_running(job *jobp)
 			parent->ji_wattr[(int)JOB_ATR_stime].at_flags |= ATR_SET_MOD_MCACHE;
 
 			account_jobstr(parent, PBS_ACCT_RUN);
-			job_attr_def[(int) JOB_ATR_Comment].at_decode(
-					&parent->ji_wattr[(int) JOB_ATR_Comment], NULL,
-					NULL,
-					form_attr_comment("Job Array Began at %s", NULL));
+			set_attr_generic(&parent->ji_wattr[ JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment],
+					form_attr_comment("Job Array Began at %s", NULL), SET);
 			/* if any dependencies, see if action required */
 			if (parent->ji_wattr[(int)JOB_ATR_depend].at_flags&ATR_VFLAG_SET)
 				depend_on_exec(parent);
@@ -1194,12 +1188,9 @@ complete_running(job *jobp)
 	}
 	/* Job started ATR_Comment is set in server since scheduler cannot read	*/
 	/* the reply in case of error in asynchronous communication.	*/
-	job_attr_def[(int) JOB_ATR_Comment].at_decode(
-		&jobp->ji_wattr[(int) JOB_ATR_Comment],
-		NULL,
-		NULL,
+	set_attr_generic(&jobp->ji_wattr[ JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment],
 		form_attr_comment("Job run at %s",
-			jobp->ji_wattr[(int) JOB_ATR_exec_vnode].at_val.at_str));
+			jobp->ji_wattr[ JOB_ATR_exec_vnode].at_val.at_str), SET);
 
 	jobp->ji_qs.ji_svrflags &= ~JOB_SVFLG_HOTSTART;
 
@@ -1312,7 +1303,7 @@ check_failed_attempts(job *jobp)
 	) {
 		jobp->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
 		jobp->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_SET_MOD_MCACHE;
-		job_attr_def[(int)JOB_ATR_Comment].at_decode(&jobp->ji_wattr[(int)JOB_ATR_Comment], NULL, NULL, "job held, too many failed attempts to run");
+		set_attr_generic(&jobp->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], "job held, too many failed attempts to run", SET);
 
 		if (jobp->ji_parentaj) {
 			char comment_buf[100 + PBS_MAXSVRJOBID];
@@ -1320,7 +1311,7 @@ check_failed_attempts(job *jobp)
 			jobp->ji_parentaj->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
 			jobp->ji_parentaj->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_SET_MOD_MCACHE;
 			sprintf(comment_buf, "Job Array Held, too many failed attempts to run subjob %s", jobp->ji_qs.ji_jobid);
-			job_attr_def[(int)JOB_ATR_Comment].at_decode(&jobp->ji_parentaj->ji_wattr[(int)JOB_ATR_Comment], NULL, NULL, comment_buf);
+			set_attr_generic(&jobp->ji_parentaj->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], comment_buf, SET);
 		}
 	}
 }
@@ -1490,9 +1481,7 @@ post_sendmom(struct work_task *pwt)
 				 * should not change after that
 				 */
 				if (check_job_state(jobp->ji_parentaj, JOB_STATE_LTR_QUEUED)) {
-					job_attr_def[(int) JOB_ATR_Comment].at_decode(
-						&jobp->ji_parentaj->ji_wattr[(int) JOB_ATR_Comment],
-						NULL, NULL, log_buffer);
+					set_attr_generic(&jobp->ji_parentaj->ji_wattr[ JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], log_buffer, SET);
 				}
 			}
 
@@ -1794,9 +1783,7 @@ where_to_runjob(struct batch_request *preq, job *pjob)
 		} else {
 			snprintf(comment, MAXCOMMENTLEN, "Job manually qrun.");
 		}
-		job_attr_def[(int)JOB_ATR_Comment].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_Comment],
-			NULL, NULL, comment);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], comment, SET);
 	}
 
 	return (pjob);
@@ -1858,21 +1845,12 @@ assign_hosts(job  *pjob, char *given, int set_exec_vnode)
 				&pjob->ji_wattr[(int)JOB_ATR_exec_host2]);
 			job_attr_def[(int)JOB_ATR_exec_vnode].at_free(
 				&pjob->ji_wattr[(int)JOB_ATR_exec_vnode]);
-			job_attr_def[(int)JOB_ATR_exec_vnode].at_decode(
-				&pjob->ji_wattr[(int)JOB_ATR_exec_vnode],
-				NULL,
-				NULL,
-				vnodestoalloc);
-			job_attr_def[(int)JOB_ATR_exec_host].at_decode(
-				&pjob->ji_wattr[(int)JOB_ATR_exec_host],
-				NULL,
-				NULL,
-				hoststr);
-			job_attr_def[(int)JOB_ATR_exec_host2].at_decode(
-				&pjob->ji_wattr[(int)JOB_ATR_exec_host2],
-				NULL,
-				NULL,
-				hoststr2);
+			set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_vnode], &job_attr_def[JOB_ATR_exec_vnode],
+				vnodestoalloc, SET);
+			set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host], &job_attr_def[JOB_ATR_exec_host],
+				hoststr, SET);
+			set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host2], &job_attr_def[JOB_ATR_exec_host2],
+				hoststr2, SET);
 		} else {
 			/* leave exec_vnode alone and reuse old IP address */
 			momaddr = pjob->ji_qs.ji_un.ji_exect.ji_momaddr;

@@ -189,7 +189,9 @@ set_str(struct attribute *attr, struct attribute *new, enum batch_op op)
 	char	*p;
 	size_t nsize;
 
-	assert(attr && new && new->at_val.at_str && (new->at_flags & ATR_VFLAG_SET));
+	if (!attr || !new || !(new->at_val.at_str) || !(new->at_flags & ATR_VFLAG_SET))
+		return 1;
+
 	nsize = strlen(new->at_val.at_str) + 1;	/* length of new string */
 	if ((op == INCR) && !attr->at_val.at_str)
 		op = SET;	/* no current string, change INCR to SET */

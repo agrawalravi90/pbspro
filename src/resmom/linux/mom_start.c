@@ -1104,10 +1104,7 @@ set_globid(job *pjob, struct startjob_rtn *sjr)
 		pjob->ji_extended.ji_ext.ji_pagg = sjr->sj_pagg;
 		pjob->ji_extended.ji_ext.ji_reservation = sjr->sj_reservation;
 		sprintf(altid_buf, "%ld", sjr->sj_reservation);
-		job_attr_def[(int)JOB_ATR_altid].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_altid],
-			job_attr_def[(int)JOB_ATR_altid].at_name,
-			NULL, altid_buf);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_altid], &job_attr_def[JOB_ATR_altid], altid_buf, SET);
 	}
 #endif	/* MOM_ALPS */
 }

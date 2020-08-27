@@ -212,7 +212,7 @@ req_holdjob(struct batch_request *preq)
 	(void)strncpy(date, (const char *)ctime(&now), 24);
 	date[24] = '\0';
 	(void)sprintf(log_buffer, "Job held by %s on %s", preq->rq_user, date);
-	job_attr_def[(int)JOB_ATR_Comment].at_decode(&pjob->ji_wattr[(int)JOB_ATR_Comment], NULL, NULL, log_buffer);
+	set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], log_buffer, SET);
 
 	(void)sprintf(log_buffer, msg_jobholdset, pset, preq->rq_user,
 		preq->rq_host);
@@ -367,7 +367,7 @@ req_releasejob(struct batch_request *preq)
 			strftime(timebuf, 128, "%a %b %d at %H:%M", localtime(&pjob->ji_qs.ji_stime));
 			sprintf(log_buffer, "Job Array Began at %s", timebuf);
 
-			job_attr_def[(int)JOB_ATR_Comment].at_decode(&pjob->ji_wattr[(int)JOB_ATR_Comment], NULL, NULL, log_buffer);
+			set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], log_buffer, SET);
 		} else
 			job_attr_def[(int)JOB_ATR_Comment].at_free(&pjob->ji_wattr[(int)JOB_ATR_Comment]);
 	}
@@ -417,11 +417,8 @@ get_hold(pbs_list_head *phead, char **pset)
 	/* decode into temporary attribute structure */
 
 	clear_attr(&temphold, &job_attr_def[(int)JOB_ATR_hold]);
-	return (job_attr_def[(int)JOB_ATR_hold].at_decode(
-		&temphold,
-		holdattr->al_name,
-		NULL,
-		holdattr->al_value));
+	return (set_attr_generic(&temphold, &job_attr_def[JOB_ATR_hold],
+		holdattr->al_value, SET));
 }
 
 

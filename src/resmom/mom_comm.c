@@ -970,11 +970,8 @@ prune_exec_vnode(job *pjob,  char *select_str, vnl_t **failed_vnodes, vnl_t **go
 		if (new_exec_vnode[entry] == '+')
 			new_exec_vnode[entry] = '\0';
 
-		(void)job_attr_def[(int)JOB_ATR_exec_vnode].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_vnode],
-			(char *)0,
-			(char *)0,
-			new_exec_vnode);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_vnode], &job_attr_def[JOB_ATR_exec_vnode],
+			new_exec_vnode, SET);
 
 		(void)update_resources_list(pjob, ATTR_l, JOB_ATR_resource, new_exec_vnode, INCR, 0, JOB_ATR_resource_orig);
 	}
@@ -983,30 +980,21 @@ prune_exec_vnode(job *pjob,  char *select_str, vnl_t **failed_vnodes, vnl_t **go
 		entry = strlen(new_exec_host) - 1;
 		if (new_exec_host[entry] == '+')
 			new_exec_host[entry] = '\0';
-		(void)job_attr_def[(int)JOB_ATR_exec_host].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_host],
-			(char *)0,
-			(char *)0,
-			new_exec_host);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host], &job_attr_def[JOB_ATR_exec_host],
+			new_exec_host, SET);
 	}
 
 	if (new_exec_host2 != NULL) {
 		entry = strlen(new_exec_host2) - 1;
 		if (new_exec_host2[entry] == '+')
 			new_exec_host2[entry] = '\0';
-		(void)job_attr_def[(int)JOB_ATR_exec_host2].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_host2],
-			(char *)0,
-			(char *)0,
-			new_exec_host2);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host2], &job_attr_def[JOB_ATR_exec_host2],
+			new_exec_host2, SET);
 	}
 
 	if (new_schedselect != NULL) {
-		(void)job_attr_def[(int)JOB_ATR_SchedSelect].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_SchedSelect],
-			(char *)0,
-			(char *)0,
-			new_schedselect);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_SchedSelect], &job_attr_def[JOB_ATR_SchedSelect],
+			new_schedselect, SET);
 	}
 
 	rc = 0;

@@ -494,10 +494,8 @@ req_quejob(struct batch_request *preq)
 			/* look for run count attribute */
 			index = find_attr(job_attr_idx, job_attr_def, psatl->al_name);
 			if (index == (int)JOB_ATR_run_version) {
-				(void)job_attr_def[index].at_decode(
-					&pj->ji_wattr[index],
-					psatl->al_name, psatl->al_resc,
-					psatl->al_value);
+				set_attr_generic(&pj->ji_wattr[index], &job_attr_def[index],
+					psatl->al_value, SET);
 				break;
 			}
 			psatl = (svrattrl *)GET_NEXT(psatl->al_link);
@@ -727,7 +725,7 @@ req_quejob(struct batch_request *preq)
 		log_eventf(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, LOG_DEBUG, __func__,
 			"saving creds.  conn is %d, cred id %s", preq->rq_conn, conn->cn_credid);
 
-		(void)job_attr_def[(int)JOB_ATR_cred_id].at_decode(&pj->ji_wattr[(int)JOB_ATR_cred_id], NULL, NULL, conn->cn_credid);
+		set_attr_generic(&pj->ji_wattr[JOB_ATR_cred_id], &job_attr_def[JOB_ATR_cred_id], conn->cn_credid, SET);
 
 		if (server.sv_attr[(int)SVR_ATR_acl_krb_submit_realms].at_flags & ATR_VFLAG_SET) {
 			if (!acl_check(&server.sv_attr[(int)SVR_ATR_acl_krb_submit_realms], conn->cn_credid, ACL_Host)) {
@@ -855,8 +853,7 @@ req_quejob(struct batch_request *preq)
 			(void)strcat(buf, "=");
 			(void)strcat(buf, conn->cn_physhost);
 		}
-		job_attr_def[(int)JOB_ATR_variables].at_decode(&tempattr,
-			NULL, NULL, buf);
+		set_attr_generic(&tempattr, &job_attr_def[JOB_ATR_variables], buf, SET);
 		set_attr_with_attr(&job_attr_def[(int)JOB_ATR_variables], 
 			&pj->ji_wattr[(int)JOB_ATR_variables],
 			&tempattr, INCR);
@@ -921,9 +918,7 @@ req_quejob(struct batch_request *preq)
 
 		if ( (pj->ji_wattr[(int)JOB_ATR_project].at_flags & \
 							ATR_VFLAG_SET) == 0 ) {
-			job_attr_def[(int)JOB_ATR_project].at_decode(
-				&pj->ji_wattr[(int)JOB_ATR_project],
-				NULL, NULL, PBS_DEFAULT_PROJECT);
+			set_attr_generic(&pj->ji_wattr[JOB_ATR_project], &job_attr_def[JOB_ATR_project], PBS_DEFAULT_PROJECT, SET);
 		}
 
 	} else {		/* job was created elsewhere and moved here */
@@ -958,9 +953,7 @@ req_quejob(struct batch_request *preq)
 
 	/* set up at_server attribute for status */
 
-	job_attr_def[(int)JOB_ATR_at_server].at_decode(
-		&pj->ji_wattr[(int)JOB_ATR_at_server],
-		NULL, NULL, pbs_server_name);
+	set_attr_generic(&pj->ji_wattr[JOB_ATR_at_server], &job_attr_def[JOB_ATR_at_server], pbs_server_name, SET);
 
 	/* If enabled, check the server's required cred type */
 
@@ -1011,10 +1004,8 @@ req_quejob(struct batch_request *preq)
 	if (pque->qu_resvp) {
 		job_attr_def[(int)JOB_ATR_reserve_ID].at_free(
 			&pj->ji_wattr[(int)JOB_ATR_reserve_ID]);
-		job_attr_def[(int)JOB_ATR_reserve_ID].at_decode(
-			&pj->ji_wattr[(int)JOB_ATR_reserve_ID],
-			NULL, NULL,
-			pque->qu_resvp->ri_qs.ri_resvID);
+		set_attr_generic(&pj->ji_wattr[JOB_ATR_reserve_ID], &job_attr_def[JOB_ATR_reserve_ID],
+			pque->qu_resvp->ri_qs.ri_resvID, SET);
 		pj->ji_myResv = pque->qu_resvp;
 
 		if (!validate_place_req_of_job_in_reservation(pj)) {

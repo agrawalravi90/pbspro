@@ -1986,7 +1986,7 @@ stat_update(int stream)
 				free_nodes(pjob);
 
 				if (cur_execvnode != NULL) {
-					(void)job_attr_def[(int)JOB_ATR_exec_vnode_acct].at_decode( &pjob->ji_wattr[(int)JOB_ATR_exec_vnode_acct], NULL, NULL, cur_execvnode);
+					set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_vnode_acct], &job_attr_def[JOB_ATR_exec_vnode_acct], cur_execvnode, SET);
 				}
 
 				if ((pjob->ji_wattr[JOB_ATR_resource_acct].at_flags & ATR_VFLAG_SET) != 0) {
@@ -1996,10 +1996,8 @@ stat_update(int stream)
 				set_attr_with_attr(&job_attr_def[JOB_ATR_resource_acct], &pjob->ji_wattr[JOB_ATR_resource_acct], &pjob->ji_wattr[JOB_ATR_resource], INCR);
 
 
-				(void)job_attr_def[(int)JOB_ATR_exec_host_acct].at_decode(
-					&pjob->ji_wattr[(int)JOB_ATR_exec_host_acct],
-					NULL, NULL,
-		  			pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
+				set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host_acct], &job_attr_def[JOB_ATR_exec_host_acct],
+		  			pjob->ji_wattr[JOB_ATR_exec_host].at_val.at_str, SET);
 
 				if (assign_hosts(pjob, execvnode_entry->al_value, 1) == 0) {
 					resource_def *prdefsl;
@@ -2015,7 +2013,7 @@ stat_update(int stream)
 					if ((pjob->ji_wattr[JOB_ATR_SchedSelect_orig].at_flags & ATR_VFLAG_SET) == 0) {
 						(void)decode_str(&pjob->ji_wattr[(int)JOB_ATR_SchedSelect_orig], NULL, NULL, cur_schedselect);
 					}
-					(void)job_attr_def[(int)JOB_ATR_SchedSelect].at_decode(&pjob->ji_wattr[(int)JOB_ATR_SchedSelect], NULL, NULL, schedselect_entry->al_value);
+					set_attr_generic(&pjob->ji_wattr[JOB_ATR_SchedSelect], &job_attr_def[JOB_ATR_SchedSelect], schedselect_entry->al_value, SET);
 
 					/* re-generate nodect */
 					(void)set_chunk_sum(&pjob->ji_wattr[(int)JOB_ATR_SchedSelect], &pjob->ji_wattr[(int)JOB_ATR_resource]);
@@ -2796,9 +2794,7 @@ deallocate_job(mominfo_t *pmom, job *pjob)
 			return;
 		}
 
-		(void)job_attr_def[(int)JOB_ATR_exec_vnode_deallocated].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_vnode_deallocated],
-			NULL, NULL, new_exec_vnode);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_vnode_deallocated], &job_attr_def[JOB_ATR_exec_vnode_deallocated], new_exec_vnode, SET);
 		free(new_exec_vnode);
 
 	}

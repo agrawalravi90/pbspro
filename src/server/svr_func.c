@@ -4717,9 +4717,8 @@ find_prov_vnode_list(job *pjob, exec_vnode_listtype *prov_vnodes, char **aoe_nam
 		strcat(pbuf, ":aoe=");
 		strcat(pbuf, (*aoe_name));
 	}
-	(void) job_attr_def[(int) JOB_ATR_prov_vnode].at_decode(
-		&pjob->ji_wattr[(int) JOB_ATR_prov_vnode],
-		NULL, NULL, pbuf);
+	if (pbuf[0] != '\0')
+		set_attr_generic(&pjob->ji_wattr[ JOB_ATR_prov_vnode], &job_attr_def[JOB_ATR_prov_vnode], pbuf, SET);
 
 	DBPRT(("%s: prov_vnode: %s\n", __func__, pbuf))
 
@@ -5023,10 +5022,8 @@ fail_vnode_job(struct prov_vnode_info * prov_vnode_info, int hold_or_que)
 		clear_exec_on_run_fail(pjob);
 		pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
 		pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_SET_MOD_MCACHE;
-		job_attr_def[(int)JOB_ATR_Comment].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_Comment],
-			NULL, NULL,
-			"job held, provisioning failed to start");
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment],
+			"job held, provisioning failed to start", SET);
 		svr_setjobstate(pjob, JOB_STATE_LTR_HELD, JOB_SUBSTATE_HELD);
 	} else if (hold_or_que == 1) {
 		/* don't purge job, instead requeue */

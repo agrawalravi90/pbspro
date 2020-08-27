@@ -609,8 +609,8 @@ extern svrattrl *make_attr(char *attr_name, char *attr_resc, char *attr_value, i
 extern void *cr_attrdef_idx(struct attribute_def *adef, int limit);
 
 /* Attr setters */
-void set_attr_generic(attribute *pattr, attribute_def *pdef, char *value, enum batch_op op);
-void set_attr_with_attr(attribute_def *pdef, attribute *oattr, attribute *nattr, enum batch_op op);
+int set_attr_generic(attribute *pattr, attribute_def *pdef, char *value, enum batch_op op);
+int set_attr_with_attr(attribute_def *pdef, attribute *oattr, attribute *nattr, enum batch_op op);
 void set_attr_l(attribute *pattr, long value, enum batch_op op);
 void set_attr_c(attribute *pattr, char value, enum batch_op op);
 

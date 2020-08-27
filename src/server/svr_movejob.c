@@ -255,10 +255,10 @@ local_move(job *jobp, struct batch_request *req)
 
 	pattr = &jobp->ji_wattr[(int)JOB_ATR_reserve_ID];
 	if (qp->qu_resvp) {
-		job_attr_def[(int)JOB_ATR_reserve_ID].at_decode(pattr, NULL, NULL, qp->qu_resvp->ri_qs.ri_resvID);
+		set_attr_generic(pattr, &job_attr_def[JOB_ATR_reserve_ID], qp->qu_resvp->ri_qs.ri_resvID, SET);
 		jobp->ji_myResv = qp->qu_resvp;
 	} else {
-		job_attr_def[(int)JOB_ATR_reserve_ID].at_decode(pattr, NULL, NULL, NULL);
+		set_attr_generic(pattr, &job_attr_def[JOB_ATR_reserve_ID], NULL, SET);
 	}
 
 	if (server.sv_attr[(int)SVR_ATR_EligibleTimeEnable].at_val.at_long == 1) {

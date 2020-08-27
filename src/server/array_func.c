@@ -392,7 +392,7 @@ update_array_indices_remaining_attr(job *parent)
 		if ((pnewstr == NULL) || (*pnewstr == '\0'))
 			pnewstr = "-";
 		job_attr_def[JOB_ATR_array_indices_remaining].at_free(premain);
-		job_attr_def[JOB_ATR_array_indices_remaining].at_decode(premain, 0, 0, pnewstr);
+		set_attr_generic(premain, &job_attr_def[JOB_ATR_array_indices_remaining], pnewstr, SET);
 		/* also update value of attribute "array_state_count" */
 		update_subjob_state_ct(parent);
 		ptbl->tkm_flags &= ~TKMFLG_REVAL_IND_REMAINING;
@@ -748,7 +748,7 @@ setup_arrayjob_attrs(attribute *pattr, void *pobj, int mode)
 
 	/* set "array_indices_remaining" if not already set */
 	if ((pjob->ji_wattr[(int)JOB_ATR_array_indices_remaining].at_flags & ATR_VFLAG_SET) == 0)
-		job_attr_def[(int)JOB_ATR_array_indices_remaining].at_decode(&pjob->ji_wattr[(int)JOB_ATR_array_indices_remaining], NULL, NULL, pattr->at_val.at_str);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_array_indices_remaining], &job_attr_def[JOB_ATR_array_indices_remaining], pattr->at_val.at_str, SET);
 
 
 	/* set other Array related fields in the job structure */
@@ -901,11 +901,11 @@ create_subjob(job *parent, char *newjid, int *rc)
 	}
 
 	psub = &subj->ji_wattr[(int)JOB_ATR_array_id];
-	job_attr_def[(int)JOB_ATR_array_id].at_decode(psub, NULL, NULL,
-		parent->ji_qs.ji_jobid);
+	set_attr_generic(psub, &job_attr_def[JOB_ATR_array_id],
+		parent->ji_qs.ji_jobid, SET);
 
 	psub = &subj->ji_wattr[(int)JOB_ATR_array_index];
-	job_attr_def[(int)JOB_ATR_array_index].at_decode(psub, NULL, NULL, index);
+	set_attr_generic(psub, &job_attr_def[JOB_ATR_array_index], index, SET);
 
 	/* Lastly, set or clear a few flags and link in the structure */
 
@@ -942,13 +942,13 @@ create_subjob(job *parent, char *newjid, int *rc)
 
 	psub = &subj->ji_wattr[JOB_ATR_outpath];
 	snprintf(tmp_path, MAXPATHLEN + 1, "%s", psub->at_val.at_str);
-	job_attr_def[JOB_ATR_outpath].at_decode(psub, NULL, NULL,
-		subst_array_index(subj, tmp_path));
+	set_attr_generic(psub, &job_attr_def[JOB_ATR_outpath],
+		subst_array_index(subj, tmp_path), SET);
 
 	psub = &subj->ji_wattr[JOB_ATR_errpath];
 	snprintf(tmp_path, MAXPATHLEN + 1, "%s", psub->at_val.at_str);
-	job_attr_def[JOB_ATR_errpath].at_decode(psub, NULL, NULL,
-		subst_array_index(subj, tmp_path));
+	set_attr_generic(psub, &job_attr_def[JOB_ATR_errpath],
+		subst_array_index(subj, tmp_path), SET);
 
 	*rc = PBSE_NONE;
 	return subj;

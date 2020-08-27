@@ -1217,16 +1217,10 @@ reassign_resc(job *pjob)
 			&pjob->ji_wattr[(int)JOB_ATR_exec_host]);
 		job_attr_def[(int)JOB_ATR_exec_vnode].at_free(
 			&pjob->ji_wattr[(int)JOB_ATR_exec_vnode]);
-		(void)job_attr_def[(int)JOB_ATR_exec_vnode].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_vnode],
-			NULL,
-			NULL,
-			vnodeout);
-		(void)job_attr_def[(int)JOB_ATR_exec_host].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_host],
-			NULL,
-			NULL,
-			hoststr);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_vnode], &job_attr_def[JOB_ATR_exec_vnode],
+			vnodeout, SET);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host], &job_attr_def[JOB_ATR_exec_host],
+			hoststr, SET);
 	}
 	deallocated_attr = pjob->ji_wattr[(int)JOB_ATR_exec_vnode_deallocated];
 

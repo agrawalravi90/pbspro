@@ -2508,8 +2508,7 @@ get_new_exec_vnode_host_schedselect(job *pjob, char *msg, size_t msg_size)
 	log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, LOG_INFO,
 		pjob->ji_qs.ji_jobid, log_buffer);
 
-	(void)job_attr_def[(int)JOB_ATR_exec_vnode].at_decode(
-		&pjob->ji_wattr[(int)JOB_ATR_exec_vnode], NULL, NULL, new_exec_vnode);
+	set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_vnode], &job_attr_def[JOB_ATR_exec_vnode], new_exec_vnode, SET);
 
 	(void)update_resources_list(pjob, ATTR_l,
 		JOB_ATR_resource, new_exec_vnode, INCR, 0,
@@ -2517,17 +2516,11 @@ get_new_exec_vnode_host_schedselect(job *pjob, char *msg, size_t msg_size)
 
 
 	if (pjob->ji_wattr[(int)JOB_ATR_exec_host2].at_flags & ATR_VFLAG_SET) {
-		(void)job_attr_def[(int)JOB_ATR_exec_host2].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_host2],
-			(char *)0,
-			(char *)0,
-			new_exec_host);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host2], &job_attr_def[JOB_ATR_exec_host2],
+			new_exec_host, SET);
 	} else if (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_flags & ATR_VFLAG_SET) {
-		(void)job_attr_def[(int)JOB_ATR_exec_host].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_host],
-			(char *)0,
-			(char *)0,
-			new_exec_host);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host], &job_attr_def[JOB_ATR_exec_host],
+			new_exec_host, SET);
 	}
 
 	/* Send DELETE_JOB2 request to the sister moms not in
@@ -2536,11 +2529,8 @@ get_new_exec_vnode_host_schedselect(job *pjob, char *msg, size_t msg_size)
 	 */
 	(void)send_sisters_inner(pjob, IM_DELETE_JOB2, NULL, new_exec_host);
 
-	(void)job_attr_def[(int)JOB_ATR_SchedSelect].at_decode(
-		&pjob->ji_wattr[(int)JOB_ATR_SchedSelect],
-		(char *)0,
-		(char *)0,
-		new_schedselect);
+	set_attr_generic(&pjob->ji_wattr[JOB_ATR_SchedSelect], &job_attr_def[JOB_ATR_SchedSelect],
+		new_schedselect, SET);
 
 	free(new_exec_vnode);
 	free(new_exec_host);
@@ -2972,12 +2962,10 @@ finish_exec(job *pjob)
 
 		pattr = &pjob->ji_wattr[(int)JOB_ATR_outpath];
 		job_attr_def[(int)JOB_ATR_outpath].at_free(pattr);
-		(void)job_attr_def[(int)JOB_ATR_outpath].at_decode(
-			pattr, NULL, NULL, pts_name);
+		set_attr_generic(pattr, &job_attr_def[JOB_ATR_outpath], pts_name, SET);
 		pattr = &pjob->ji_wattr[(int)JOB_ATR_errpath];
 		job_attr_def[(int)JOB_ATR_errpath].at_free(pattr);
-		(void)job_attr_def[(int)JOB_ATR_errpath].at_decode(
-			pattr, NULL, NULL, pts_name);
+		set_attr_generic(pattr, &job_attr_def[JOB_ATR_errpath], pts_name, SET);
 
 #if SHELL_INVOKE == 1
 	} else {

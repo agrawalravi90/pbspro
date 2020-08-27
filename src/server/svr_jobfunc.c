@@ -345,7 +345,7 @@ svr_enquejob(job *pjob)
 	pdef    = &job_attr_def[(int)JOB_ATR_in_queue];
 	pattrjb = &pjob->ji_wattr[(int)JOB_ATR_in_queue];
 	pdef->at_free(pattrjb);
-	set_attr_generic(pattrjb, pdef, pque_qu_qs.qu_name, SET);
+	set_attr_generic(pattrjb, pdef, pque->qu_qs.qu_name, SET);
 
 	if (pque->qu_attr[(int)QA_ATR_QType].at_val.at_str == NULL) {
 		sprintf(log_buffer, "queue type must be set for queue `%s`",
@@ -377,9 +377,7 @@ svr_enquejob(job *pjob)
 	 */
 	if ( (pjob->ji_wattr[(int)JOB_ATR_project].at_flags & \
 							ATR_VFLAG_SET) == 0 ) {
-		job_attr_def[(int)JOB_ATR_project].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_project],
-			NULL, NULL, PBS_DEFAULT_PROJECT);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_project], &job_attr_def[JOB_ATR_project], PBS_DEFAULT_PROJECT, SET);
 	}
 
 	/* update any entity count and entity resources usage for the queue */
@@ -4952,11 +4950,8 @@ update_job_finish_comment(job *pjob, int newsubstate, char *user)
 		}
 	}
 	if (buffer[0] != '\0') {
-		(void)job_attr_def[(int)JOB_ATR_Comment].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_Comment],
-			NULL,
-			NULL,
-			buffer);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment],
+			buffer, SET);
 	}
 }
 
@@ -5634,19 +5629,13 @@ recreate_exec_vnode(job *pjob, char *vnodelist, char *keep_select, char *err_msg
 			}
 			goto recreate_exec_vnode_exit;
 		}
-		(void)job_attr_def[(int)JOB_ATR_exec_vnode_acct].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_vnode_acct],
-			NULL,
-			NULL,
-		pjob->ji_wattr[(int) JOB_ATR_exec_vnode].at_val.at_str);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_vnode_acct], &job_attr_def[JOB_ATR_exec_vnode_acct],
+		pjob->ji_wattr[ JOB_ATR_exec_vnode].at_val.at_str, SET);
 
 		/* save original value which will be used later in the accounting end record */
 		if ((pjob->ji_wattr[JOB_ATR_exec_vnode_orig].at_flags & ATR_VFLAG_SET) == 0) {
-			(void)job_attr_def[(int)JOB_ATR_exec_vnode_orig].at_decode(
-				&pjob->ji_wattr[(int)JOB_ATR_exec_vnode_orig],
-				NULL,
-				NULL,
-				pjob->ji_wattr[(int) JOB_ATR_exec_vnode].at_val.at_str);
+			set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_vnode_orig], &job_attr_def[JOB_ATR_exec_vnode_orig],
+				pjob->ji_wattr[ JOB_ATR_exec_vnode].at_val.at_str, SET);
 		}
 
 		if ((pjob->ji_wattr[JOB_ATR_resource_acct].at_flags & ATR_VFLAG_SET) != 0) {
@@ -5656,11 +5645,8 @@ recreate_exec_vnode(job *pjob, char *vnodelist, char *keep_select, char *err_msg
 		set_attr_with_attr(&job_attr_def[JOB_ATR_resource_acct], &pjob->ji_wattr[JOB_ATR_resource_acct], &pjob->ji_wattr[JOB_ATR_resource], INCR);
 
 
-		(void)job_attr_def[(int)JOB_ATR_exec_vnode].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_vnode],
-			NULL,
-			NULL,
-			new_exec_vnode);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_vnode], &job_attr_def[JOB_ATR_exec_vnode],
+			new_exec_vnode, SET);
 
 		(void)update_resources_list(pjob, ATTR_l,
 			JOB_ATR_resource, new_exec_vnode, INCR, 0,
@@ -5671,35 +5657,23 @@ recreate_exec_vnode(job *pjob, char *vnodelist, char *keep_select, char *err_msg
 	}
 
 	if (!keep_select && new_deallocated_execvnode && *new_deallocated_execvnode) {
-		(void)job_attr_def[(int)JOB_ATR_exec_vnode_deallocated].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_vnode_deallocated],
-			NULL,
-			NULL,
-			new_deallocated_execvnode);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_vnode_deallocated], &job_attr_def[JOB_ATR_exec_vnode_deallocated],
+			new_deallocated_execvnode, SET);
 	}
 
 	if (new_exec_host && *new_exec_host) {
 
-		(void)job_attr_def[(int)JOB_ATR_exec_host_acct].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_host_acct],
-			NULL,
-			NULL,
-		  pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host_acct], &job_attr_def[JOB_ATR_exec_host_acct],
+		  pjob->ji_wattr[JOB_ATR_exec_host].at_val.at_str, SET);
 
 		/* save original value which will be used later in the accounting end record */
 		if ((pjob->ji_wattr[JOB_ATR_exec_host_orig].at_flags & ATR_VFLAG_SET) == 0) {
-			(void)job_attr_def[(int)JOB_ATR_exec_host_orig].at_decode(
-				&pjob->ji_wattr[(int)JOB_ATR_exec_host_orig],
-				NULL,
-				NULL,
-		  	pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
+			set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host_orig], &job_attr_def[JOB_ATR_exec_host_orig],
+		  	pjob->ji_wattr[JOB_ATR_exec_host].at_val.at_str, SET);
 		}
 
-		(void)job_attr_def[(int)JOB_ATR_exec_host].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_host],
-			NULL,
-			NULL,
-			new_exec_host);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host], &job_attr_def[JOB_ATR_exec_host],
+			new_exec_host, SET);
 	} else {
 		log_err(-1, __func__, "new_exec_host is null or empty string");
 		goto recreate_exec_vnode_exit;
@@ -5707,11 +5681,8 @@ recreate_exec_vnode(job *pjob, char *vnodelist, char *keep_select, char *err_msg
 
 	if (new_exec_host2 && *new_exec_host2) {
 
-		(void)job_attr_def[(int)JOB_ATR_exec_host2].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_exec_host2],
-			NULL,
-			NULL,
-			new_exec_host2);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_exec_host2], &job_attr_def[JOB_ATR_exec_host2],
+			new_exec_host2, SET);
 	} else {
 		log_err(-1, __func__, "new_exec_host2 is null or empty string");
 		goto recreate_exec_vnode_exit;

@@ -317,10 +317,7 @@ track_history_job(struct rq_track *prqt, char *extend)
 	 * to update the modified comment message.
 	 */
 	sprintf(log_buffer, "%s \"%s\"", comment, prqt->rq_location);
-	(void)job_attr_def[(int)JOB_ATR_Comment].at_decode(
-		&pjob->ji_wattr[(int)JOB_ATR_Comment],
-		NULL,
-		NULL,
-		log_buffer);
+	set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment],
+		log_buffer, SET);
 	svr_histjob_update(pjob, get_job_state(pjob), get_job_substate(pjob));
 }

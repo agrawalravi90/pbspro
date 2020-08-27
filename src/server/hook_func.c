@@ -2544,11 +2544,8 @@ set_exec_time(job *pjob, char *new_exec_time_str, char *msg,
 	job_attr_def[(int)JOB_ATR_exectime].at_free(
 		&pjob->ji_wattr[(int)JOB_ATR_exectime]);
 
-	rc = job_attr_def[(int)JOB_ATR_exectime].at_decode(
-		&pjob->ji_wattr[(int)JOB_ATR_exectime],
-		NULL,
-		NULL,
-		new_exec_time_str);
+	rc = set_attr_generic(&pjob->ji_wattr[JOB_ATR_exectime], &job_attr_def[JOB_ATR_exectime],
+		new_exec_time_str, SET);
 
 	if (rc == 0) {
 		if (job_attr_def[(int)JOB_ATR_exectime].at_action) {
@@ -2642,11 +2639,8 @@ set_hold_types(job *pjob, char *new_hold_types_str,
 
 	old_hold = pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long;
 
-	rc = job_attr_def[(int)JOB_ATR_hold].at_decode(
-		&pjob->ji_wattr[(int)JOB_ATR_hold],
-		ATTR_h,
-		NULL,
-		new_hold_types_str);
+	rc = set_attr_generic(&pjob->ji_wattr[JOB_ATR_hold], &job_attr_def[JOB_ATR_hold],
+		new_hold_types_str, SET);
 
 	if (rc != 0) {
 		log_err(PBSE_INTERNAL, __func__,
@@ -2679,9 +2673,7 @@ set_hold_types(job *pjob, char *new_hold_types_str,
 		snprintf(date, sizeof(date), "%s", (const char *)ctime(&now));
 		(void)sprintf(buf, "Job held by '%s' hook on %s",
 			hook_name, date);
-		job_attr_def[(int)JOB_ATR_Comment].at_decode(
-			&pjob->ji_wattr[(int)JOB_ATR_Comment],
-			NULL, NULL, buf);
+		set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], buf, SET);
 	}
 
 	if (old_hold != pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long) {
@@ -2792,11 +2784,8 @@ set_attribute(job *pjob, int attr_index,
 			&pjob->ji_wattr[attr_index]);
 	}
 
-	rc = job_attr_def[attr_index].at_decode(
-		&pjob->ji_wattr[attr_index],
-		NULL,
-		NULL,
-		new_attrval_str);
+	rc = set_attr_generic(&pjob->ji_wattr[attr_index], &job_attr_def[attr_index],
+		new_attrval_str, SET);
 	if (rc == 0) {
 		if (job_attr_def[attr_index].at_action) {
 			rc = job_attr_def[attr_index].at_action(
@@ -4519,11 +4508,8 @@ int server_process_hooks(int rq_type, char *rq_user, char *rq_host, hook *phook,
 
 				pbs_asprintf(&jcomment, "Not Running: PBS Error: %s", hook_msg);
 				/* For async run, sched won't update job's comment, so let's do that */
-				job_attr_def[(int)JOB_ATR_Comment].at_decode(
-					&pjob->ji_wattr[(int)JOB_ATR_Comment],
-					NULL,
-					NULL,
-					jcomment);
+				set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment],
+					jcomment, SET);
 				free(jcomment);
 			}
 		}

@@ -2054,7 +2054,7 @@ job_obit(struct resc_used_update *pruu, int stream)
 
 					svr_mailowner(pjob, MAIL_BEGIN, MAIL_FORCE,
 						mailmsg);
-					job_attr_def[(int)JOB_ATR_Comment].at_decode(&pjob->ji_wattr[(int)JOB_ATR_Comment], NULL, NULL, mailmsg);
+					set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], mailmsg, SET);
 
 					log_event(PBSEVENT_ERROR|PBSEVENT_JOB,
 						PBS_EVENTCLASS_JOB, LOG_INFO,
@@ -2063,7 +2063,7 @@ job_obit(struct resc_used_update *pruu, int stream)
 				} else {
 					svr_mailowner(pjob, MAIL_BEGIN, MAIL_FORCE,
 						msg_bad_password);
-					job_attr_def[(int)JOB_ATR_Comment].at_decode(&pjob->ji_wattr[(int)JOB_ATR_Comment], NULL, NULL, msg_bad_password);
+					set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment], msg_bad_password, SET);
 				}
 
 			case JOB_EXEC_RETRY:
@@ -2169,8 +2169,7 @@ RetryJob:
 						__func__, pruu->ru_pjobid))
 					pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
 					pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_SET_MOD_MCACHE;
-					job_attr_def[(int)JOB_ATR_Comment].at_decode(&pjob->ji_wattr[(int)JOB_ATR_Comment],NULL,
-						NULL,"job held due to possible security breach of job tmpdir, failed to start");
+					set_attr_generic(&pjob->ji_wattr[JOB_ATR_Comment], &job_attr_def[JOB_ATR_Comment],"job held due to possible security breach of job tmpdir, failed to start", SET);
 					rel_resc(pjob);
 					ack_obit(stream, pjob->ji_qs.ji_jobid);
 					svr_setjobstate(pjob, JOB_STATE_LTR_HELD, JOB_SUBSTATE_HELD);
