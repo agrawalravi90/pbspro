@@ -1050,6 +1050,7 @@ int set_jattr_l_slim(job *pjob, int attr_idx, long val, enum batch_op op);
 int set_jattr_b_slim(job *pjob, int attr_idx, long val, enum batch_op op);
 int set_jattr_c_slim(job *pjob, int attr_idx, char val, enum batch_op op);
 int set_jattr_generic(job *pjob, int attr_idx, char *val, char *rscn, enum batch_op op);
+int set_jattr_with_attr(job *pjob, int attr_idx, attribute *nattr, enum batch_op op);
 int is_jattr_set(const job *pjob, int attr_idx);
 void free_jattr(job *pjob, int attr_idx);
 void mark_jattr_not_set(job *pjob, int attr_idx);

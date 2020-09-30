@@ -290,6 +290,31 @@ set_jattr_generic(job *pjob, int attr_idx, char *val, char *rscn, enum batch_op 
 }
 
 /**
+ * @brief	Set job attribute using another attribute
+ *
+ * @param[in]	pjob  - pointer to job
+ * @param[in]	attr_idx - attribute index to set
+ * @param[in]	nattr - pointer to attribute to set with
+ * @param[in]	op - batch_op operation, SET, INCR, DECR etc.
+ *
+ * @return	int
+ * @retval	0 for success
+ * @retval	1 for failure
+ *
+ * @par MT-Safe: No
+ * @par Side Effects: None
+ *
+ */
+int
+set_jattr_with_attr(job *pjob, int attr_idx, attribute *nattr, enum batch_op op)
+{
+	if (pjob == NULL)
+		return 1;
+
+	return set_attr_with_attr(&job_attr_def[attr_idx], &pjob->ji_wattr[attr_idx], nattr, op);
+}
+
+/**
  * @brief	"fast" job attribute setter for string values
  *
  * @param[in]	pjob - pointer to job

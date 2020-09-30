@@ -715,7 +715,6 @@ setup_arrayjob_attrs(attribute *pattr, void *pobj, int mode)
 	/* set attribute "array" True  and clear "array_state_count" */
 
 	set_jattr_b_slim(pjob, JOB_ATR_array, 1, SET);
-	pjob->ji_wattr[(int)JOB_ATR_array].at_flags = ATR_SET_MOD_MCACHE;
 	free_jattr(pjob, JOB_ATR_array_state_count);
 
 	if ((mode == ATR_ACTION_NEW) || (mode == ATR_ACTION_RECOV)) {
@@ -726,7 +725,7 @@ setup_arrayjob_attrs(attribute *pattr, void *pobj, int mode)
 			                                      JOB_STATE_LTR_QUEUED, &pbs_error, mode)) == NULL)
 			return pbs_error;
 			
-		if ((pjob->ji_ajtrk->trk_rlist = range_parse(pjob->ji_wattr[(int)JOB_ATR_array_indices_submitted].at_val.at_str)) == NULL)
+		if ((pjob->ji_ajtrk->trk_rlist = range_parse(get_jattr_str(pjob, JOB_ATR_array_indices_submitted))) == NULL)
 			return pbs_error;
 		
 	}
