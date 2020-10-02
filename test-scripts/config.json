@@ -1,0 +1,34 @@
+{
+	"setups": {
+		"setup-1" : {
+			"total_num_svrs": 1,
+			"num_moms_per_host": 1,
+			"num_cpus_per_mom": 0
+		},
+		"setup-3": {
+			"total_num_svrs": 1,
+			"num_moms_per_host": 10,
+			"num_cpus_per_mom": 0
+		},
+		"setup-5": {
+			"total_num_svrs": 1,
+			"num_moms_per_host": 20,
+			"num_cpus_per_mom": 0
+		},
+		"setup-6": {
+			"total_num_svrs": 1,
+			"num_moms_per_host": 1,
+			"num_cpus_per_mom": 512
+		},
+		"setup-7": {
+			"total_num_svrs": 1,
+			"num_moms_per_host": 10,
+			"num_cpus_per_mom": 512
+		},
+		"setup-8": {
+			"total_num_svrs": 1,
+			"num_moms_per_host": 20,
+			"num_cpus_per_mom": 512
+		}
+	}
+}

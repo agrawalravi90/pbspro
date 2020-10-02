@@ -39,8 +39,8 @@
 . ${PBS_CONF_FILE:-/etc/pbs.conf}
 
 is_systemd=0
-systemctl --version >/dev/null 2>&1
-if [ $? -eq 0 ] ; then
+sc_status="$(systemctl is-system-running 2>/dev/null)"
+if [ "x${sc_status}" == "xrunning" -o "x${sc_status}" == "xdegraded" ] ; then
     is_systemd=1
 fi
 if [ $is_systemd -eq 1 ] ; then

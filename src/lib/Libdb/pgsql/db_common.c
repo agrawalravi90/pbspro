@@ -157,7 +157,7 @@ pg_db_fn_t db_fn_arr[PBS_DB_NUM_TYPES] = {
  *	Initialize a query state variable, before being used in a cursor
  *
  * @param[in]	conn - Database connection handle
- * @param[in]	query_cb - Object handler query back function 
+ * @param[in]	query_cb - Object handler query back function
  *
  * @return	void *
  * @retval	NULL - Failure to allocate memory
@@ -405,10 +405,10 @@ pbs_dataservice_control(char *cmd, char *pbs_ds_host, int pbs_ds_port)
 	int ret = 0;
 	char errfile[MAXPATHLEN + 1];
 	char log_file[MAXPATHLEN + 1];
-	char oom_file[MAXPATHLEN + 1];
-	char *oom_score_adj = "/proc/self/oom_score_adj";
-	char *oom_adj = "/proc/self/oom_adj";
-	char *oom_val = NULL;
+	//char oom_file[MAXPATHLEN + 1];
+	//char *oom_score_adj = "/proc/self/oom_score_adj";
+	//char *oom_adj = "/proc/self/oom_adj";
+	//char *oom_val = NULL;
 	struct stat stbuf;
 	int fd = 0;
 	char *p = NULL;
@@ -446,7 +446,7 @@ pbs_dataservice_control(char *cmd, char *pbs_ds_host, int pbs_ds_port)
 
 	if (!(strcmp(cmd, PBS_DB_CONTROL_START))) {
 		/* Protect self from Linux OOM killer */
-		if (access(oom_score_adj, F_OK) != -1) {
+		/*if (access(oom_score_adj, F_OK) != -1) {
 			strcpy(oom_file, oom_score_adj);
 			oom_val = strdup("-1000");
 		} else if (access(oom_adj, F_OK) != -1) {
@@ -468,7 +468,7 @@ pbs_dataservice_control(char *cmd, char *pbs_ds_host, int pbs_ds_port)
 			}
 			free(oom_val);
 			close(fd);
-		}
+		}*/
 		sprintf(errfile, "%s/spool/pbs_ds_monitor_errfile", pbs_conf.pbs_home_path);
 		/* launch monitoring program which will fork to background */
 		sprintf(dbcmd, "%s/sbin/pbs_ds_monitor monitor > %s 2>&1", pbs_conf.pbs_exec_path, errfile);
@@ -840,7 +840,7 @@ db_cnerr:
 	if (failcode != PBS_DB_SUCCESS) {
 		free(conn_data);
 		free(conn_trx);
-		*db_conn = NULL;		
+		*db_conn = NULL;
 	}
 	return failcode;
 }
