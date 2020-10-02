@@ -571,7 +571,7 @@ struct config	*config_array = NULL;
 struct config_list	*config_list = NULL;
 int		rm_errno;
 unsigned int	reqnum = 0;		/* the packet number */
-int	port_care = 1;		/* secure connecting ports */
+int	port_care = 0;		/* secure connecting ports */
 uid_t	uid = 0;		/* uid we are running with */
 int	alarm_time = 10;	/* time before alarm */
 int	nice_val = 0;           /* nice daemon by this much */
@@ -7283,10 +7283,7 @@ main(int argc, char *argv[])
 
 #ifdef RLIMIT_NPROC
 		(void)getrlimit64(RLIMIT_NPROC, &orig_nproc_limit); /* get for later */
-		if (setrlimit64(RLIMIT_NPROC, &rlimit) == -1) {    /* set unlimited */
-			perror(" setrlimit NPROC");
-			exit(1);
-		}
+		setrlimit64(RLIMIT_NPROC, &rlimit); /* set unlimited */
 #endif	/* RLIMIT_NPROC */
 #ifdef	RLIMIT_RSS
 		(void)setrlimit64(RLIMIT_RSS  , &rlimit);
@@ -7309,10 +7306,7 @@ main(int argc, char *argv[])
 		(void)setrlimit(RLIMIT_CPU,   &rlimit);
 #ifdef RLIMIT_NPROC
 		(void)getrlimit(RLIMIT_NPROC, &orig_nproc_limit); /* get for later */
-		if (setrlimit(RLIMIT_NPROC, &rlimit) == -1) {	  /* set unlimited */
-			perror(" setrlimit NPROC");
-			exit(1);
-		}
+		setrlimit(RLIMIT_NPROC, &rlimit); /* set unlimited */
 #endif	/* RLIMIT_NPROC */
 #ifdef	RLIMIT_RSS
 		(void)setrlimit(RLIMIT_RSS  , &rlimit);
@@ -7614,7 +7608,7 @@ main(int argc, char *argv[])
 		fprintf(stderr, "%s\n", "pbs_mom: another mom running");
 		exit(1);
 	}
-	
+
 	if (read_config(NULL)) {
 		fprintf(stderr, "%s: config file(s) parsing failed\n", argv[0]);
 #ifdef	WIN32
