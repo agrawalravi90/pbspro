@@ -530,7 +530,7 @@ set_arst(struct attribute *attr, struct attribute *new, enum batch_op op)
  */
 
 int
-comp_arst(struct attribute *attr, struct attribute *with)
+comp_arst(const attribute *attr, const attribute *with)
 {
 	int	i;
 	int	j;
@@ -598,7 +598,7 @@ free_arst(struct attribute *attr)
  */
 
 char *
-arst_string(char *str, attribute *pattr)
+arst_string(char *str, const attribute *pattr)
 {
 	int    i;
 	size_t len;

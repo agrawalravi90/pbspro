@@ -237,6 +237,57 @@ get_jattr_priv_encoded(const job *pjob, int attr_idx)
 }
 
 /**
+ * @brief	Getter for job's resource list
+ *
+ * @param[in]	pjob - pointer to the job
+ *
+ * @return	pbs_list_head
+ */
+pbs_list_head
+get_job_rsclist(const job *pjob)
+{
+	if (pjob)
+		return pjob->ji_wattr[JOB_ATR_resource].at_val.at_list;
+	else
+		return (pbs_list_head){NULL, NULL, NULL};
+}
+
+/**
+ * @brief	Getter for job attribute's list value
+ *
+ * @param[in]	pjob - pointer to the job
+ * @param[in]	attr_idx - index of the attribute to return
+ *
+ * @return	pbs_list_head
+ */
+pbs_list_head
+get_jattr_list(const job *pjob, int attr_idx)
+{
+	if (pjob)
+		return pjob->ji_wattr[attr_idx].at_val.at_list;
+	else
+		return (pbs_list_head){NULL, NULL, NULL};
+}
+
+/**
+ * @brief	Check if a job attribute is of type resource
+ *
+ * @param[in]	pjob - pointer to the job
+ * @param[in]	attr_idx - index of the attribute to return
+ *
+ * @return	int
+ * @retval	1 if True, 0 otherwise
+ */
+int
+is_jattr_resc(const job *pjob, int attr_idx)
+{
+	if (pjob != NULL)
+		return pjob->ji_wattr[attr_idx].at_type;
+
+	return 0;
+}
+
+/**
  * @brief	Setter for job state
  *
  * @param[in]	job - pointer to job
@@ -283,7 +334,7 @@ set_job_substate(job *pjob, long val)
 int
 set_jattr_generic(job *pjob, int attr_idx, char *val, char *rscn, enum batch_op op)
 {
-	if (pjob == NULL || val == NULL)
+	if (pjob == NULL)
 		return 1;
 
 	return set_attr_generic(&pjob->ji_wattr[attr_idx], &job_attr_def[attr_idx], val, rscn, op);
@@ -295,6 +346,7 @@ set_jattr_generic(job *pjob, int attr_idx, char *val, char *rscn, enum batch_op 
  * @param[in]	pjob  - pointer to job
  * @param[in]	attr_idx - attribute index to set
  * @param[in]	nattr - pointer to attribute to set with
+ * @param[in]	rscn - resource name if applicable
  * @param[in]	op - batch_op operation, SET, INCR, DECR etc.
  *
  * @return	int
@@ -306,12 +358,28 @@ set_jattr_generic(job *pjob, int attr_idx, char *val, char *rscn, enum batch_op 
  *
  */
 int
-set_jattr_with_attr(job *pjob, int attr_idx, attribute *nattr, enum batch_op op)
+set_jattr_with_attr(job *pjob, int attr_idx, attribute *nattr, char *rscn, enum batch_op op)
 {
-	if (pjob == NULL)
-		return 1;
+	attribute *dest;
 
-	return set_attr_with_attr(&job_attr_def[attr_idx], &pjob->ji_wattr[attr_idx], nattr, op);
+	if (rscn != NULL) {
+		resource_def *prdef;
+		resource *prsc;
+
+		prdef = find_resc_def(svr_resc_def, rscn);
+		if (prdef == NULL) {
+			pbs_errno = PBSE_UNKRESC;
+			return 1;
+		}
+		prsc = find_resc_entry(&pjob->ji_wattr[attr_idx], prdef);
+		if (prsc == NULL)
+			return 1;
+
+		dest = &prsc->rs_value;
+	} else
+		dest = &pjob->ji_wattr[attr_idx];
+
+	return set_attr_with_attr(&job_attr_def[attr_idx], dest, nattr, op);
 }
 
 /**

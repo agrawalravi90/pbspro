@@ -247,7 +247,7 @@ set_size(struct attribute *attr, struct attribute *new, enum batch_op op)
  */
 
 int
-comp_size(struct attribute *attr, struct attribute *with)
+comp_size(const attribute *attr, const attribute *with)
 {
 	struct size_value tmpa;
 	struct size_value tmpw;

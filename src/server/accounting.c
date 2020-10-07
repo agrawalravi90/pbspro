@@ -671,12 +671,8 @@ acct_job(const job *pjob, int type, char *buf, int len)
 
 	old_perm = resc_access_perm;
 	resc_access_perm = READ_ONLY;
-	(void)job_attr_def[att_index].at_encode(
-		&pjob->ji_wattr[att_index],
-		&attrlist,
-		job_attr_def[att_index].at_name,
-		NULL,
-		ATR_ENCODE_CLIENT, NULL);
+	job_attr_def[att_index].at_encode(&pjob->ji_wattr[att_index], &attrlist, job_attr_def[att_index].at_name, NULL,
+			ATR_ENCODE_CLIENT, NULL);
 	resc_access_perm = old_perm;
 
 	nd = 0;	/* compute total size needed in buf */
@@ -2091,7 +2087,8 @@ account_job_update(job *pjob, int type)
 		pb += i;
 		len -= i;
 
-		set_attr_with_attr(&job_attr_def[JOB_ATR_resc_used_acct], &pjob->ji_wattr[JOB_ATR_resc_used_acct], &pjob->ji_wattr[JOB_ATR_resc_used], INCR);
+		set_attr_with_attr(&job_attr_def[JOB_ATR_resc_used_acct], &pjob->ji_wattr[JOB_ATR_resc_used_acct],
+				&pjob->ji_wattr[JOB_ATR_resc_used], INCR);
 	}
 
 writeit:
@@ -2148,7 +2145,7 @@ void log_alter_records_for_attrs(job *pjob, svrattrl *plist) {
 					continue;
 				else {
 					for (cur_svr = svrattrl_list; cur_svr != NULL; cur_svr = (svrattrl *)GET_NEXT(cur_svr->al_link)) {
-						if (pjob->ji_wattr[i].at_type == ATR_TYPE_RESC) {
+						if (is_jattr_resc(pjob, i)) {
 							if (cur_plist->al_resc != NULL) {
 								if (strcmp(cur_plist->al_resc, cur_svr->al_resc) == 0) {
 									char *fmt;

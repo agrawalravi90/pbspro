@@ -655,7 +655,7 @@ resc_select_action(resource *presc, attribute *pattr, void *pobj,
 	if (type == PARENT_TYPE_JOB && actmode == ATR_ACTION_NEW)
 		return PBSE_NONE;
 
-	return apply_aoe_inchunk_rules(presc, pattr, pobj, type);
+	return apply_aoe_inchunk_rules(presc, pobj, type);
 }
 
 /**
@@ -687,8 +687,7 @@ resc_select_action(resource *presc, attribute *pattr, void *pobj,
  *
  */
 int
-apply_aoe_inchunk_rules(resource *presc, attribute *pattr, void *pobj,
-	int type)
+apply_aoe_inchunk_rules(resource *presc, void *pobj, int type)
 {
 	job	*jb = NULL;
 	int	 c = 1, i;             /* # of chunks, len of aoename */

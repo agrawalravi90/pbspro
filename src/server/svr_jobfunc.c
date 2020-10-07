@@ -160,12 +160,10 @@ static void correct_ct(pbs_queue *);
 static void
 clear_default_resc(job *pjob)
 {
-	attribute *pattr;
 	resource  *presc;
 
-	pattr = &pjob->ji_wattr[(int)JOB_ATR_resource];
-	if (is_attr_set(pattr)) {
-		presc = (resource *)GET_NEXT(pattr->at_val.at_list);
+	if (is_jattr_set(pjob, JOB_ATR_resource)) {
+		presc = (resource *)GET_NEXT(get_job_rsclist(pjob));
 		while (presc) {
 			if (presc->rs_value.at_flags & ATR_VFLAG_DEFLT)
 				presc->rs_defin->rs_free(&presc->rs_value);
@@ -1006,7 +1004,7 @@ chk_wt_limits_STF(resource *resc_minwt, resource *resc_maxwt, pbs_queue *pque, a
  * @retval 	PBSE_EXCQRESC	: not within limits
  */
 int
-chk_resc_limits(attribute *pattr, pbs_queue *pque)
+chk_resc_limits(const attribute *pattr, pbs_queue *pque)
 {
 	resource 	*atresc;
 	resource 	*resc_maxwt = NULL;
@@ -1090,8 +1088,7 @@ svr_chkque(job *pjob, pbs_queue *pque, char *hostname, int mtype)
 
 		/* 1c. cannot have an unknown resource */
 
-		if (find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],
-			svr_resc_def+svr_resc_unk))
+		if (find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource], svr_resc_def+svr_resc_unk))
 			return (PBSE_UNKRESC);
 
 		/* 1d. cannot have an unknown attribute */
@@ -1396,10 +1393,10 @@ end:
 void
 check_block(job *pjob, char *message)
 {
-	int			port;
-	char			*phost;
-	char			*jobid = pjob->ji_qs.ji_jobid;
-	struct 			block_job_reply *blockj;
+	int port;
+	char *phost;
+	char *jobid = pjob->ji_qs.ji_jobid;
+	struct block_job_reply *blockj;
 
 	if ((is_jattr_set(pjob, JOB_ATR_block)) == 0)
 		return;
@@ -1417,7 +1414,6 @@ check_block(job *pjob, char *message)
 	 * a reference to the fact that a history job was a blocking job . Port number need not be recorded .
 	 */
 	set_jattr_l_slim(pjob, JOB_ATR_block, -1, SET);
-pjob->ji_wattr[(int) JOB_ATR_block].at_flags |= ATR_MOD_MCACHE;
 
 	phost = get_jattr_str(pjob, JOB_ATR_submit_host);
 	if (port == 0 || phost == NULL) {
@@ -1527,7 +1523,7 @@ job_wait_over(struct work_task *pwt)
  */
 
 int
-job_set_wait(attribute *pattr, void *pjob, int mode)
+job_set_wait(const attribute *pattr, void *pjob, int mode)
 {
 	struct work_task *ptask;
 	long		  when;
@@ -1913,7 +1909,7 @@ set_select_and_place(int objtype, void *pobj, attribute *patr)
  */
 
 int
-set_chunk_sum(attribute  *pselectattr, attribute *pattr)
+set_chunk_sum(const attribute  *pselectattr, attribute *pattr)
 {
 	char     *chunk;
 	int       i;
@@ -2064,11 +2060,10 @@ set_chunk_sum(attribute  *pselectattr, attribute *pattr)
 extern int resc_access_perm;
 
 int
-make_schedselect(attribute *patrl, resource *pselect,
-	pbs_queue *pque, attribute *psched)
+make_schedselect(resource *pselect, pbs_queue *pque, attribute *psched)
 {
-	int	     rc;
-	char	     *sched_select_out = NULL;
+	int rc;
+	char *sched_select_out = NULL;
 
 	if ((pselect == NULL) || (psched == NULL)) {
 		return (PBSE_SYSTEM);
@@ -2094,12 +2089,12 @@ make_schedselect(attribute *patrl, resource *pselect,
  */
 
 static void
-set_deflt_resc(attribute *jb, attribute *dflt, int selflg)
+set_deflt_resc(job *pjob, attribute *jb, attribute *dflt, int selflg)
 {
-	resource       *prescjb;
-	resource       *prescdt;
-	resource_def   *seldef;
-	resource_def   *plcdef;
+	resource *prescjb;
+	resource *prescdt;
+	resource_def *seldef;
+	resource_def *plcdef;
 
 	seldef = &svr_resc_def[RESC_SELECT];
 	plcdef = &svr_resc_def[RESC_PLACE];
@@ -2122,18 +2117,21 @@ set_deflt_resc(attribute *jb, attribute *dflt, int selflg)
 				/* see if the job already has that resource */
 				prescjb = find_resc_entry(jb, prescdt->rs_defin);
 				if ((prescjb == NULL) ||
-					((prescjb->rs_value.at_flags &
-					ATR_VFLAG_SET) == 0)) {
-
+					((prescjb->rs_value.at_flags & ATR_VFLAG_SET) == 0)) {
 					if (prescjb == NULL)
-						prescjb = add_resource_entry(jb,
-							prescdt->rs_defin);
+						prescjb = add_resource_entry(jb, prescdt->rs_defin);
 					if (prescjb) {
-						if (prescdt->rs_defin->rs_set(&prescjb->rs_value, &prescdt->rs_value, SET) == 0)
+						int rc;
+
+						if (pjob != NULL)
+							rc = set_jattr_with_attr(pjob, JOB_ATR_resource, &prescdt->rs_value,
+									prescdt->rs_defin->rs_name, SET);
+						else
+							rc = prescdt->rs_defin->rs_set(&prescjb->rs_value, &prescdt->rs_value, SET);
+						if (rc == 0)
 							prescjb->rs_value.at_flags |= (ATR_VFLAG_SET|ATR_VFLAG_DEFLT);
 						jb->at_flags |= ATR_MOD_MCACHE;
 					}
-
 				}
 			}
 		}
@@ -2159,7 +2157,7 @@ int
 set_resc_deflt(void *pobj, int objtype, pbs_queue *pque)
 {
 	static resc_resv  *presv;
-	job	   *pjob;
+	job	   *pjob = NULL;
 	attribute  *pdest = NULL;
 	attribute  *psched = NULL;
 	resource   *presc;
@@ -2193,23 +2191,19 @@ set_resc_deflt(void *pobj, int objtype, pbs_queue *pque)
 
 	/* set defaults based on the Queue's resources_default */
 	if (pque) {
-		set_deflt_resc(pdest,
-			&pque->qu_attr[(int)QA_ATR_ResourceDefault], 1);
+		set_deflt_resc(pjob, pdest, &pque->qu_attr[(int)QA_ATR_ResourceDefault], 1);
 	}
 
 	/* set defaults based on the Server' resources_default */
-	set_deflt_resc(pdest,
-		&server.sv_attr[(int)SVR_ATR_resource_deflt], 1);
+	set_deflt_resc(pjob, pdest, &server.sv_attr[(int)SVR_ATR_resource_deflt], 1);
 
 	/* set defaults based on the Queue's resources_max */
 	if (pque) {
-		set_deflt_resc(pdest,
-			&pque->qu_attr[(int)QA_ATR_ResourceMax], 0);
+		set_deflt_resc(pjob, pdest, &pque->qu_attr[(int)QA_ATR_ResourceMax], 0);
 	}
 
 	/* set defaults based on the Server's resources_max */
-	set_deflt_resc(pdest,
-		&server.sv_attr[(int)SVR_ATR_ResourceMax], 0);
+	set_deflt_resc(pjob, pdest, &server.sv_attr[(int)SVR_ATR_ResourceMax], 0);
 
 
 	/* if needed, set "select" and "place" from the other resources */
@@ -2236,9 +2230,8 @@ set_resc_deflt(void *pobj, int objtype, pbs_queue *pque)
 	/* now set up the Scheduler's version of select JOB_ATR_SchedSelect */
 	presc   = find_resc_entry(pdest, prdefsl);
 	if (presc) {
-		if ((rc = make_schedselect(pdest, presc , pque, psched)) == 0)
+		if ((rc = make_schedselect(presc , pque, psched)) == 0)
 			rc = set_chunk_sum(psched, pdest);
-
 	} else
 		rc = PBSE_SYSTEM;
 	return rc;
@@ -2849,7 +2842,7 @@ Time4occurrenceFinish(resc_resv *presv)
 		free(resc->rs_value.at_val.at_str);
 		resc->rs_value.at_val.at_str = strdup(resc2->rs_value.at_val.at_str);
 		presv->ri_wattr[RESV_ATR_resource].at_flags |= ATR_SET_MOD_MCACHE;
-		make_schedselect(&presv->ri_wattr[RESV_ATR_resource], resc, NULL, &presv->ri_wattr[RESV_ATR_SchedSelect]);
+		make_schedselect(resc, NULL, &presv->ri_wattr[RESV_ATR_SchedSelect]);
 		set_chunk_sum(&resc->rs_value, &presv->ri_wattr[RESV_ATR_resource]);
 	} else
 		dtstart = presv->ri_wattr[RESV_ATR_start].at_val.at_long;
@@ -4474,7 +4467,6 @@ update_eligible_time(long newaccruetype, job *pjob)
 	long accrued_time = 0;			/* accrued time */
 	long oldaccruetype = get_jattr_long(pjob, JOB_ATR_accrue_type);
 	long timestamp = (long) time_now; 	/* time since accrual begins */
-	unsigned int flags = ATR_SET_MOD_MCACHE;
 
 	/* check if updating same accrue type or do nothing */
 	if (newaccruetype == oldaccruetype || newaccruetype == -1)
@@ -4483,16 +4475,12 @@ update_eligible_time(long newaccruetype, job *pjob)
 	/* time since accrue type last changed  */
 	accrued_time = timestamp - get_jattr_long(pjob, JOB_ATR_sample_starttime);
 
-	if (oldaccruetype == JOB_ELIGIBLE && accrued_time > 0) {
+	if (oldaccruetype == JOB_ELIGIBLE && accrued_time > 0)
 		set_jattr_l_slim(pjob, JOB_ATR_eligible_time, accrued_time, INCR);
-		pjob->ji_wattr[JOB_ATR_eligible_time].at_flags |= flags;
-	}
 
 	/* change type to new accrue type, update start time to mark change of accrue type */
 	set_jattr_l_slim(pjob, JOB_ATR_accrue_type, newaccruetype, SET);
-pjob->ji_wattr[JOB_ATR_accrue_type].at_flags |= flags;
 	set_jattr_l_slim(pjob, JOB_ATR_sample_starttime, timestamp, SET);
-pjob->ji_wattr[JOB_ATR_sample_starttime].at_flags |= flags;
 
 	/* Prepare and print log message */
 	strtime = convert_long_to_time(get_jattr_long(pjob, JOB_ATR_eligible_time));
@@ -5004,16 +4992,12 @@ svr_setjob_histinfo(job *pjob, histjob_type type)
 						break;
 				}
 			}
-			if (stgout_status != -1) {
+			if (stgout_status != -1)
 				set_jattr_l_slim(pjob, JOB_ATR_stageout_status, stgout_status, SET);
-			pjob->ji_wattr[(int)JOB_ATR_stageout_status].at_flags = ATR_SET_MOD_MCACHE;
-			}
 			for (i=0; i<ptbl->tkm_ct; i++) {
-				if (ptbl->tkm_tbl[i].trk_exitstat) {
+				if (ptbl->tkm_tbl[i].trk_exitstat)
 					set_jattr_l_slim(pjob, JOB_ATR_exit_status, pjob->ji_qs.ji_un.ji_exect.ji_exitstat, SET);
-				pjob->ji_wattr[(int)JOB_ATR_exit_status].at_flags = ATR_SET_MOD_MCACHE;
 					break;
-				}
 			}
 			if (pjob->ji_terminated)
 				newsubstate = JOB_SUBSTATE_TERMINATED;
@@ -5057,7 +5041,6 @@ svr_setjob_histinfo(job *pjob, histjob_type type)
 
 	/* set the history timestamp */
 	set_jattr_l_slim(pjob, JOB_ATR_history_timestamp, time_now, SET);
-pjob->ji_wattr[(int) JOB_ATR_history_timestamp].at_flags |= ATR_SET_MOD_MCACHE;
 	/* update the history job state and substate */
 	svr_histjob_update(pjob, newstate, newsubstate);
 
@@ -5278,9 +5261,7 @@ send_job_exec_update_to_mom(job *pjob, char *err_msg, int err_msg_sz,
 	psched = &pjob->ji_wattr[(int)JOB_ATR_SchedSelect];
 	if (is_attr_set(psched)) {
 		if (add_to_svrattrl_list(
-			&(newreq->rq_ind.rq_modify.rq_attr),
-			ATTR_SchedSelect, NULL,
-			psched->at_val.at_str, 0, NULL) == -1) {
+				&(newreq->rq_ind.rq_modify.rq_attr), ATTR_SchedSelect, NULL,psched->at_val.at_str, 0, NULL) == -1) {
 			if ((err_msg != NULL) && (err_msg_sz > 0)) {
 				snprintf(err_msg, err_msg_sz, "failed to add_to_svrattrl_list(%s,%s,%s)", ATTR_SchedSelect, "", psched->at_val.at_str);
         			log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, pjob->ji_qs.ji_jobid, err_msg);
@@ -5461,7 +5442,6 @@ recreate_exec_vnode(job *pjob, char *vnodelist, char *keep_select, char *err_msg
 	char	*new_exec_host2 = NULL;
 	char	*new_select = NULL;
 	char	*schedselect = NULL;
-	char	*deallocated_execvnode = NULL;
 	char	*new_deallocated_execvnode = NULL;
 	resource_def	*prdefsl = NULL;
 	resource	*presc;
@@ -5512,10 +5492,8 @@ recreate_exec_vnode(job *pjob, char *vnodelist, char *keep_select, char *err_msg
 
 	schedselect = get_jattr_str(pjob, JOB_ATR_SchedSelect);
 
-	deallocated_execvnode_attr = pjob->ji_wattr[(int)JOB_ATR_exec_vnode_deallocated];
-	if (is_attr_set(&deallocated_execvnode_attr)) {
-		deallocated_execvnode = deallocated_execvnode_attr.at_val.at_str;
-	}
+	if (is_jattr_set(pjob, JOB_ATR_exec_vnode_deallocated))
+		deallocated_execvnode = get_jattr_str(pjob, JOB_ATR_exec_vnode_deallocated);
 
 	relnodes_input_init(&r_input);
 	r_input.jobid = pjob->ji_qs.ji_jobid;
@@ -5578,14 +5556,9 @@ recreate_exec_vnode(job *pjob, char *vnodelist, char *keep_select, char *err_msg
 			free_jattr(pjob, JOB_ATR_resource_acct);
 			mark_jattr_not_set(pjob, JOB_ATR_resource_acct);
 		}
-		set_attr_with_attr(&job_attr_def[JOB_ATR_resource_acct], &pjob->ji_wattr[JOB_ATR_resource_acct], &pjob->ji_wattr[JOB_ATR_resource], INCR);
-
-
+		set_jattr_with_attr(pjob, JOB_ATR_resource_acct, &pjob->ji_wattr[JOB_ATR_resource], NULL, INCR);
 		set_jattr_str_slim(pjob, JOB_ATR_exec_vnode, new_exec_vnode, NULL);
-
-		(void)update_resources_list(pjob, ATTR_l,
-			JOB_ATR_resource, new_exec_vnode, INCR, 0,
-				JOB_ATR_resource_orig);
+		update_resources_list(pjob, ATTR_l, new_exec_vnode, INCR, 0, JOB_ATR_resource_orig);
 	} else {
 		log_err(-1, __func__, "new_exec_vnode is null or empty string");
 		goto recreate_exec_vnode_exit;
@@ -5622,16 +5595,11 @@ recreate_exec_vnode(job *pjob, char *vnodelist, char *keep_select, char *err_msg
 		prdefsl = &svr_resc_def[RESC_SELECT];
 		/* re-generate "select" resource */
 		if (prdefsl != NULL) {
-			presc = find_resc_entry(
-			  	&pjob->ji_wattr[(int)JOB_ATR_resource], prdefsl);
-			if (presc == NULL) {
-				presc = add_resource_entry(
-			  	 &pjob->ji_wattr[(int)JOB_ATR_resource], prdefsl);
-			}
-			if (presc != NULL) {
-				(void)prdefsl->rs_decode(
-					&presc->rs_value, NULL, "select", new_select);
-			}
+			presc = find_resc_entry(&pjob->ji_wattr[JOB_ATR_resource], prdefsl);
+			if (presc == NULL)
+				presc = add_resource_entry(&pjob->ji_wattr[JOB_ATR_resource], prdefsl);
+			if (presc != NULL)
+				set_jattr_str_slim(pjob, JOB_ATR_resource, new_select, NULL);
 		}
 		/* re-generate "schedselect" attribute */
 
@@ -5643,8 +5611,7 @@ recreate_exec_vnode(job *pjob, char *vnodelist, char *keep_select, char *err_msg
 		}
 		set_jattr_str_slim(pjob, JOB_ATR_SchedSelect, new_select, NULL);
 		/* re-generate nodect */
-		set_chunk_sum(&pjob->ji_wattr[(int)JOB_ATR_SchedSelect],
-					&pjob->ji_wattr[(int)JOB_ATR_resource]);
+		set_chunk_sum(&pjob->ji_wattr[(int)JOB_ATR_SchedSelect], &pjob->ji_wattr[(int)JOB_ATR_resource]);
 
 	} else {
 		log_err(-1, __func__, "new_select is null or empty string");

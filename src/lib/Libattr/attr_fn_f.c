@@ -228,7 +228,7 @@ set_f(struct attribute *attr, struct attribute *new, enum batch_op op)
  */
 
 int
-comp_f(struct attribute *attr, struct attribute *with)
+comp_f(const attribute *attr, const attribute *with)
 {
 	if (!attr || !with)
 		return (-1);

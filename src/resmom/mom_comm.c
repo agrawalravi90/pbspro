@@ -975,7 +975,7 @@ prune_exec_vnode(job *pjob,  char *select_str, vnl_t **failed_vnodes, vnl_t **go
 
 		set_jattr_str_slim(pjob, JOB_ATR_exec_vnode, new_exec_vnode, NULL);
 
-		(void)update_resources_list(pjob, ATTR_l, JOB_ATR_resource, new_exec_vnode, INCR, 0, JOB_ATR_resource_orig);
+		update_resources_list(pjob, ATTR_l, new_exec_vnode, INCR, 0, JOB_ATR_resource_orig);
 	}
 
 	if (new_exec_host != NULL) {

@@ -6116,9 +6116,9 @@ mom_over_limit(job *pjob)
 	resource_def	*rd;
 
 	assert(pjob != NULL);
-	assert(pjob->ji_wattr[(int)JOB_ATR_resource].at_type == ATR_TYPE_RESC);
+	assert(is_jattr_resc(pjob, JOB_ATR_resource));
 	pres = (resource *)
-		GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+		GET_NEXT(get_job_rsclist(pjob));
 
 	DBPRT(("%s: entered\n", __func__))
 
@@ -6220,8 +6220,7 @@ mom_over_limit(job *pjob)
 		}
 	}
 
-	pres = (resource *)
-		GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+	pres = (resource *) GET_NEXT(get_job_rsclist(pjob));
 
 	for (; pres != NULL; pres = (resource *)GET_NEXT(pres->rs_link)) {
 		assert(pres->rs_defin != NULL);

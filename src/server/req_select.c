@@ -533,7 +533,7 @@ select_job(job *pjob, struct select_list *psel, int dosubjobs, int dohistjobs)
  */
 
 static int
-sel_attr(attribute *jobat, struct select_list *pselst)
+sel_attr(const attribute *jobat, struct select_list *pselst)
 {
 	int	   rc;
 	resource  *rescjb;

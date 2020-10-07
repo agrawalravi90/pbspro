@@ -381,7 +381,7 @@ set_resc(struct attribute *old, struct attribute *new, enum batch_op op)
  */
 
 int
-comp_resc(struct attribute *attr, struct attribute *with)
+comp_resc(const attribute *attr, const attribute *with)
 {
 	resource *atresc;
 	resource *wiresc;

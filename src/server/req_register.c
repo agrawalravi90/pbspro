@@ -107,7 +107,7 @@ extern int issue_to_svr(char *svr, struct batch_request *, void (*func)(struct w
 
 /* Local Private Functions */
 
-static void set_depend_hold(job *, attribute *);
+static void set_depend_hold(job *, const attribute *);
 static int register_dep(attribute *, struct batch_request *, int, int *);
 static int unregister_dep(attribute *, struct batch_request *);
 static struct depend *make_depend(int type, attribute *pattr);
@@ -685,14 +685,14 @@ alter_unreg(job *pjob, attribute *old, attribute *new)
  */
 
 int
-depend_on_que(attribute *pattr, void *pobj, int mode)
+depend_on_que(const attribute *pattr, void *pobj, int mode)
 {
-	char	      *b1, *b2;
+	char *b1, *b2;
 	struct depend *pdep;
 	struct depend_job *pparent;
-	int	       rc;
-	int	       type;
-	job           *pjob = (job *)pobj;
+	int rc;
+	int type;
+	job *pjob = (job*) pobj;
 
 	if (((mode != ATR_ACTION_ALTER) && (mode != ATR_ACTION_NOOP)) ||
 		(pjob->ji_qhdr == 0) ||
@@ -777,7 +777,8 @@ depend_on_que(attribute *pattr, void *pobj, int mode)
 				return (0);
 			pparent = (struct depend_job *)GET_NEXT(f_pparent->dc_link);
 			for (; pparent != NULL; pparent = (struct depend_job *)GET_NEXT(pparent->dc_link)) {
-				if (find_dependjob(find_depend(JOB_DEPEND_TYPE_RUNONE, &pjob->ji_wattr[(int)JOB_ATR_depend]), pparent->dc_child) == NULL) {
+				if (find_dependjob(find_depend(JOB_DEPEND_TYPE_RUNONE, &pjob->ji_wattr[(int)JOB_ATR_depend]),
+						pparent->dc_child) == NULL) {
 					rc = send_depend_req(pjob, pparent, pdep->dp_type,
 							    JOB_DEPEND_OP_REGISTER, SYNC_SCHED_HINT_NULL, post_doq);
 					if (rc)
@@ -833,12 +834,12 @@ void
 post_runone(struct work_task *pwt)
 {
 	struct batch_request *preq = pwt->wt_parm1;
-	char		     *jobid = preq->rq_ind.rq_register.rq_child;
-	attribute	     *pattr;
-	struct depend	     *pdep;
-	struct depend_job    *pdj;
-	job		     *pjob;
-	job		     *del_job;
+	char *jobid = preq->rq_ind.rq_register.rq_child;
+	attribute *pattr;
+	struct depend *pdep;
+	struct depend_job *pdj;
+	job *pjob;
+	job *del_job;
 
 	pjob = find_job(jobid);
 	if (pjob) {
@@ -883,8 +884,7 @@ depend_on_exec(job *pjob)
 
 	/* If any jobs come after my start, release them */
 
-	pdep = find_depend(JOB_DEPEND_TYPE_BEFORESTART,
-		&pjob->ji_wattr[(int)JOB_ATR_depend]);
+	pdep = find_depend(JOB_DEPEND_TYPE_BEFORESTART, &pjob->ji_wattr[(int)JOB_ATR_depend]);
 	if (pdep) {
 		pdj = (struct depend_job *)GET_NEXT(pdep->dp_jobs);
 		while (pdj) {
@@ -909,9 +909,9 @@ depend_on_exec(job *pjob)
  */
 int depend_runone_remove_dependency(job *pjob)
 {
-	struct depend     *pdep;
+	struct depend *pdep;
 	struct depend_job *pdj;
-	struct job	  *d_pjob;
+	struct job *d_pjob;
 
 	if (pjob == NULL)
 		return (0);
@@ -1030,13 +1030,13 @@ int depend_runone_release_all(job *pjob)
 int
 depend_on_term(job *pjob)
 {
-	int	       exitstat = pjob->ji_qs.ji_un.ji_exect.ji_exitstat;
-	int	       op;
-	attribute     *pattr;
+	int exitstat = pjob->ji_qs.ji_un.ji_exect.ji_exitstat;
+	int op;
+	attribute *pattr;
 	struct depend *pdep;
 	struct depend_job *pparent;
-	int	       rc;
-	int	       type;
+	int rc;
+	int type;
 
 	pattr = &pjob->ji_wattr[(int)JOB_ATR_depend];
 
@@ -1123,13 +1123,13 @@ depend_on_term(job *pjob)
  */
 
 static void
-set_depend_hold(job *pjob, attribute *pattr)
+set_depend_hold(job *pjob, const attribute *pattr)
 {
-	int		loop = 1;
-	char		newstate;
-	int		newsubst;
-	struct depend  *pdp = NULL;
-	int		substate = -1;
+	int loop = 1;
+	char newstate;
+	int newsubst;
+	struct depend *pdp = NULL;
+	int substate = -1;
 
 	if (is_attr_set(pattr))
 		pdp = (struct depend *)GET_NEXT(pattr->at_val.at_list);
@@ -1157,7 +1157,6 @@ set_depend_hold(job *pjob, attribute *pattr)
 		if ((check_job_substate(pjob, JOB_SUBSTATE_SYNCHOLD)) ||
 			(check_job_substate(pjob, JOB_SUBSTATE_DEPNHOLD))) {
 			set_jattr_b_slim(pjob, JOB_ATR_hold, HOLD_s, DECR);
-			pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_MOD_MCACHE;
 			svr_evaljobstate(pjob, &newstate, &newsubst, 0);
 			svr_setjobstate(pjob, newstate, newsubst);
 		}
@@ -1182,7 +1181,7 @@ set_depend_hold(job *pjob, attribute *pattr)
  * @retval	NULL	: fail
  */
 
-struct depend *find_depend(int type, attribute *pattr)
+struct depend *find_depend(int type, const attribute *pattr)
 {
 	struct depend *pdep = NULL;
 
@@ -1745,8 +1744,8 @@ enum batch_op op;
 
 int
 comp_depend(attr, with)
-struct attribute *attr;
-struct attribute *with;
+const attribute *attr;
+const attribute *with;
 {
 
 	return (-1);

@@ -3073,15 +3073,11 @@ set_job_reslist(job *pjob, char *hook_name, char *msg, int msg_len,
 			return (1);
 		}
 
-		if ((rc = rescdef->rs_decode(&prescjb->rs_value,
-			ATTR_l, rescdef->rs_name, new_rescval_str)) != 0) {
+		rc = set_jattr_str_slim(pjob, JOB_ATR_resource, new_rescval_str, rescdef->rs_name);
+		if (rc != 0) {
 			snprintf(msg, msg_len-1,
-				"'%s' hook failed to set job's %s.%s = %s",
-				hook_name, ATTR_l,
-				resc, new_rescval_str);
-			log_event(PBSEVENT_ERROR|PBSEVENT_FORCE,
-				PBS_EVENTCLASS_JOB, LOG_ERR,
-				pjob->ji_qs.ji_jobid, msg);
+					"'%s' hook failed to set job's %s.%s = %s", hook_name, ATTR_l, resc, new_rescval_str);
+			log_event(PBSEVENT_ERROR|PBSEVENT_FORCE, PBS_EVENTCLASS_JOB, LOG_ERR, pjob->ji_qs.ji_jobid, msg);
 			free(val_str_dup);
 			return (1);
 		}
@@ -3237,7 +3233,7 @@ attribute_jobmap_restore(job *pjob, struct attribute_jobmap *a_map)
 		if (is_attr_set(pattr_o)) {
 
 			if (pdef->at_comp != NULL) {
-				if (pdef->at_type == ATR_TYPE_RESC) {
+				if (is_jattr_resc(pjob, a_index)) {
 					if ((pdef->at_comp(pattr_o, pattr) == 0) && (comp_resc_gt == 0) && (comp_resc_lt == 0) && (comp_resc_nc == 0)) {
 						continue;
 					}
@@ -3253,7 +3249,7 @@ attribute_jobmap_restore(job *pjob, struct attribute_jobmap *a_map)
 			if (pdef->at_free) {
 				pdef->at_free(pattr);
 			}
-			if (pdef->at_set(pattr, pattr_o, SET) == 0) {
+			if (set_jattr_with_attr(pjob, a_index, pattr_o, NULL, SET) == 0) {
 				snprintf(log_buffer, sizeof(log_buffer),
 					"restored job %s's previous value",
 					attr_name);

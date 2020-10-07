@@ -223,7 +223,7 @@ set_l(struct attribute *attr, struct attribute *new, enum batch_op op)
  */
 
 int
-comp_l(struct attribute *attr, struct attribute *with)
+comp_l(const attribute *attr, const attribute *with)
 {
 	if (!attr || !with)
 		return (-1);

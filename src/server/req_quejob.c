@@ -645,8 +645,8 @@ req_quejob(struct batch_request *preq)
 			(strcmp(psatl->al_resc, "neednodes") == 0))
 			rc = 0;
 		else
-			rc = pdef->at_decode(&pj->ji_wattr[index],
-				psatl->al_name, psatl->al_resc, psatl->al_value);
+			rc = set_jattr_generic(pj, index, psatl->al_value, psatl->al_resc, SET);
+
 #ifndef PBS_MOM
 		if (rc != 0) {
 			if (rc == PBSE_UNKRESC) {
@@ -757,7 +757,7 @@ req_quejob(struct batch_request *preq)
 			int have_selectplace = 0;
 			resource_def *prdefbad;
 
-			presc = (resource *)GET_NEXT(pj->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+			presc = (resource *) GET_NEXT(get_job_rsclist(pj));
 
 			prdefbad = NULL;
 			while (presc) {
@@ -920,8 +920,7 @@ req_quejob(struct batch_request *preq)
 		 * into an advance reservation queue, the reservation's ID
 		 * gets attached later in the code
 		 */
-		job_attr_def[(int)JOB_ATR_reserve_ID].at_decode(&pj->ji_wattr[(int)JOB_ATR_reserve_ID],
-			NULL, NULL, NULL);
+		set_jattr_generic(pj, JOB_ATR_reserve_ID, NULL, NULL, SET);
 	}
 
 	/* set up at_server attribute for status */
@@ -954,7 +953,7 @@ req_quejob(struct batch_request *preq)
 	 * job structure and attributes already set up.
 	 */
 
-	rc = svr_chkque(pj, pque, pj->ji_wattr[(int)JOB_ATR_submit_host].at_val.at_str, MOVE_TYPE_Move);
+	rc = svr_chkque(pj, pque, get_jattr_str(pj, JOB_ATR_submit_host), MOVE_TYPE_Move);
 	if (rc) {
 		if (pj->ji_clterrmsg)
 			reply_text(preq, rc, pj->ji_clterrmsg);
@@ -1004,8 +1003,7 @@ req_quejob(struct batch_request *preq)
 	 */
 	presc = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource], prdefsel);
 	if (presc) {
-		rc = apply_aoe_inchunk_rules(presc, &pj->ji_wattr[(int)JOB_ATR_resource],
-			pj, PARENT_TYPE_JOB);
+		rc = apply_aoe_inchunk_rules(presc, pj, PARENT_TYPE_JOB);
 		if (rc) {
 			job_purge(pj);
 			req_reject(rc, 0, preq);
@@ -1286,8 +1284,7 @@ req_jobscript(struct batch_request *preq)
 
 
 	if (reject_root_scripts == TRUE) {
-		if ((pj->ji_wattr[(int)JOB_ATR_euser].at_flags & \
-							ATR_VFLAG_SET) &&
+		if (is_jattr_set(pj, JOB_ATR_euser) &&
 			(get_jattr_str(pj, JOB_ATR_euser) != NULL)) {
 #ifdef WIN32
 
@@ -1300,7 +1297,6 @@ req_jobscript(struct batch_request *preq)
 			if ((pwdp != NULL) && (pwdp->pw_uid == 0))
 #endif
 			{
-
 				log_err(-1, "req_jobscript",
 					msg_mom_reject_root_scripts);
 				delete_link(&pj->ji_alljobs);
@@ -3190,7 +3186,7 @@ copy_params_from_job(char *jobid, resc_resv *presv)
 	presv->ri_wattr[(int)RESV_ATR_SchedSelect].at_flags |= ATR_SET_MOD_MCACHE;
 	presv->ri_wattr[(int)RESV_ATR_resv_nodes].at_flags |= ATR_SET_MOD_MCACHE;
 
-	job_resc_entry = (resource *)GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+	job_resc_entry = (resource *)GET_NEXT(get_job_rsclist(pjob));
 	for (; job_resc_entry; job_resc_entry = (resource *)GET_NEXT(job_resc_entry->rs_link)) {
 		resc_def = job_resc_entry->rs_defin;
 		resv_resc_entry = find_resc_entry(&presv->ri_wattr[(int)RESV_ATR_resource], resc_def);
@@ -3221,7 +3217,7 @@ copy_params_from_job(char *jobid, resc_resv *presv)
 	}
 	prdefsl = &svr_resc_def[RESC_SELECT];
 	presc = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource], prdefsl);
-	make_schedselect(&pjob->ji_wattr[(int)JOB_ATR_resource], presc , NULL, &presv->ri_wattr[(int)RESV_ATR_SchedSelect]);
+	make_schedselect(presc , NULL, &presv->ri_wattr[(int)RESV_ATR_SchedSelect]);
 
 	return 0;
 }

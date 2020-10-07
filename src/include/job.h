@@ -992,13 +992,13 @@ task_find	(job		*pjob,
 #define PBS_DEFAULT_PROJECT	"_pbs_project_default"
 
 extern void  add_dest(job *);
-extern int   depend_on_que(attribute *, void *, int);
+extern int   depend_on_que(const attribute *, void *, int);
 extern int   depend_on_exec(job *);
 extern int   depend_runone_remove_dependency(job *);
 extern int   depend_runone_hold_all(job *);
 extern int   depend_runone_release_all(job *);
 extern int   depend_on_term(job *);
-extern struct depend *find_depend(int type, attribute *pattr);
+extern struct depend *find_depend(int type, const attribute *pattr);
 extern struct depend_job *find_dependjob(struct depend *pdep, char *name);
 extern int send_depend_req(job *pjob, struct depend_job *pparent, int type, int op, int schedhint, void (*postfunc)(struct work_task *));
 extern void post_runone(struct work_task *pwt);
@@ -1043,6 +1043,9 @@ char *get_jattr_str(const job *pjob, int attr_idx);
 long get_jattr_long(const job *pjob, int attr_idx);
 svrattrl *get_jattr_usr_encoded(const job *pjob, int attr_idx);
 svrattrl *get_jattr_priv_encoded(const job *pjob, int attr_idx);
+pbs_list_head get_job_rsclist(const job *pjob);
+pbs_list_head get_jattr_list(const job *pjob, int attr_idx);
+int is_jattr_resc(const job *pjob, int attr_idx);
 void set_job_state(job *pjob, char val);
 void set_job_substate(job *pjob, long val);
 int set_jattr_str_slim(job *pjob, int attr_idx, char *val, char *rscn);
@@ -1050,7 +1053,7 @@ int set_jattr_l_slim(job *pjob, int attr_idx, long val, enum batch_op op);
 int set_jattr_b_slim(job *pjob, int attr_idx, long val, enum batch_op op);
 int set_jattr_c_slim(job *pjob, int attr_idx, char val, enum batch_op op);
 int set_jattr_generic(job *pjob, int attr_idx, char *val, char *rscn, enum batch_op op);
-int set_jattr_with_attr(job *pjob, int attr_idx, attribute *nattr, enum batch_op op);
+int set_jattr_with_attr(job *pjob, int attr_idx, attribute *nattr, char *rscn, enum batch_op op);
 int is_jattr_set(const job *pjob, int attr_idx);
 void free_jattr(job *pjob, int attr_idx);
 void mark_jattr_not_set(job *pjob, int attr_idx);
@@ -1111,7 +1114,7 @@ extern void   on_job_exit(struct work_task *);
 #endif	/* _WORK_TASK_H */
 
 #ifdef _PBS_IFL_H
-extern int   update_resources_list(job *, char *, int, char *, enum batch_op op, int, int);
+extern int   update_resources_list(job *, char *, char *, enum batch_op op, int, int);
 #endif
 
 extern int   Mystart_end_dur_wall(void*, int);

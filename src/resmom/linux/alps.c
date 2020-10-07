@@ -5494,7 +5494,7 @@ alps_create_reserve_request(job *pjob, basil_request_reserve_t **req)
 
 	/* check for pstate or pgov */
 	for (pres = (resource *)
-				GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+				GET_NEXT(get_job_rsclist(pjob));
 			pres != NULL;
 			pres = (resource *)GET_NEXT(pres->rs_link)) {
 

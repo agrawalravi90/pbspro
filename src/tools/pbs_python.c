@@ -817,8 +817,8 @@ enum batch_op op;
 
 int
 comp_depend(attr, with)
-struct attribute *attr;
-struct attribute *with;
+const attribute *attr;
+const attribute *with;
 {
 
 	return (-1);

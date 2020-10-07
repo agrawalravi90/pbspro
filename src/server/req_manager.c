@@ -3473,7 +3473,7 @@ struct batch_request *preq;
  * @retval	NULL	- if the resource is not set
  */
 static resource *
-get_resource(attribute *pattr, resource_def *prdef)
+get_resource(const attribute *pattr, resource_def *prdef)
 {
 	resource *presc;
 
@@ -3555,12 +3555,12 @@ check_resource_set_on_jobs_or_resvs(struct batch_request *preq, resource_def *pr
 			return 1;
 		}
 		pattr = &pj->ji_wattr[JOB_ATR_SchedSelect];
-		if (is_attr_set(pattr)) {
-			rmatch = strstr(pattr->at_val.at_str, prdef->rs_name);
+		if (is_jattr_set(pj, JOB_ATR_SchedSelect)) {
+			rmatch = strstr(get_jattr_str(pj, JOB_ATR_SchedSelect), prdef->rs_name);
 			if (rmatch != NULL) {
 				rlen = strlen(prdef->rs_name);
 				if (((mod == 1) && (*(rmatch+rlen) == '=')) &&
-				    ((rmatch == pattr->at_val.at_str) || *(rmatch-1) == ':')) {
+				    ((rmatch == get_jattr_str(pj, JOB_ATR_SchedSelect)) || *(rmatch-1) == ':')) {
 					reply_text(preq, PBSE_RESCBUSY, "Resource busy on job");
 					return 1;
 				}

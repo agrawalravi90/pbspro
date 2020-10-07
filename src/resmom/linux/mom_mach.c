@@ -788,9 +788,8 @@ mom_set_limits(job *pjob, int set_mode)
 
 	DBPRT(("%s: entered\n", __func__))
 	assert(pjob != NULL);
-	assert(pjob->ji_wattr[(int)JOB_ATR_resource].at_type == ATR_TYPE_RESC);
-	pres = (resource *)
-		GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+	assert(is_jattr_resc(pjob, JOB_ATR_resource));
+	pres = (resource *) GET_NEXT(get_job_rsclist(pjob));
 
 	/*
 	 * Cycle through all the resource specifications,
@@ -898,9 +897,8 @@ mom_do_poll(job *pjob)
 
 	DBPRT(("%s: entered\n", __func__))
 	assert(pjob != NULL);
-	assert(pjob->ji_wattr[(int)JOB_ATR_resource].at_type == ATR_TYPE_RESC);
-	pres = (resource *)
-		GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+	assert(is_jattr_resc(pjob, JOB_ATR_resource));
+	pres = (resource *) GET_NEXT(get_job_rsclist(pjob));
 
 	while (pres != NULL) {
 		assert(pres->rs_defin != NULL);

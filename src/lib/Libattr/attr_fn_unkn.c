@@ -279,7 +279,7 @@ set_unkn(struct attribute *old, struct attribute *new, enum batch_op op)
  */
 
 int
-comp_unkn(struct attribute *attr, struct attribute *with)
+comp_unkn(const attribute *attr, const attribute *with)
 {
 	return (1);
 }

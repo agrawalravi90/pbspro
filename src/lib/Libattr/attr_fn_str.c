@@ -260,7 +260,7 @@ set_str(struct attribute *attr, struct attribute *new, enum batch_op op)
  */
 
 int
-comp_str(struct attribute *attr, struct attribute *with)
+comp_str(const attribute *attr, const attribute *with)
 {
 	if (!attr || !attr->at_val.at_str)
 		return (-1);

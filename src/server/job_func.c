@@ -1003,7 +1003,6 @@ job_purge(job *pjob)
 #ifdef	PBS_MOM
 	char namebuf[MAXPATHLEN + 1] = {'\0'};
 	int keeping = 0;
-	attribute *jrpattr = NULL;
 	char *taskdir_path = NULL;
 
 #ifndef WIN32
@@ -1155,17 +1154,16 @@ job_purge(job *pjob)
 
 	del_chkpt_files(pjob);
 
-	jrpattr = &pjob->ji_wattr[(int) JOB_ATR_remove];
 	/* remove stdout/err files if remove_files is set. */
-	if (is_attr_set(jrpattr)
+	if (is_jattr_set(pjob, JOB_ATR_remove))
 			&& (pjob->ji_qs.ji_un.ji_momt.ji_exitstat == JOB_EXEC_OK)) {
-		if (strchr(jrpattr->at_val.at_str, 'o')) {
+		if (strchr(get_jattr_str(pjob, JOB_ATR_remove), 'o')) {
 			(void) strcpy(namebuf, std_file_name(pjob, StdOut, &keeping));
 			if (*namebuf && (unlink(namebuf) < 0))
 				if (errno != ENOENT)
 					log_err(errno, __func__, msg_err_purgejob);
 		}
-		if (strchr(jrpattr->at_val.at_str, 'e')) {
+		if (strchr(get_jattr_str(pjob, JOB_ATR_remove), 'e')) {
 			(void) strcpy(namebuf, std_file_name(pjob, StdErr, &keeping));
 			if (*namebuf && (unlink(namebuf) < 0))
 				if (errno != ENOENT)
@@ -1531,8 +1529,7 @@ do_tolerate_node_failures(job *pjob)
  */
 
 int
-update_resources_list(job *pjob, char *res_list_name,
-		int res_list_index, char *exec_vnode, enum batch_op op,
+update_resources_list(job *pjob, char *res_list_name, char *exec_vnode, enum batch_op op,
 		int always_set, int backup_res_list_index)
 {
 	char *chunk;
@@ -1553,15 +1550,14 @@ update_resources_list(job *pjob, char *res_list_name,
 
 	/* Save current resource values in backup resource list */
 	/* if backup resources list is not already set */
-	if (is_jattr_set(pjob, res_list_index)) {
-
+	if (is_jattr_set(pjob, JOB_ATR_resource)) {
 		if ((is_jattr_set(pjob, backup_res_list_index)) == 0) {
 			free_jattr(pjob, backup_res_list_index);
-			set_attr_with_attr(&job_attr_def[backup_res_list_index], &pjob->ji_wattr[backup_res_list_index], &pjob->ji_wattr[res_list_index], INCR);
-
+			set_attr_with_attr(&job_attr_def[backup_res_list_index], &pjob->ji_wattr[backup_res_list_index],
+					&pjob->ji_wattr[res_list_index], INCR);
 		}
 
-		pr = (resource *)GET_NEXT(pjob->ji_wattr[res_list_index].at_val.at_list);
+		pr = (resource *) GET_NEXT(get_job_rsclist(pjob));
 		while (pr != NULL) {
 			next = (resource *)GET_NEXT(pr->rs_link);
 			if (pr->rs_defin->rs_flags & (ATR_DFLAG_RASSN | ATR_DFLAG_FNASSN | ATR_DFLAG_ANASSN)) {
@@ -1595,9 +1591,7 @@ update_resources_list(job *pjob, char *res_list_name,
 			}
 
 			if (prdef->rs_flags & (ATR_DFLAG_RASSN | ATR_DFLAG_FNASSN | ATR_DFLAG_ANASSN)) {
-				presc = add_resource_entry(
-					&pjob->ji_wattr[res_list_index],
-								prdef);
+				presc = add_resource_entry(&pjob->ji_wattr[JOB_ATR_resource], prdef);
 				if (presc == NULL) {
 					snprintf(log_buffer,
 						sizeof(log_buffer),
@@ -1607,9 +1601,7 @@ update_resources_list(job *pjob, char *res_list_name,
 							log_buffer);
 					goto update_resources_list_error;
 				}
-				if ((rc = prdef->rs_decode( &tmpattr,
-					res_list_name, prdef->rs_name,
-						pkvp[j].kv_val)) != 0) {
+				if ((rc = prdef->rs_decode(&tmpattr, res_list_name, prdef->rs_name, pkvp[j].kv_val)) != 0) {
 					snprintf(log_buffer,
 						  sizeof(log_buffer),
 						  "decode of %s failed",
@@ -1619,8 +1611,7 @@ update_resources_list(job *pjob, char *res_list_name,
 							log_buffer);
 					goto update_resources_list_error;
 				}
-				(void)prdef->rs_set( &presc->rs_value,
-							&tmpattr, op);
+				set_jattr_with_attr(pjob, JOB_ATR_resource, &tmpattr, prdef->rs_name, SET);
 			}
 		}
 	}
@@ -1631,11 +1622,11 @@ update_resources_list(job *pjob, char *res_list_name,
 	}
 
 	if (always_set &&
-	   ((is_jattr_set(pjob, res_list_index)) == 0)) {
+	   ((is_jattr_set(pjob, JOB_ATR_resource)) == 0)) {
 		/* this means no resources got freed during suspend */
 		/* let's put a dummy entry for ncpus=0 */
 		prdef = &svr_resc_def[RESC_NCPUS];
-		presc = add_resource_entry(&pjob->ji_wattr[res_list_index], prdef);
+		presc = add_resource_entry(&pjob->ji_wattr[JOB_ATR_resource], prdef);
 		if (presc == NULL) {
 			log_err(PBSE_INTERNAL, __func__,
 				"failed to add ncpus in resource list");
@@ -1656,8 +1647,7 @@ update_resources_list(job *pjob, char *res_list_name,
 update_resources_list_error:
 	free_jattr(pjob, backup_res_list_index);
 	mark_jattr_not_set(pjob, backup_res_list_index);
-	set_attr_with_attr(&job_attr_def[res_list_index],
-			&pjob->ji_wattr[res_list_index],
+	set_attr_with_attr(&job_attr_def[JOB_ATR_resource], &pjob->ji_wattr[JOB_ATR_resource],
 			&pjob->ji_wattr[backup_res_list_index], INCR);
 	return (1);
 }
@@ -2314,9 +2304,8 @@ setup_cpyfiles(struct batch_request *preq, job  *pjob, char *from, char *to, int
 static int
 is_join(job *pjob, enum job_atr ati)
 {
-	char       key;
-	attribute *pattr;
-	char	  *pd;
+	char key;
+	char *pd;
 
 	if (ati == JOB_ATR_outpath)
 		key = 'o';
@@ -2324,9 +2313,8 @@ is_join(job *pjob, enum job_atr ati)
 		key = 'e';
 	else
 		return (0);
-	pattr = &pjob->ji_wattr[(int)JOB_ATR_join];
-	if (is_attr_set(pattr)) {
-		pd = get_attr_str(pattr);
+	if (is_jattr_set(pjob, JOB_ATR_join)) {
+		pd = get_jattr_str(pjob, JOB_ATR_join);
 		if (pd && *pd && (*pd != 'n')) {
 			/* if not the first letter, and in list - is joined */
 			if ((*pd != key) && (strchr(pd+1, (int)key)))
@@ -2354,10 +2342,9 @@ cpy_stdfile(struct batch_request *preq, job *pjob, enum job_atr ati)
 {
 	char *from;
 	char  key;
-	attribute *jkpattr;
-	attribute *pathattr = &pjob->ji_wattr[(int)ati];
 	char *suffix;
 	char *to = NULL;
+	char *keep_val;
 
 	/* if the job is interactive, don't bother to return output file */
 
@@ -2374,7 +2361,7 @@ cpy_stdfile(struct batch_request *preq, job *pjob, enum job_atr ati)
 		suffix = JOB_STDOUT_SUFFIX;
 	}
 
-	if ((pathattr->at_flags & ATR_VFLAG_SET) == 0) { /* This shouldn't be */
+	if (!is_jattr_set(pjob, ati)) { /* This shouldn't be */
 
 		(void)sprintf(log_buffer, "%c file missing", key);
 		log_event(PBSEVENT_ERROR|PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
@@ -2392,10 +2379,9 @@ cpy_stdfile(struct batch_request *preq, job *pjob, enum job_atr ati)
 	 * the keep list, MOM has already placed the file in the user's HOME
 	 * directory.  It don't need to be copied.
 	 */
-
-	jkpattr = &pjob->ji_wattr[(int)JOB_ATR_keep];
-	if ((jkpattr->at_flags & ATR_VFLAG_SET) &&
-		strchr(jkpattr->at_val.at_str, key) && !strchr(jkpattr->at_val.at_str, 'd'))
+	keep_val = get_jattr_str(pjob, JOB_ATR_keep);
+	if (is_jattr_set(pjob, JOB_ATR_keep) &&
+		strchr(keep_val, key) && !strchr(keep_val, 'd'))
 		return (preq);
 
 	/*
@@ -2404,18 +2390,16 @@ cpy_stdfile(struct batch_request *preq, job *pjob, enum job_atr ati)
 	 */
 	if (is_jattr_set(pjob, JOB_ATR_exit_status)) {
 		if (get_jattr_long(pjob, JOB_ATR_exit_status) == JOB_EXEC_OK) {
-			jkpattr = &pjob->ji_wattr[(int) JOB_ATR_remove];
-			if (is_attr_set(jkpattr) && (strchr(jkpattr->at_val.at_str, key)))
+			if (is_jattr_set(pjob, JOB_ATR_remove) && (strchr(keep_val, key)))
 				return (preq);
 		}
 	}
 
 	/* else go with the supplied name */
 
-	to = malloc(strlen(pathattr->at_val.at_str) + 1);
+	to = malloc(strlen(get_jattr_str(pjob, ati)) + 1);
 	if (to) {
-		(void)strcpy(to, pathattr->at_val.at_str);
-
+		strcpy(to, get_jattr_str(pjob, ati));
 	} else
 		return (preq);	/* cannot continue with this one */
 
@@ -2451,16 +2435,16 @@ cpy_stdfile(struct batch_request *preq, job *pjob, enum job_atr ati)
 struct batch_request *
 cpy_stage(struct batch_request *preq, job *pjob, enum job_atr ati, int direction)
 {
-	int		      i;
-	char		     *from;
-	attribute 	     *pattr;
+	int i;
+	char *from;
+	attribute *pattr;
 	struct array_strings *parst;
-	char 		     *plocal;
-	char		     *prmt;
-	char		     *to;
+	char *plocal;
+	char *prmt;
+	char *to;
 
 	pattr = &pjob->ji_wattr[(int)ati];
-	if (is_attr_set(pattr)) {
+	if (is_jattr_set(pjob, ati)) {
 
 		/* at last, we know we have files to stage out/in */
 

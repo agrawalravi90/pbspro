@@ -2476,9 +2476,7 @@ get_new_exec_vnode_host_schedselect(job *pjob, char *msg, size_t msg_size)
 
 	set_jattr_str_slim(pjob, JOB_ATR_exec_vnode, new_exec_vnode, NULL);
 
-	(void)update_resources_list(pjob, ATTR_l,
-		JOB_ATR_resource, new_exec_vnode, INCR, 0,
-			JOB_ATR_resource_orig);
+	update_resources_list(pjob, ATTR_l, new_exec_vnode, INCR, 0, JOB_ATR_resource_orig);
 
 
 	if (is_jattr_set(pjob, JOB_ATR_exec_host2))

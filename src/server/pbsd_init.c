@@ -1181,7 +1181,6 @@ reassign_resc(job *pjob)
 	char *hoststr2 = get_jattr_str(pjob, JOB_ATR_exec_host2);
 	char *vnodein;
 	char *vnodeout;
-	attribute deallocated_attr;
 
 	/* safety check: if no hoststr, no node (hosts) assigned, just return */
 	if (hoststr == NULL)
@@ -1221,15 +1220,14 @@ reassign_resc(job *pjob)
 		set_jattr_str_slim(pjob, JOB_ATR_exec_vnode, vnodeout, NULL);
 		set_jattr_str_slim(pjob, JOB_ATR_exec_host, hoststr, NULL);
 	}
-	deallocated_attr = pjob->ji_wattr[(int)JOB_ATR_exec_vnode_deallocated];
 
-	if ((rc == 0) && (is_attr_set(&deallocated_attr))) {
+	if ((rc == 0) && (is_jattr_set(pjob, JOB_ATR_exec_vnode_deallocated))) {
 		char	*hstr = NULL;
 		char	*hstr2 = NULL;
 		char	*vnalloc = NULL;
 		char	*new_exec_vnode_deallocated;
 
-	 	new_exec_vnode_deallocated = deallocated_attr.at_val.at_str;
+	 	new_exec_vnode_deallocated = get_jattr_str(pjob, JOB_ATR_exec_vnode_deallocated);
 
 		rc = set_nodes((void *)pjob, JOB_OBJECT, new_exec_vnode_deallocated,
 			 &vnalloc, &hstr, &hstr2, 1, TRUE);

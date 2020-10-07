@@ -888,7 +888,7 @@ create_subjob(job *parent, char *newjid, int *rc)
 	resc_access_perm = ATR_DFLAG_ACCESS;
 	CLEAR_HEAD(attrl);
 	for (i = 0; attrs_to_copy[i] != JOB_ATR_LAST; i++) {
-		j    = (int)attrs_to_copy[i];
+		j = (int) attrs_to_copy[i];
 		ppar = &parent->ji_wattr[j];
 		psub = &subj->ji_wattr[j];
 		pdef = &job_attr_def[j];
@@ -897,8 +897,7 @@ create_subjob(job *parent, char *newjid, int *rc)
 			ATR_ENCODE_MOM, &psatl) > 0) {
 			for (psatl = (svrattrl *)GET_NEXT(attrl); psatl;
 				psatl = ((svrattrl *)GET_NEXT(psatl->al_link))) {
-				pdef->at_decode(psub, psatl->al_name, psatl->al_resc,
-					psatl->al_value);
+				set_jattr_generic(subj, j, psatl->al_value, psatl->al_resc, SET);
 			}
 			/* carry forward the default bit if set */
 			psub->at_flags |= (ppar->at_flags & ATR_VFLAG_DEFLT);

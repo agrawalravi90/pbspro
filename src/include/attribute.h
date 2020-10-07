@@ -196,7 +196,7 @@ struct attribute_def {
 	int	(*at_decode)(attribute *patr, char *name, char *rn, char *val);
 	int	(*at_encode)(const attribute *pattr, pbs_list_head *phead, char *aname, char *rsname, int mode, svrattrl **rtnl);
 	int	(*at_set)(attribute *pattr, attribute *new, enum batch_op);
-	int	(*at_comp)(attribute *pattr, attribute *with);
+	int	(*at_comp)(const attribute *pattr, const attribute *with);
 	void (*at_free)(attribute *pattr);
 	int	(*at_action)(attribute *pattr, void *pobject, int actmode);
 	unsigned int at_flags:ATRDFLAG;	/* flags: perms, ...		*/
@@ -428,18 +428,18 @@ extern int set_depend(attribute *attr, attribute *new, enum batch_op);
 extern u_Long get_kilobytes_from_attr(struct attribute *);
 extern u_Long get_bytes_from_attr(struct attribute *);
 
-extern int   comp_b(attribute *attr, attribute *with);
-extern int   comp_c(attribute *attr, attribute *with);
-extern int   comp_f(attribute *attr, attribute *with);
-extern int   comp_l(attribute *attr, attribute *with);
-extern int   comp_ll(attribute *attr, attribute *with);
-extern int   comp_size  (attribute *attr, attribute *with);
-extern int   comp_str  (attribute *attr, attribute *with);
-extern int   comp_arst(attribute *attr, attribute *with);
-extern int   comp_resc(attribute *attr, attribute *with);
-extern int   comp_unkn(attribute *attr, attribute *with);
-extern int   comp_depend(attribute *attr, attribute *with);
-extern int   comp_hold(attribute *attr, attribute *with);
+extern int   comp_b(const attribute *attr, const attribute *with);
+extern int   comp_c(const attribute *attr, const attribute *with);
+extern int   comp_f(const attribute *attr, const attribute *with);
+extern int   comp_l(const attribute *attr, const attribute *with);
+extern int   comp_ll(const attribute *attr, const attribute *with);
+extern int   comp_size  (const attribute *attr, const attribute *with);
+extern int   comp_str  (const attribute *attr, const attribute *with);
+extern int   comp_arst(const attribute *attr, const attribute *with);
+extern int   comp_resc(const attribute *attr, const attribute *with);
+extern int   comp_unkn(const attribute *attr, const attribute *with);
+extern int   comp_depend(const attribute *attr, const attribute *with);
+extern int   comp_hold(const attribute *attr, const attribute *with);
 
 extern int action_depend(attribute *attr, void *pobj, int mode);
 extern int check_no_entlim(attribute *attr, void *pobj, int mode);
@@ -471,7 +471,7 @@ extern char *return_internal_value(char *name, char *val);
 extern int   acl_check(attribute *, char *canidate, int type);
 extern int   check_duplicates(struct array_strings *strarr);
 
-extern char *arst_string(char *str, attribute *pattr);
+extern char *arst_string(char *str, const attribute *pattr);
 extern void  attrl_fixlink(pbs_list_head *svrattrl);
 extern int   save_attr_fs(attribute_def *, attribute *, int);
 
@@ -518,7 +518,7 @@ extern void	mgr_log_attr(char *, struct svrattrl *, int, char *, char *);
 extern int	mgr_set_attr(attribute *, void *, attribute_def *, int, svrattrl *, int, int *, void *, int);
 /* Extern functions (at_action) called  from job_attr_def*/
 
-extern int job_set_wait(attribute *, void *, int);
+extern int job_set_wait(const attribute *, void *, int);
 extern int setup_arrayjob_attrs(attribute *pattr, void *pobject, int actmode);
 extern int fixup_arrayindicies  (attribute *pattr, void *pobject, int actmode);
 extern int action_resc_job(attribute *pattr, void *pobject, int actmode);

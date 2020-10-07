@@ -338,9 +338,7 @@ req_modifyjob(struct batch_request *preq)
 
 	/* check if project attribute was requested to be modified to */
 	/* be the default project value */
-	if (mod_project && (pjob->ji_wattr[(int)JOB_ATR_project].at_flags & \
-							ATR_VFLAG_SET)) {
-
+	if (mod_project && is_jattr_set(pjob, JOB_ATR_project)) {
 		if (strcmp(get_jattr_str(pjob, JOB_ATR_project),
 			PBS_DEFAULT_PROJECT) == 0) {
 			sprintf(log_buffer, msg_defproject,
@@ -1176,7 +1174,7 @@ req_modifyReservation(struct batch_request *preq)
 
 	if (presv->ri_alter.ra_flags & RESV_SELECT_MODIFIED) {
 		presc = find_resc_entry(&presv->ri_wattr[RESV_ATR_resource], &svr_resc_def[RESC_SELECT]);
-		make_schedselect(&presv->ri_wattr[(int) RESV_ATR_resource], presc, NULL, &presv->ri_wattr[(int) RESV_ATR_SchedSelect]);
+		make_schedselect(presc, NULL, &presv->ri_wattr[(int) RESV_ATR_SchedSelect]);
 		if (is_select_smaller(presv->ri_wattr[RESV_ATR_SchedSelect_orig].at_val.at_str, presv->ri_wattr[RESV_ATR_SchedSelect].at_val.at_str) == 0) {
 			req_reject(PBSE_SELECT_NOT_SUBSET, 0, preq);
 			revert_alter_reservation(presv);

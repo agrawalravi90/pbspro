@@ -1990,13 +1990,7 @@ stat_update(int stream)
 				if (assign_hosts(pjob, execvnode_entry->al_value, 1) == 0) {
 					resource_def *prdefsl;
 					resource     *presc;
-					(void)update_resources_list(pjob, ATTR_l,
-								    JOB_ATR_resource,
-					     			    execvnode_entry->al_value,
-					     			    INCR, 0,
-					     			    JOB_ATR_resource_orig);
-
-
+					update_resources_list(pjob, ATTR_l, execvnode_entry->al_value, INCR, 0, JOB_ATR_resource_orig);
 
 					if ((is_jattr_set(pjob, JOB_ATR_SchedSelect_orig)) == 0)
 						set_jattr_str_slim(pjob, JOB_ATR_SchedSelect_orig, cur_schedselect, NULL);
@@ -2745,7 +2739,6 @@ deallocate_job(mominfo_t *pmom, job *pjob)
 	char	*freed_vnode_list = NULL;
 	int	freed_sz = 0;
 	char	*new_exec_vnode = NULL;
-	attribute deallocated_attr;
 	char	*jobid;
 	pbs_sched *psched;
 
@@ -2792,12 +2785,10 @@ deallocate_job(mominfo_t *pmom, job *pjob)
 						pmom->mi_host, log_buffer);
 	}
 
-	deallocated_attr = pjob->ji_wattr[(int)JOB_ATR_exec_vnode_deallocated];
-	if ((freed_vnode_list != NULL) && (is_attr_set(&deallocated_attr))) {
+	if ((freed_vnode_list != NULL) && is_jattr_set(pjob, JOB_ATR_exec_vnode_deallocated)) {
 		char   err_msg[LOG_BUF_SIZE];
 
-		new_exec_vnode = delete_from_exec_vnode(
-				deallocated_attr.at_val.at_str,
+		new_exec_vnode = delete_from_exec_vnode(get_jattr_str(pjob, JOB_ATR_exec_vnode_deallocated),
 				freed_vnode_list, err_msg, LOG_BUF_SIZE);
 
 		if (new_exec_vnode == NULL) {
@@ -5996,7 +5987,6 @@ build_execvnode(job *pjob, char *nds)
 	char  *pc;
 	char  *psl;
 	int    rc;
-	attribute  *pschedselect;
 	char  *selspec;
 	static size_t outbufsz = 0;
 	static char  *outbuf = NULL;
@@ -6004,11 +5994,10 @@ build_execvnode(job *pjob, char *nds)
 	if (!pjob || !nds)
 		return NULL;
 
-	pschedselect = &pjob->ji_wattr[(int)JOB_ATR_SchedSelect];
-	if (!is_attr_set(pschedselect))
+	if (!is_jattr_set(pjob, JOB_ATR_SchedSelect))
 		return (nds);
 
-	selspec = pschedselect->at_val.at_str;
+	selspec = get_jattr_str(pjob, JOB_ATR_SchedSelect);
 
 	if (outbufsz == 0) {
 		outbufsz = OUTBUF_SZ;
@@ -7156,7 +7145,7 @@ adj_resc_on_node(char *noden, int aflag, enum batch_op op, resource_def *prdef, 
  * @return	void
  */
 void
-update_job_node_rassn(job *pjob, attribute *pexech, enum batch_op op)
+update_job_node_rassn(job *pjob, const attribute *pexech, enum batch_op op)
 {
 	int	  asgn = ATR_DFLAG_ANASSN | ATR_DFLAG_FNASSN;
 	char     *chunk;
@@ -7792,7 +7781,7 @@ set_last_used_time_node(void *pobj, int type)
  * @retval 0  - SUCCESS
  * @retval > 0 - FAILURE
  */
-int update_resources_rel(job *pjob, attribute *attrib, enum batch_op op)
+int update_resources_rel(job *pjob, enum batch_op op)
 {
 	char * chunk;
 	int j;
@@ -7805,10 +7794,10 @@ int update_resources_rel(job *pjob, attribute *attrib, enum batch_op op)
 	resource *presc_sq;
 	attribute tmpattr;
 
-	if (attrib == NULL || pjob == NULL)
+	if (pjob == NULL)
 		return 1;
 
-	chunk = parse_plus_spec(attrib->at_val.at_str, &rc);
+	chunk = parse_plus_spec(get_jattr_str(pjob, JOB_ATR_resc_released), &rc);
 	if (rc != 0)
 		return 1;
 	while(chunk) {
@@ -7837,7 +7826,7 @@ int update_resources_rel(job *pjob, attribute *attrib, enum batch_op op)
 	 * restrict_res_to_release_on_suspend is set
 	 */
 	if (server.sv_attr[(int)SVR_ATR_restrict_res_to_release_on_suspend].at_flags & ATR_VFLAG_SET) {
-		presc_sq = (resource *) GET_NEXT(pjob->ji_wattr[(int) JOB_ATR_resource].at_val.at_list);
+		presc_sq = (resource *) GET_NEXT(get_job_rsclist(pjob));
 		for (;presc_sq != NULL; presc_sq = (resource *)GET_NEXT(presc_sq->rs_link)) {
 			prdef = presc_sq->rs_defin;
 			/* make sure it is a server/queue level consumable resource and not
@@ -7932,7 +7921,7 @@ free_sister_vnodes(job *pjob, char *vnodelist, char *keep_select, char *err_msg,
  *
  */
 void
-update_node_rassn(attribute *pexech, enum batch_op op)
+update_node_rassn(const attribute *pexech, enum batch_op op)
 {
 	update_job_node_rassn(NULL, pexech, op);
 }

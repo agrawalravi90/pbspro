@@ -301,9 +301,7 @@ req_releasejob(struct batch_request *preq)
 	/* all ok so far, unset the hold */
 
 	old_hold = get_jattr_long(pjob, JOB_ATR_hold);
-	rc = job_attr_def[(int)JOB_ATR_hold].
-		at_set(&pjob->ji_wattr[(int)JOB_ATR_hold],
-		&temphold, DECR);
+	rc = set_jattr_with_attr(pjob, JOB_ATR_hold, &temphold, NULL, DECR);
 	if (rc) {
 		req_reject(rc, 0, preq);
 		return;
@@ -316,9 +314,7 @@ req_releasejob(struct batch_request *preq)
 #endif /* localmod 105 */
 #ifdef NAS /* localmod 105 */
 		{
-			attribute *etime = &pjob->ji_wattr[(int)JOB_ATR_etime];
-			etime->at_val.at_long = time_now;
-			etime->at_flags |= ATR_SET_MOD_MCACHE;
+			set_jattr_long(pjob, JOB_ATR_etime, time_now, SET);
 #endif /* localmod 105 */
 		svr_evaljobstate(pjob, &newstate, &newsub, 0);
 		svr_setjobstate(pjob, newstate, newsub); /* saves job */
@@ -334,17 +330,13 @@ req_releasejob(struct batch_request *preq)
 				old_hold = get_jattr_long(psubjob, JOB_ATR_hold);
 				rc =
 #endif
-					job_attr_def[(int)JOB_ATR_hold].
-					at_set(&psubjob->ji_wattr[(int)JOB_ATR_hold],
-					&temphold, DECR);
+					set_jattr_with_attr(psubjob, JOB_ATR_hold, &temphold, NULL, DECR);
 #ifndef NAS /* localmod 105 Always reset etime on release */
 				if (!rc && (old_hold != get_jattr_long(psubjob, JOB_ATR_hold))) {
 #endif /* localmod 105 */
 #ifdef NAS /* localmod 105 */
 				{
-					attribute *etime = &psubjob->ji_wattr[(int)JOB_ATR_etime];
-					etime->at_val.at_long = time_now;
-					etime->at_flags |= ATR_SET_MOD_MCACHE;
+					set_jattr_long(pjob, JOB_ATR_etime, time_now, SET);
 #endif /* localmod 105 */
 					svr_evaljobstate(psubjob, &newstate, &newsub, 0);
 					svr_setjobstate(psubjob, newstate, newsub); /* saves job */

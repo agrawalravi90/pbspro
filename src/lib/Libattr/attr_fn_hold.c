@@ -190,7 +190,7 @@ encode_hold(const attribute *attr, pbs_list_head *phead, char *atname, char *rsn
  */
 
 int
-comp_hold(struct attribute *attr, struct attribute *with)
+comp_hold(const attribute *attr, const attribute *with)
 {
 	if (!attr || !with)
 		return -1;
