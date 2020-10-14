@@ -145,6 +145,7 @@ typedef struct th_data_free_ninfo th_data_free_ninfo;
 typedef struct th_data_dup_resresv th_data_dup_resresv;
 typedef struct th_data_query_jinfo th_data_query_jinfo;
 typedef struct th_data_free_resresv th_data_free_resresv;
+typedef struct node_info_arr node_info_arr;
 
 
 #ifdef NAS
@@ -965,6 +966,12 @@ struct resresv_set
 	place *place_spec;		/* place spec of set */
 	resource_req *req;		/* ATTR_L (qsub -l) resources of set.  Only contains resources on the resources line */
 	queue_info *qinfo;		/* The queue the resresv is in if the queue has nodes associated */
+};
+
+struct node_info_arr
+{
+	node_info **ninfo_arr;
+	int num_nodes;
 };
 
 struct node_partition

@@ -2380,7 +2380,9 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 		return 0;
 	}
 
-	check_node_array_eligibility(ninfo_arr, resresv, pl, tot_nodes, err);
+	/* Don't call check_node_array_eligibility for single chunk jobs */
+	if (spec->total_chunks > 1)
+		check_node_array_eligibility(ninfo_arr, resresv, pl, tot_nodes, err);
 
 	if (failerr->status_code == SCHD_UNKWN)
 		move_schd_error(failerr, err);
@@ -2524,22 +2526,26 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 	resource_resv *resresv, unsigned int flags,
 	nspec ***nspec_arr, schd_error *err)
 {
-	np_cache		*npc = NULL;
-	node_partition		**hostsets = NULL;
-	char			*host_arr[2] = {"host", NULL};
-	int			i = 0;
-	int			k = 0;
-	int			tot = 0;
-	int			c = -1;
-	nspec			**nsa = NULL;
-	nspec			**ns_head = NULL;
-	char			reason[MAX_LOG_SIZE] = {0};
-	resource_req		*req = NULL;
-	schd_resource		*res = NULL;
-	selspec			*dselspec = NULL;
-	int			do_exclhost = 0;
-	node_info		**nptr = NULL;
-	static schd_error	*failerr = NULL;
+	np_cache *npc = NULL;
+	node_partition **hostsets = NULL;
+	char *host_arr[2] = { "host", NULL };
+	int i = 0;
+	int k = 0;
+	int tot = 0;
+	int c = -1;
+	nspec **nsa = NULL;
+	nspec **ns_head = NULL;
+	char reason[MAX_LOG_SIZE] = { 0 };
+	resource_req *req = NULL;
+	schd_resource *res = NULL;
+	selspec *dselspec = NULL;
+	int do_exclhost = 0;
+	node_info **nptr = NULL;
+	static schd_error *failerr = NULL;
+	int check_eligible = 0;
+
+	if (spec->total_chunks == 1)
+		check_eligible = 1;
 
 
 	int rc = 0; /* true if current chunk was successfully allocated */
@@ -2673,7 +2679,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 							dninfo_arr[k]->nscr &= ~NSCR_VISITED;
 						while (rc > 0 && dselspec->chunks[c]->num_chunks > 0) {
 							rc = eval_simple_selspec(policy, spec->chunks[c], dninfo_arr, pl,
-								resresv, flags, &nsa, err);
+								resresv, flags, &nsa, err, check_eligible);
 
 							if (rc > 0) {
 								any_succ_rc = 1;
@@ -2741,7 +2747,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 
 							rc = eval_simple_selspec(policy, spec->chunks[c],
 								dninfo_arr, pl, resresv, flags| EVAL_OKBREAK,
-								&nsa, err);
+								&nsa, err, check_eligible);
 
 							if (rc > 0) {
 								any_succ_rc = 1;
@@ -2818,7 +2824,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 								dup_ninfo_arr[k]->nscr &= ~NSCR_VISITED;
 							do {
 								rc = eval_simple_selspec(policy, dselspec->chunks[c], dup_ninfo_arr,
-									pl, resresv, flags | EVAL_OKBREAK, &nsa, err);
+									pl, resresv, flags | EVAL_OKBREAK, &nsa, err, check_eligible);
 
 								if (rc > 0) {
 									any_succ_rc = 1;
@@ -2952,6 +2958,10 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
 	int c;
 	resource_req *req;
 	schd_resource *res;
+	int check_eligible = 0;
+
+	if (spec->total_chunks == 1)
+		check_eligible = 1;
 
 	if (spec == NULL || ninfo_arr == NULL)
 		return 0;
@@ -2959,7 +2969,7 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
 	/* we have a simple selspec... just pass it along */
 	if (spec->total_chunks == 1)
 		return eval_simple_selspec(policy, spec->chunks[0], ninfo_arr,
-						pl, resresv, flags, nspec_arr, err);
+						pl, resresv, flags, nspec_arr, err, check_eligible);
 
 	tot_nodes = count_array(ninfo_arr);
 
@@ -2999,7 +3009,7 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
 		}
 
 		rc = eval_simple_selspec(policy, spec->chunks[n], nodes, pl, resresv,
-			flags, &nsa, err);
+			flags, &nsa, err, check_eligible);
 
 		if (rc > 0) {
 			while (*nsa != NULL) {
@@ -3078,31 +3088,31 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
 int
 eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 	place *pl, resource_resv *resresv, unsigned int flags,
-	nspec ***nspec_arr, schd_error *err)
+	nspec ***nspec_arr, schd_error *err, int check_eligible)
 {
-	int		chunks_found = 0;	/* number of nodes found to satisfy a subspec */
-	nspec		*ns = NULL;		/* current nspec */
-	nspec		**nsa = NULL;		/* the nspec array to hold node solution */
-	resource_req	*specreq_noncons = NULL;/* non-consumable resources requested by spec */
-	resource_req	*specreq_cons = NULL;	/* consumable resources requested by spec */
-	resource_req	*req = NULL;		/* used to determine if we're done */
-	resource_req	*prevreq = NULL;	/* used to determine if we're done */
-	resource_req	*tmpreq = NULL;		/* used to unlink and free */
-	int		need_new_nspec = 1;	/* need to allocate a new nspec for node solution */
+	int chunks_found = 0; /* number of nodes found to satisfy a subspec */
+	nspec *ns = NULL; /* current nspec */
+	nspec **nsa = NULL; /* the nspec array to hold node solution */
+	resource_req *specreq_noncons = NULL;/* non-consumable resources requested by spec */
+	resource_req *specreq_cons = NULL; /* consumable resources requested by spec */
+	resource_req *req = NULL; /* used to determine if we're done */
+	resource_req *prevreq = NULL; /* used to determine if we're done */
+	resource_req *tmpreq = NULL; /* used to unlink and free */
+	int need_new_nspec = 1; /* need to allocate a new nspec for node solution */
 
-	int		allocated = 0;		/* did we allocate resources to a vnode */
-	int		nspecs_allocated = 0;	/* number of nodes allocated */
-	int		i = 0;
-	int		j = 0;
-	int		k = 0;
+	int allocated = 0; /* did we allocate resources to a vnode */
+	int nspecs_allocated = 0; /* number of nodes allocated */
+	int i = 0;
+	int j = 0;
+	int k = 0;
 
-	char		*str_chunk = NULL;	/* ptr to after the number of chunks in the str_chunk */
+	char *str_chunk = NULL; /* ptr to after the number of chunks in the str_chunk */
 
-	node_info	**ninfo_arr = NULL;
+	node_info **ninfo_arr = NULL;
 
 	static schd_error *failerr = NULL;
 
-	resource_req	*aoereq = NULL;
+	resource_req *aoereq = NULL;
 
 	if (chk == NULL || pninfo_arr == NULL || resresv== NULL || pl == NULL || nspec_arr == NULL)
 		return 0;
@@ -3190,13 +3200,57 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 		specreq_noncons = NULL;	/* no non-consumable resources */
 
 	nsa = *nspec_arr;
-
 	for (i = 0, j = 0; ninfo_arr[i] != NULL && chunks_found == 0; i++) {
+		allocated = 0;
+		clear_schd_error(err);
+
 		if (ninfo_arr[i]->nscr)
 			continue;
 
-		allocated = 0;
-		clear_schd_error(err);
+		/* For single chunk jobs, we didn't call check_node_array_eligibility(),
+		 * we instead check the eligibility on a per host basis here
+		 */
+		if (check_eligible) {
+			node_info *node = ninfo_arr[i];
+
+			if (node->hostset != NULL) {
+				int k;
+				int host_ineligible = 0;
+				int node_ineligible = 0;
+
+				/* if job wants excl and one of the nodes on the host is ineligible, all are marked ineligible */
+				for (k = 0; node->hostset->ninfo_arr[k] != NULL; k++) {
+					if (node->hostset->ninfo_arr[k]->nscr) {
+						if (node->hostset->ninfo_arr[k]->node_ind == node->node_ind) {
+							node_ineligible = 1;
+							break;
+						}
+						continue;
+					}
+					if (!is_vnode_eligible(node->hostset->ninfo_arr[k], resresv, pl, err)) {
+						if (node->hostset->ninfo_arr[k]->node_ind == node->node_ind)
+							node_ineligible = 1;
+						if ((err->error_code == NODE_NOT_EXCL && is_exclhost(pl, node->sharing)) ||
+								sim_exclhost(resresv->server->calendar, resresv, node) == 0) {
+							host_ineligible = 1;
+							break;
+						}
+					}
+				}
+				if (host_ineligible) {
+					for (k = 0; node->hostset->ninfo_arr[k] != NULL; k++) {
+						node_info *n = node->hostset->ninfo_arr[k];
+						n->nscr |= NSCR_INELIGIBLE;
+						set_schd_error_codes(err, NOT_RUN, NODE_NOT_EXCL);
+					}
+				}
+
+				if (host_ineligible || node_ineligible)
+					continue;
+			} else if (!is_vnode_eligible(node, resresv, pl, err))
+				continue;
+		}
+
 		if (ninfo_arr[i]->lic_lock) {
 			if (need_new_nspec) {
 				need_new_nspec = 0;
@@ -5663,6 +5717,7 @@ is_exclhost(place *placespec, enum vnode_sharing sharing)
 	/* otherwise we're not doing exclhost */
 	return 0;
 }
+
 
 /**
  * @brief	pthread routing to check eligibility for a chunk of nodes

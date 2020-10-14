@@ -404,7 +404,7 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
 int
 eval_simple_selspec(status *policy, chunk *chk, node_info **ninfo_arr,
 	place *pl, resource_resv *resresv, unsigned int flags,
-	nspec ***nspec_arr, schd_error *err);
+	nspec ***nspec_arr, schd_error *err, int check_eligible);
 
 /* evaluate one node to see if it is eligible at the job/resv level */
 int
