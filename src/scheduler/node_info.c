@@ -159,6 +159,8 @@
 /* name of the last node a job ran on - used in smp_dist = round robin */
 static char last_node_name[PBS_MAXSVRJOBID];
 
+static node_info_arr *reorder_nodes(node_info_arr *node_arr, resource_resv *resresv);
+
 void
 query_node_info_chunk(th_data_query_ninfo *data)
 {
@@ -250,11 +252,12 @@ alloc_tdata_nd_query(struct batch_status *nodes, server_info *sinfo, int sidx, i
  * @return	array of nodes associated with server
  *
  */
-node_info **
+node_info_arr *
 query_nodes(int pbs_sd, server_info *sinfo)
 {
 	struct batch_status *nodes;		/* nodes returned from the server */
 	struct batch_status *cur_node;	/* used to cycle through nodes */
+	node_info_arr *arr_obj;
 	node_info **ninfo_arr;		/* array of nodes for scheduler's use */
 	char *err;				/* used with pbs_geterrmsg() */
 	int num_nodes = 0;			/* the number of nodes */
@@ -419,14 +422,19 @@ query_nodes(int pbs_sd, server_info *sinfo)
 		free(ninfo_arr);
 		return NULL;
 	}
+	arr_obj = create_node_info_arr(ninfo_arr, nidx);
+	if (arr_obj == NULL) {
+		pbs_statfree(nodes);
+		free(ninfo_arr);
+		return NULL;
+	}
 
 #ifdef NAS /* localmod 062 */
 	site_vnode_inherit(ninfo_arr);
 #endif /* localmod 062 */
 	resolve_indirect_resources(ninfo_arr);
-	sinfo->num_nodes = nidx;
 	pbs_statfree(nodes);
-	return ninfo_arr;
+	return arr_obj;
 }
 
 /**
@@ -1149,16 +1157,17 @@ add_node_state(node_info *ninfo, char *state)
  * filter_func prototype: int func( node_info *, void * )
  *
  */
-node_info **
-node_filter(node_info **nodes, int size,
+node_info_arr *
+node_filter(node_info_arr *node_arr, int size,
 	int (*filter_func)(node_info*, void*), void *arg, int flags)
 {
+	node_info_arr *ret_arr = NULL;
 	node_info **new_nodes = NULL;			/* the new node array */
 	node_info **new_nodes_tmp = NULL;
 	int i, j;
 
 	if (size < 0)
-		size = count_array(nodes);
+		size = node_arr->num_nodes;
 
 	if ((new_nodes = (node_info **) malloc((size + 1) * sizeof(node_info *))) == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
@@ -1166,8 +1175,8 @@ node_filter(node_info **nodes, int size,
 	}
 
 	for (i = 0, j = 0; i < size; i++) {
-		if (filter_func(nodes[i], arg)) {
-			new_nodes[j] = nodes[i];
+		if (filter_func(node_arr->nodes[i], arg)) {
+			new_nodes[j] = node_arr->nodes[i];
 			j++;
 		}
 	}
@@ -1179,7 +1188,12 @@ node_filter(node_info **nodes, int size,
 		else
 			new_nodes = new_nodes_tmp;
 	}
-	return new_nodes;
+
+	ret_arr = create_node_info_arr(new_nodes, j);
+	if (ret_arr == NULL)
+		return NULL;
+
+	return ret_arr;
 }
 
 /**
@@ -1323,10 +1337,9 @@ alloc_tdata_dup_nodes(unsigned int flags, server_info *nsinfo, node_info **onode
  * @retval	NULL	: on error
  *
  */
-node_info **
-dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
+node_info_arr *
+dup_nodes(node_info_arr *onode_arr, server_info *nsinfo, unsigned int flags)
 {
-	node_info **nnodes;
 	int num_nodes;
 	int thread_node_ct_left;
 	int i, j;
@@ -1341,13 +1354,18 @@ dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
 	int num_tasks;
 	int th_err = 0;
 	int tid;
+	node_info **onodes = NULL;
+	node_info **nnodes = NULL;
+	node_info_arr *nnode_arr = NULL;
 
-	if (onodes == NULL || nsinfo == NULL)
+	if (onode_arr == NULL || nsinfo == NULL)
 		return NULL;
 
-	num_nodes = thread_node_ct_left = count_array(onodes);
+	num_nodes = thread_node_ct_left = onode_arr->num_nodes;
+	onodes = onode_arr->nodes;
 
 	if ((nnodes = (node_info **) malloc((num_nodes + 1) * sizeof(node_info *))) == NULL) {
+		free(nnode_arr);
 		log_err(errno, __func__, MEM_ERR_MSG);
 		return NULL;
 	}
@@ -1465,7 +1483,12 @@ dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags)
 		free_nodes(nnodes);
 		return NULL;
 	}
-	return nnodes;
+
+	nnode_arr = create_node_info_arr(nnodes, num_nodes);
+	if (nnode_arr == NULL)
+		free_nodes(nnodes);
+
+	return nnode_arr;
 }
 
 /**
@@ -1554,7 +1577,7 @@ dup_node_info(node_info *onode, server_info *nsinfo,
 	nnode->last_used_time = onode->last_used_time;
 
 	if (onode->svr_node != NULL)
-		nnode->svr_node = find_node_by_indrank(nsinfo->nodes, onode->node_ind, onode->rank);
+		nnode->svr_node = find_node_by_indrank(nsinfo->nodes->nodes, onode->node_ind, onode->rank);
 
 	/* Duplicate list of jobs and running reservations.
 	 * If caller is dup_server_info() then nsinfo->resvs/jobs should be NULL,
@@ -1602,25 +1625,23 @@ dup_node_info(node_info *onode, server_info *nsinfo,
  * @retval	NULL	: on error
  *
  */
-node_info **
-copy_node_ptr_array(node_info  **oarr, node_info  **narr)
+node_info_arr *
+copy_node_ptr_array(node_info_arr *oarr, node_info_arr *narr)
 {
 	int i;
+	node_info_arr *arr_obj;
 	node_info **ninfo_arr;
 	node_info *ninfo;
 
 	if (oarr == NULL || narr == NULL)
 		return NULL;
 
-	for (i = 0; oarr[i] != NULL; i++)
-		;
-
-	if ((ninfo_arr = malloc(sizeof(node_info *) * (i + 1))) == NULL)
+	if ((ninfo_arr = malloc(sizeof(node_info *) * (oarr->num_nodes + 1))) == NULL) {
 		return NULL;
+	}
 
-	for (i = 0; oarr[i] != NULL; i++) {
-		ninfo = find_node_by_indrank(narr, oarr[i]->node_ind, oarr[i]->rank);
-
+	for (i = 0; oarr->nodes[i] != NULL; i++) {
+		ninfo = find_node_by_indrank(narr->nodes, oarr->nodes[i]->node_ind, oarr->nodes[i]->rank);
 		if (ninfo == NULL) {
 			free(ninfo_arr);
 			return NULL;
@@ -1629,7 +1650,11 @@ copy_node_ptr_array(node_info  **oarr, node_info  **narr)
 	}
 	ninfo_arr[i] = NULL;
 
-	return ninfo_arr;
+	arr_obj = create_node_info_arr(ninfo_arr, i);
+	if (arr_obj == NULL)
+		free_nodes(ninfo_arr);
+
+	return arr_obj;
 }
 
 /**
@@ -1788,12 +1813,12 @@ collect_jobs_on_nodes(node_info **ninfo_arr, resource_resv **resresv_arr, int si
 
 	for (i = 0; susp_jobs[i] != NULL; i++) {
 		if (susp_jobs[i]->ninfo_arr != NULL) {
-			for (j = 0; susp_jobs[i]->ninfo_arr[j] != NULL; j++) {
+			for (j = 0; susp_jobs[i]->ninfo_arr->nodes[j] != NULL; j++) {
 				/* resresv->ninfo_arr is merely a new list with pointers to server nodes.
 				 * resresv->resv->resv_nodes is a new list with pointers to resv nodes
 				 */
 				node = find_node_info(ninfo_arr,
-						susp_jobs[i]->ninfo_arr[j]->name);
+						susp_jobs[i]->ninfo_arr->nodes[j]->name);
 				if (node != NULL)
 					node->num_susp_jobs++;
 			}
@@ -2321,7 +2346,7 @@ find_nspec_by_rank(nspec **nspec_arr, unsigned int rank)
  */
 int
 eval_selspec(status *policy, selspec *spec, place *placespec,
-	node_info **ninfo_arr, node_partition **nodepart, resource_resv *resresv,
+	node_info_arr *node_arr, node_partition **nodepart, resource_resv *resresv,
 	unsigned int flags, nspec ***nspec_arr, schd_error *err)
 {
 	int tot_nodes = -1;
@@ -2335,8 +2360,9 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 	static struct schd_error *failerr = NULL;
 	nspec **tmp;
 
-	if (spec == NULL || ninfo_arr == NULL || resresv == NULL || placespec == NULL || nspec_arr == NULL)
+	if (spec == NULL || node_arr == NULL || resresv == NULL || placespec == NULL || nspec_arr == NULL)
 		return 0;
+
 	/* Unsetting RETURN_ALL_ERR flag, because with this flag set resresv_can_fit_nodepart can return
 	 * with multiple errors and the function only needs to see the first error it encounters.
 	 */
@@ -2358,8 +2384,8 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 		clear_schd_error(failerr);
 
 	/* clear the node scratch space for use for node searching */
-	for (i = 0; ninfo_arr[i] != NULL; i++) {
-		ninfo_arr[i]->nscr = NSCR_NONE;
+	for (i = 0; node_arr->nodes[i] != NULL; i++) {
+		node_arr->nodes[i]->nscr = NSCR_NONE;
 	}
 
 	pl = placespec;
@@ -2369,7 +2395,7 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 
 	if (resresv->server->has_multi_vnode) {
 		/* Worst case is that split all chunks onto all nodes */
-		tot_nodes = count_array(ninfo_arr);
+		tot_nodes = node_arr->num_nodes;
 		num_nspecs = tot_nodes * spec->total_chunks;
 	}
 	else
@@ -2382,7 +2408,7 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 
 	/* Don't call check_node_array_eligibility for single chunk jobs */
 	if (spec->total_chunks > 1)
-		check_node_array_eligibility(ninfo_arr, resresv, pl, tot_nodes, err);
+		check_node_array_eligibility(node_arr, resresv, pl, tot_nodes, err);
 
 	if (failerr->status_code == SCHD_UNKWN)
 		move_schd_error(failerr, err);
@@ -2395,10 +2421,10 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 	 * broken into vchunks
 	 */
 	if (nodepart == NULL) {
-		if (resresv->server->has_multi_vnode && ok_break_chunk(resresv, ninfo_arr))
+		if (resresv->server->has_multi_vnode && ok_break_chunk(resresv, node_arr->nodes))
 			pass_flags |= EVAL_OKBREAK;
 
-		rc = eval_placement(policy, spec, ninfo_arr, pl, resresv, pass_flags, nspec_arr, err);
+		rc = eval_placement(policy, spec, node_arr, pl, resresv, pass_flags, nspec_arr, err);
 		if (rc == 0) {
 			free_nspecs(*nspec_arr);
 			*nspec_arr = NULL;
@@ -2409,7 +2435,7 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 		}
 
 		if (pass_flags & EVAL_EXCLSET)
-			alloc_rest_nodepart(*nspec_arr, ninfo_arr);
+			alloc_rest_nodepart(*nspec_arr, node_arr->nodes);
 
 		if (err->status_code == SCHD_UNKWN && failerr->status_code != SCHD_UNKWN)
 			move_schd_error(err, failerr);
@@ -2438,7 +2464,7 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 				resresv->nodepart_name = string_dup(nodepart[i]->name);
 				can_fit = 1;
 				if (nodepart[i]->excl)
-					alloc_rest_nodepart(*nspec_arr, nodepart[i]->ninfo_arr);
+					alloc_rest_nodepart(*nspec_arr, nodepart[i]->ninfo_arr->nodes);
 			}
 			else {
 				empty_nspec_array(*nspec_arr);
@@ -2473,10 +2499,10 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
 			log_event(PBSEVENT_DEBUG3, PBS_EVENTCLASS_JOB, LOG_DEBUG, resresv->name,
 				"Request won't fit into any placement sets, will use all nodes");
 			resresv->can_not_fit = 1;
-			if (resresv->server->has_multi_vnode && ok_break_chunk(resresv, ninfo_arr))
+			if (resresv->server->has_multi_vnode && ok_break_chunk(resresv, node_arr->nodes))
 				pass_flags |= EVAL_OKBREAK;
 
-			rc = eval_placement(policy, spec, ninfo_arr, pl, resresv, pass_flags, nspec_arr, err);
+			rc = eval_placement(policy, spec, node_arr, pl, resresv, pass_flags, nspec_arr, err);
 		}
 		else {
 			set_schd_error_codes(err, NEVER_RUN, CANT_SPAN_PSET);
@@ -2522,7 +2548,7 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
  *
  */
 int
-eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
+eval_placement(status *policy, selspec *spec, node_info_arr *node_arr, place *pl,
 	resource_resv *resresv, unsigned int flags,
 	nspec ***nspec_arr, schd_error *err)
 {
@@ -2540,7 +2566,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 	schd_resource *res = NULL;
 	selspec *dselspec = NULL;
 	int do_exclhost = 0;
-	node_info **nptr = NULL;
+	node_info_arr *nptr = NULL;
 	static schd_error *failerr = NULL;
 	int check_eligible = 0;
 
@@ -2552,7 +2578,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 	/* true if any vnode is allocated from a host - used in exclhost allocation */
 	int any_succ_rc = 0;
 
-	if (spec == NULL || ninfo_arr == NULL || pl == NULL || resresv == NULL || nspec_arr == NULL)
+	if (spec == NULL || node_arr == NULL || pl == NULL || resresv == NULL || nspec_arr == NULL)
 		return 0;
 
 	if (failerr == NULL) {
@@ -2571,10 +2597,10 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 	 */
 	if ((pl->pack && spec->total_chunks == 1) ||
 		(conf.provision_policy == AVOID_PROVISION && resresv->aoename != NULL))
-		nptr = reorder_nodes(ninfo_arr, resresv);
+		nptr = reorder_nodes(node_arr, resresv);
 
 	if (nptr == NULL)
-		nptr = ninfo_arr;
+		nptr = node_arr;
 
 	/*
 	 * eval_complex_selspec() handles placement for single vnoded systems.
@@ -2614,11 +2640,11 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 			/* if one vnode on a host is set to force/dflt exclhost
 			 * then they all are.  The mom makes sure of this
 			 */
-			node_info **dninfo_arr = hostsets[i]->ninfo_arr;
+			node_info_arr *dninfo_arr = hostsets[i]->ninfo_arr;
 			enum vnode_sharing sharing = VNS_DFLT_SHARED;
 
-			if (dninfo_arr[0] != NULL)
-				sharing = dninfo_arr[0]->sharing;
+			if (dninfo_arr->nodes[0] != NULL)
+				sharing = dninfo_arr->nodes[0]->sharing;
 
 			do_exclhost = 0;
 			flags &= ~EVAL_EXCLSET;
@@ -2644,10 +2670,10 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 					tot = spec->total_chunks;
 					if (do_exclhost) {
 						/* we're only looking at nodes for one host, 1st hostset will do  */
-						if (dninfo_arr[0]->hostset != NULL)
-							alloc_rest_nodepart(ns_head, dninfo_arr[0]->hostset->ninfo_arr);
+						if (dninfo_arr->nodes[0]->hostset != NULL)
+							alloc_rest_nodepart(ns_head, dninfo_arr->nodes[0]->hostset->ninfo_arr->nodes);
 						else
-							alloc_rest_nodepart(ns_head, dninfo_arr);
+							alloc_rest_nodepart(ns_head, dninfo_arr->nodes);
 					}
 					while (*nsa != NULL)
 						nsa++;
@@ -2675,8 +2701,8 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 						&& (check_avail_resources(hostsets[i]->res,
 						dselspec->chunks[c]->req, UNSET_RES_ZERO,
 						NULL, INSUFFICIENT_RESOURCE, err))) {
-						for (k = 0; dninfo_arr[k] != NULL; k++)
-							dninfo_arr[k]->nscr &= ~NSCR_VISITED;
+						for (k = 0; dninfo_arr->nodes[k] != NULL; k++)
+							dninfo_arr->nodes[k]->nscr &= ~NSCR_VISITED;
 						while (rc > 0 && dselspec->chunks[c]->num_chunks > 0) {
 							rc = eval_simple_selspec(policy, spec->chunks[c], dninfo_arr, pl,
 								resresv, flags, &nsa, err, check_eligible);
@@ -2688,7 +2714,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 
 								for (; *nsa != NULL; nsa++) {
 									node_info *vn;
-									vn = find_node_by_rank(dninfo_arr, (*nsa)->ninfo->rank);
+									vn = find_node_by_rank(dninfo_arr->nodes, (*nsa)->ninfo->rank);
 									if (vn != NULL)
 										vn->nscr |= NSCR_SCATTERED;
 								}
@@ -2721,10 +2747,10 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 				}
 				if (do_exclhost && any_succ_rc) {
 					/* we're only looking at nodes for one host, 1st node's will do  */
-					if (dninfo_arr[0]->hostset != NULL)
-						alloc_rest_nodepart(ns_head, dninfo_arr[0]->hostset->ninfo_arr);
+					if (dninfo_arr->nodes[0]->hostset != NULL)
+						alloc_rest_nodepart(ns_head, dninfo_arr->nodes[0]->hostset->ninfo_arr->nodes);
 					else
-						alloc_rest_nodepart(ns_head, dninfo_arr);
+						alloc_rest_nodepart(ns_head, dninfo_arr->nodes);
 
 					while (*nsa != NULL)
 						nsa++;
@@ -2742,8 +2768,8 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 						dselspec->chunks[c]->req, UNSET_RES_ZERO,
 						NULL, INSUFFICIENT_RESOURCE, err))) {
 						if (dselspec->chunks[c]->num_chunks > 0) {
-							for (k = 0; dninfo_arr[k] != NULL; k++)
-								dninfo_arr[k]->nscr &= ~NSCR_VISITED;
+							for (k = 0; dninfo_arr->nodes[k] != NULL; k++)
+								dninfo_arr->nodes[k]->nscr &= ~NSCR_VISITED;
 
 							rc = eval_simple_selspec(policy, spec->chunks[c],
 								dninfo_arr, pl, resresv, flags| EVAL_OKBREAK,
@@ -2787,10 +2813,10 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 				}
 				if (do_exclhost && any_succ_rc) {
 					/* we're only looking at nodes for one host, 1st hostset will do  */
-					if (dninfo_arr[0]->hostset != NULL)
-						alloc_rest_nodepart(ns_head, dninfo_arr[0]->hostset->ninfo_arr);
+					if (dninfo_arr->nodes[0]->hostset != NULL)
+						alloc_rest_nodepart(ns_head, dninfo_arr->nodes[0]->hostset->ninfo_arr->nodes);
 					else
-						alloc_rest_nodepart(ns_head, dninfo_arr);
+						alloc_rest_nodepart(ns_head, dninfo_arr->nodes);
 
 					while (*nsa != NULL)
 						nsa++;
@@ -2806,13 +2832,14 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 			 * run out of nodes to search, then we've failed to fulfill the request.
 			 */
 			else if (pl->free) {
+				node_info_arr *dup_arr;
 				node_info **dup_ninfo_arr;
-				dup_ninfo_arr = dup_nodes(hostsets[i]->ninfo_arr,
-					resresv->server, NO_FLAGS);
-				if (dup_ninfo_arr == NULL) {
+				dup_arr = dup_nodes(hostsets[i]->ninfo_arr, resresv->server, NO_FLAGS);
+				if (dup_arr == NULL) {
 					free_selspec(dselspec);
 					return 0;
 				}
+				dup_ninfo_arr = dup_arr->nodes;
 
 				for (c = 0; dselspec->chunks[c] != NULL; c++) {
 					if ((hostsets[i]->free_nodes > 0)
@@ -2823,7 +2850,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 							for (k = 0; dup_ninfo_arr[k] != NULL; k++)
 								dup_ninfo_arr[k]->nscr &= ~NSCR_VISITED;
 							do {
-								rc = eval_simple_selspec(policy, dselspec->chunks[c], dup_ninfo_arr,
+								rc = eval_simple_selspec(policy, dselspec->chunks[c], dup_arr,
 									pl, resresv, flags | EVAL_OKBREAK, &nsa, err, check_eligible);
 
 								if (rc > 0) {
@@ -2848,7 +2875,8 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 										}
 										if (nspec_arr != NULL)
 											/* replace duplicated node with real node */
-											(*nsa)->ninfo = find_node_by_indrank(nptr, (*nsa)->ninfo->node_ind, (*nsa)->ninfo->rank);
+											(*nsa)->ninfo = find_node_by_indrank(nptr->nodes, (*nsa)->ninfo->node_ind,
+													(*nsa)->ninfo->rank);
 									}
 									while (*nsa != NULL)
 										nsa++;
@@ -2887,16 +2915,17 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
 				}
 				if (do_exclhost && any_succ_rc) {
 					/* we're only looking at nodes for one host, 1st hostset will do  */
-					if (hostsets[i]->ninfo_arr[0]->hostset != NULL)
+					if (hostsets[i]->ninfo_arr->nodes[0]->hostset != NULL)
 						alloc_rest_nodepart(ns_head, hostsets[i]->
-							ninfo_arr[0]->hostset->ninfo_arr);
+							ninfo_arr->nodes[0]->hostset->ninfo_arr->nodes);
 					else
-						alloc_rest_nodepart(ns_head, dninfo_arr);
+						alloc_rest_nodepart(ns_head, dninfo_arr->nodes);
 
 					while (*nsa != NULL)
 						nsa++;
 				}
 				free_nodes(dup_ninfo_arr);
+				free(dup_arr);
 			}
 			else {
 				log_eventf(PBSEVENT_DEBUG, PBS_EVENTCLASS_NODE, LOG_DEBUG, resresv->name,
@@ -2939,7 +2968,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
  *
  */
 int
-eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
+eval_complex_selspec(status *policy, selspec *spec, node_info_arr *ninfo_arr, place *pl,
 	resource_resv *resresv, unsigned int flags, nspec ***nspec_arr, schd_error *err)
 {
 	nspec **nsa = NULL;   /* the nspec array to hold node solution */
@@ -2947,9 +2976,11 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
 	int rc = 1;		/* used as a return code in the complex spec case */
 	int tot_nodes;	/* total number of nodes on the server */
 	int num_nodes_used = 0;/* number of nodes used to satisfy spec */
+	node_info_arr *dup_arr = NULL;
 
 	/* number of nodes used with the no_multinode_job flag set */
 	int num_no_multi_nodes = 0;
+	static node_info_arr *pninfo_arr = NULL;
 
 	int chunks_needed = 0;
 
@@ -2971,10 +3002,16 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
 		return eval_simple_selspec(policy, spec->chunks[0], ninfo_arr,
 						pl, resresv, flags, nspec_arr, err, check_eligible);
 
-	tot_nodes = count_array(ninfo_arr);
+	tot_nodes = ninfo_arr->num_nodes;
 
 	nsa = *nspec_arr;
 
+	if (pninfo_arr == NULL) {
+		pninfo_arr = create_node_info_arr(NULL, -1);
+		if (pninfo_arr == NULL) {
+			return 0;
+		}
+	}
 
 	/* we have a complex select spec
 	 * This makes things more complicated now... we can make a single pass
@@ -2988,16 +3025,19 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
 	 */
 
 	if (pl->scatter || pl->vscatter) {
-		nodes = ninfo_arr;
+		nodes = ninfo_arr->nodes;
 		for (k = 0; nodes[k] != 0; k++)
 			nodes[k]->nscr &= ~NSCR_SCATTERED;
 	}
 	else {
-		if ((nodes = dup_nodes(ninfo_arr, resresv->server, NO_FLAGS)) == NULL) {
+		if ((dup_arr = dup_nodes(ninfo_arr, resresv->server, NO_FLAGS)) == NULL) {
 			/* only free array if we allocated it locally */
 			return 0;
 		}
+		nodes = dup_arr->nodes;
 	}
+	pninfo_arr->nodes = nodes;
+	pninfo_arr->num_nodes = ninfo_arr->num_nodes;
 
 	n = -1;
 	for (c = 0, chunks_needed = 0; c < spec->total_chunks && rc > 0; c++) {
@@ -3008,7 +3048,7 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
 				nodes[k]->nscr &= ~NSCR_VISITED;
 		}
 
-		rc = eval_simple_selspec(policy, spec->chunks[n], nodes, pl, resresv,
+		rc = eval_simple_selspec(policy, spec->chunks[n], pninfo_arr, pl, resresv,
 			flags, &nsa, err, check_eligible);
 
 		if (rc > 0) {
@@ -3029,7 +3069,7 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
 						req = req->next;
 					}
 					/* replace the dup'd node with the real one */
-					(*nsa)->ninfo = find_node_by_indrank(ninfo_arr, (*nsa)->ninfo->node_ind, (*nsa)->ninfo->rank);
+					(*nsa)->ninfo = find_node_by_indrank(pninfo_arr->nodes, (*nsa)->ninfo->node_ind, (*nsa)->ninfo->rank);
 				}
 				nsa++;
 
@@ -3043,8 +3083,10 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
 			chunks_needed--;
 		}
 	}
-	if (!(pl->scatter || pl->vscatter))
+	if (dup_arr != NULL) {
 		free_nodes(nodes);
+		free(dup_arr);
+	}
 
 	if (num_no_multi_nodes == 0 ||
 		(num_no_multi_nodes == 1 && num_nodes_used == 1))
@@ -3086,7 +3128,7 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
  *
  */
 int
-eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
+eval_simple_selspec(status *policy, chunk *chk, node_info_arr *pninfo_arr,
 	place *pl, resource_resv *resresv, unsigned int flags,
 	nspec ***nspec_arr, schd_error *err, int check_eligible)
 {
@@ -3109,6 +3151,7 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 	char *str_chunk = NULL; /* ptr to after the number of chunks in the str_chunk */
 
 	node_info **ninfo_arr = NULL;
+	node_info_arr *dup_arr = NULL;
 
 	static schd_error *failerr = NULL;
 
@@ -3132,7 +3175,7 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 	 * vnode, then lets do that rather then possibly breaking across multiple
 	 */
 	if ((flags & EVAL_OKBREAK) &&
-		can_fit_on_vnode(chk->req, pninfo_arr)) {
+		can_fit_on_vnode(chk->req, pninfo_arr->nodes)) {
 		flags &= ~EVAL_OKBREAK;
 	}
 
@@ -3142,14 +3185,15 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 	 * vnodes.  Otherwise the entire chunk is going onto 1 vnode.
 	 */
 	if (flags & EVAL_OKBREAK) {
-		ninfo_arr = dup_nodes(pninfo_arr, resresv->server, NO_FLAGS);
-		if (ninfo_arr == NULL) {
+		dup_arr = dup_nodes(pninfo_arr, resresv->server, NO_FLAGS);
+		if (dup_arr == NULL) {
 			set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
 			return 0;
 		}
+		ninfo_arr = dup_arr->nodes;
 	}
 	else
-		ninfo_arr = pninfo_arr;
+		ninfo_arr = pninfo_arr->nodes;
 
 
 	/* find the requested resources part of a chunk, not the number requested */
@@ -3174,8 +3218,10 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 	if (specreq_noncons == NULL) {
 		set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
 
-		if (flags & EVAL_OKBREAK)
+		if (dup_arr != NULL) {
 			free_nodes(ninfo_arr);
+			free(dup_arr);
+		}
 		return 0;
 	}
 
@@ -3217,18 +3263,19 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 				int k;
 				int host_ineligible = 0;
 				int node_ineligible = 0;
+				node_info **hostnodes = node->hostset->ninfo_arr->nodes;
 
 				/* if job wants excl and one of the nodes on the host is ineligible, all are marked ineligible */
-				for (k = 0; node->hostset->ninfo_arr[k] != NULL; k++) {
-					if (node->hostset->ninfo_arr[k]->nscr) {
-						if (node->hostset->ninfo_arr[k]->node_ind == node->node_ind) {
+				for (k = 0; hostnodes[k] != NULL; k++) {
+					if (hostnodes[k]->nscr) {
+						if (hostnodes[k]->node_ind == node->node_ind) {
 							node_ineligible = 1;
 							break;
 						}
 						continue;
 					}
-					if (!is_vnode_eligible(node->hostset->ninfo_arr[k], resresv, pl, err)) {
-						if (node->hostset->ninfo_arr[k]->node_ind == node->node_ind)
+					if (!is_vnode_eligible(hostnodes[k], resresv, pl, err)) {
+						if (hostnodes[k]->node_ind == node->node_ind)
 							node_ineligible = 1;
 						if ((err->error_code == NODE_NOT_EXCL && is_exclhost(pl, node->sharing)) ||
 								sim_exclhost(resresv->server->calendar, resresv, node) == 0) {
@@ -3238,11 +3285,17 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 					}
 				}
 				if (host_ineligible) {
-					for (k = 0; node->hostset->ninfo_arr[k] != NULL; k++) {
-						node_info *n = node->hostset->ninfo_arr[k];
+					for (k = 0; hostnodes[k] != NULL; k++) {
+						node_info *n = hostnodes[k];
 						n->nscr |= NSCR_INELIGIBLE;
 						set_schd_error_codes(err, NOT_RUN, NODE_NOT_EXCL);
 					}
+
+					/* if num of vnodes already visited + num vnodes marked inelgible >= input vnodes,
+					 * then there's no point looking any further
+					 */
+					if ((i + k) >= pninfo_arr->num_nodes)
+						return 0;
 				}
 
 				if (host_ineligible || node_ineligible)
@@ -3260,8 +3313,10 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 						free_resource_req_list(specreq_cons);
 					if (specreq_noncons != NULL)
 						free_resource_req_list(specreq_noncons);
-					if (flags & EVAL_OKBREAK)
+					if (dup_arr != NULL) {
 						free_nodes(ninfo_arr);
+						free(dup_arr);
+					}
 					set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
 					return 0;
 				}
@@ -3308,9 +3363,9 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 						}
 
 						/* Replace the dup'd node with the real one, but only if we dup'd the nodes */
-						if (ns != NULL && pninfo_arr != ninfo_arr) {
+						if (ns != NULL && pninfo_arr->nodes != ninfo_arr) {
 								/* Need to call find_node_by_rank() over indrank since eval_placement might dup the nodes */
-								ns->ninfo = find_node_by_rank(pninfo_arr, ns->ninfo->rank);
+								ns->ninfo = find_node_by_rank(pninfo_arr->nodes, ns->ninfo->rank);
 						}
 					} else {
 						chunks_found = 1;
@@ -3374,8 +3429,10 @@ eval_simple_selspec(status *policy, chunk *chk, node_info **pninfo_arr,
 	if (specreq_noncons != NULL)
 		free_resource_req_list(specreq_noncons);
 
-	if (flags & EVAL_OKBREAK)
+	if (dup_arr != NULL) {
 		free_nodes(ninfo_arr);
+		free(dup_arr);
+	}
 
 	if (chunks_found) {
 		log_eventf(PBSEVENT_DEBUG3, PBS_EVENTCLASS_NODE, LOG_DEBUG,
@@ -4508,7 +4565,7 @@ parse_execvnode(char *execvnode, server_info *sinfo, selspec *sel)
 	for (i = 0; i < num_chunk && !invalid && simplespec != NULL; i++) {
 		nspec_arr[i] = new_nspec();
 		if (nspec_arr[i] != NULL) {
-			ninfo = find_node_info(sinfo->nodes, node_name);
+			ninfo = find_node_info(sinfo->nodes->nodes, node_name);
 			if (ninfo != NULL) {
 				nspec_arr[i]->ninfo = ninfo;
 				for (j = 0; j < num_el; j++) {
@@ -4734,9 +4791,10 @@ combine_nspec_array(nspec **nspec_arr)
  * @retval	NULL	: on error
  *
  */
-node_info **
+node_info_arr *
 create_node_array_from_nspec(nspec **nspec_arr)
 {
+	node_info_arr *ret_arr;
 	node_info **ninfo_arr;
 	int count;
 	int i, j;
@@ -4763,7 +4821,11 @@ create_node_array_from_nspec(nspec **nspec_arr)
 
 	ninfo_arr[j] = NULL;
 
-	return ninfo_arr;
+	ret_arr =  create_node_info_arr(ninfo_arr, j);
+	if (ret_arr == NULL)
+		free_nodes(ninfo_arr);
+
+	return ret_arr;
 }
 
 /**
@@ -4791,56 +4853,65 @@ create_node_array_from_nspec(nspec **nspec_arr)
  *
  * @par MT-safe: No
  */
-node_info **
-reorder_nodes(node_info **nodes, resource_resv *resresv)
+static node_info_arr *
+reorder_nodes(node_info_arr *node_arr, resource_resv *resresv)
 {
-	static node_info	**node_array = NULL;
-	static int		node_array_size = 0;
-	node_info		**nptr = NULL;
-	node_info		**tmparr = NULL;
-	schd_resource		*hostres = NULL;
-	schd_resource		*cur_hostres = NULL;
-	int 			nsize = 0;
-	int			i = 0;
-	int			j = 0;
-	int			k = 0;
+	static node_info_arr *node_array = NULL;
+	static int node_array_size = 0;
+	node_info_arr *nptr = NULL;
+	node_info **tmparr = NULL;
+	schd_resource *hostres = NULL;
+	schd_resource *cur_hostres = NULL;
+	int nsize = 0;
+	int i = 0;
+	int j = 0;
+	int k = 0;
+	node_info **nodes;
 
-	if (nodes == NULL)
+	if (node_arr == NULL)
 		return NULL;
 
 	if (resresv == NULL && conf.provision_policy == AVOID_PROVISION)
 		return NULL;
 
-	nsize = count_array(nodes);
+	nodes = node_arr->nodes;
+	nsize = node_arr->num_nodes;
 
-	if ((node_array_size < nsize + 1) || node_array == NULL) {
-		tmparr = realloc(node_array, sizeof(node_info *) * (nsize + 1));
+	if (node_array == NULL) {
+		node_array = create_node_info_arr(NULL, -1);
+		if (node_array == NULL) {
+			return NULL;
+		}
+	}
+
+	if ((node_array_size < nsize + 1) || node_array->nodes == NULL) {
+		tmparr = realloc(node_array->nodes, sizeof(node_info *) * (nsize + 1));
 		if (tmparr == NULL) {
 			log_err(errno, __func__, MEM_ERR_MSG);
 			return NULL;
 		}
 
-		node_array = tmparr;
+		node_array->nodes = tmparr;
+		node_array->num_nodes = nsize;
 		node_array_size = nsize + 1;
 	}
 	tmparr = NULL;
 
-	node_array[0] = NULL;
-	nptr = node_array;
-
+	node_array->nodes[0] = NULL;
+	nptr = create_node_info_arr(node_array->nodes, nsize);
 
 	if (last_node_name[0] == '\0' && nodes[0] != NULL)
 		snprintf(last_node_name, sizeof(last_node_name), "%s", nodes[0]->name);
 
 	if (resresv != NULL) {
 		if (resresv->aoename != NULL && conf.provision_policy == AVOID_PROVISION) {
-			memcpy(nptr, nodes, (nsize+1) * sizeof(node_info *));
+			memcpy(nptr->nodes, nodes, (nsize+1) * sizeof(node_info *));
 
 			if (cmp_aoename != NULL)
 				free(cmp_aoename);
 
 			cmp_aoename = string_dup(resresv->aoename);
-			qsort(nptr, nsize, sizeof(node_info *), cmp_aoe);
+			qsort(nptr->nodes, nsize, sizeof(node_info *), cmp_aoe);
 
 			log_eventf(PBSEVENT_DEBUG3, PBS_EVENTCLASS_JOB, LOG_DEBUG, resresv->name,
 				"Re-sorted the nodes on aoe %s, since aoe was requested", resresv->aoename);
@@ -4851,7 +4922,7 @@ reorder_nodes(node_info **nodes, resource_resv *resresv)
 
 	switch (cstat.smp_dist) {
 		case SMP_NODE_PACK:
-			nptr = nodes;
+			nptr->nodes = nodes;
 			break;
 
 		case SMP_ROUND_ROBIN:
@@ -4885,19 +4956,19 @@ reorder_nodes(node_info **nodes, resource_resv *resresv)
 
 			/* copy from our last location to the end */
 			for (j = 0, k = i; k < nsize; j++, k++)
-				nptr[j] = tmparr[k];
+				nptr->nodes[j] = tmparr[k];
 
 			/* copy from the beginning to our last location */
 			for (k = 0; k < i; j++, k++)
-				nptr[j] = tmparr[k];
+				nptr->nodes[j] = tmparr[k];
 
-			nptr[j] = NULL;
+			nptr->nodes[j] = NULL;
 
 			free(tmparr);
 			break;
 
 		default:
-			nptr = nodes;
+			nptr->nodes = nodes;
 			log_event(PBSEVENT_SCHED, PBS_EVENTCLASS_FILE, LOG_NOTICE, "", "Invalid smp_cluster_dist value");
 	}
 
@@ -5466,10 +5537,11 @@ node_in_str(node_info *node, void *strarr)
  * @return node array
  *
  */
-node_info **
+node_info_arr *
 create_node_array_from_str(node_info **nodes, char **strnodes)
 {
 	int i, j;
+	node_info_arr *ret_arr = NULL;
 	node_info **ninfo_arr;
 	int cnt;
 
@@ -5497,7 +5569,11 @@ create_node_array_from_str(node_info **nodes, char **strnodes)
 		}
 	}
 
-	return ninfo_arr;
+	ret_arr = create_node_info_arr(ninfo_arr, j);
+	if (ret_arr == NULL)
+		free_nodes(ninfo_arr);
+
+	return ret_arr;
 }
 
 /**
@@ -5566,7 +5642,7 @@ node_info *find_node_by_indrank(node_info **ninfo_arr, int ind, int rank) {
 	if(ninfo_arr[0] == NULL || ninfo_arr[0]->server == NULL || ninfo_arr[0]->server->unordered_nodes == NULL || ind == -1)
 		return find_node_by_rank(ninfo_arr, rank);
 
-	return ninfo_arr[0]->server->unordered_nodes[ind];
+	return ninfo_arr[0]->server->unordered_nodes->nodes[ind];
 }
 
 /**
@@ -5770,8 +5846,8 @@ check_node_eligibility_chunk(th_data_nd_eligible *data)
 							|| sim_exclhost(resresv->server->calendar, resresv, node) == 0) {
 						int j;
 
-						for (j = 0; node->hostset->ninfo_arr[j] != NULL; j++) {
-							node_info *n = node->hostset->ninfo_arr[j];
+						for (j = 0; node->hostset->ninfo_arr->nodes[j] != NULL; j++) {
+							node_info *n = node->hostset->ninfo_arr->nodes[j];
 							n->nscr |= NSCR_INELIGIBLE;
 							set_schd_error_codes(misc_err, NOT_RUN, NODE_NOT_EXCL);
 							schdlogerr(PBSEVENT_DEBUG3, PBS_EVENTCLASS_NODE, LOG_DEBUG, n->name,
@@ -5844,7 +5920,7 @@ alloc_tdata_nd_eligible(place *pl, resource_resv *resresv, node_info **ninfo_arr
  * @return	void
  */
 void
-check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, place *pl,
+check_node_array_eligibility(node_info_arr *ninfo_arr, resource_resv *resresv, place *pl,
 		int num_nodes, schd_error *err)
 {
 	int i, j;
@@ -5858,12 +5934,12 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 		return;
 
 	if (num_nodes == -1)
-		num_nodes = count_array(ninfo_arr);
+		num_nodes = ninfo_arr->num_nodes;
 
 	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0 || num_threads <= 1) {
 		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
-		tdata = alloc_tdata_nd_eligible(pl, resresv, ninfo_arr, 0, num_nodes - 1);
+		tdata = alloc_tdata_nd_eligible(pl, resresv, ninfo_arr->nodes, 0, num_nodes - 1);
 		if (tdata == NULL)
 			return;
 		check_node_eligibility_chunk(tdata);
@@ -5875,7 +5951,7 @@ check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, plac
 		chunk_size = (chunk_size > MT_CHUNK_SIZE_MIN) ? chunk_size : MT_CHUNK_SIZE_MIN;
 		for (j = 0, num_tasks = 0; num_nodes > 0;
 				num_tasks++, j += chunk_size, num_nodes -= chunk_size) {
-			tdata = alloc_tdata_nd_eligible(pl, resresv, ninfo_arr, j, j + chunk_size - 1);
+			tdata = alloc_tdata_nd_eligible(pl, resresv, ninfo_arr->nodes, j, j + chunk_size - 1);
 			if (tdata == NULL)
 				break;
 
@@ -6014,4 +6090,31 @@ int add_node_events(timed_event *te, void *arg1, void *arg2) {
 	}
 
 	return 0;
+}
+
+/**
+ * @brief	Constructor for node_info_arr
+ *
+ * @param[in]	ninfo_arr - node_info array, NULL if not available
+ * @param[in]	num_nodes - number of nodes which will be in the array (-1 if not known)
+ *
+ * @return	node_info_arr *
+ * @retval	newly allocated array object
+ * @retval	NULL for malloc failure
+ */
+node_info_arr *
+create_node_info_arr(node_info **ninfo_arr, int num_nodes)
+{
+	node_info_arr *ret_obj = NULL;
+
+	ret_obj = malloc(sizeof(node_info_arr));
+	if (ret_obj == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return NULL;
+	}
+	if (num_nodes >= 0)
+		ret_obj->num_nodes = num_nodes;
+	ret_obj->nodes = ninfo_arr;
+
+	return ret_obj;
 }

@@ -1497,15 +1497,15 @@ check_nodes(status *policy, server_info *sinfo, queue_info *qinfo, resource_resv
 nspec **
 check_normal_node_path(status *policy, server_info *sinfo, queue_info *qinfo, resource_resv *resresv, unsigned int flags, schd_error *err)
 {
-	nspec			**nspec_arr = NULL;
-	selspec			*spec = NULL;
-	place			*pl = NULL;
-	int			rc = 0;
-	char			*grouparr[2] = {0};
-	np_cache		*npc = NULL;
-	int			error = 0;
-	node_partition		**nodepart = NULL;
-	node_info		**ninfo_arr = NULL;
+	nspec **nspec_arr = NULL;
+	selspec *spec = NULL;
+	place *pl = NULL;
+	int rc = 0;
+	char *grouparr[2] = { 0 };
+	np_cache *npc = NULL;
+	int error = 0;
+	node_partition **nodepart = NULL;
+	node_info_arr *ninfo_arr = NULL;
 
 	if (sinfo == NULL || resresv == NULL || err == NULL) {
 		if (err != NULL)
@@ -1574,8 +1574,8 @@ check_normal_node_path(status *policy, server_info *sinfo, queue_info *qinfo, re
 		 */
 		if (resresv->node_set == NULL) {
 			resresv->node_set = create_node_array_from_str(
-				qinfo->num_nodes > 0 ? qinfo->nodes :
-				sinfo->unassoc_nodes,
+				qinfo->nodes != NULL ? qinfo->nodes->nodes :
+				sinfo->unassoc_nodes->nodes,
 				resresv->node_set_str);
 		}
 		ninfo_arr = resresv->node_set;
@@ -1695,7 +1695,7 @@ should_check_resvs(server_info *sinfo, node_info *ninfo, resource_resv *job)
 			/* we're checking a specific node, the node better be part of the
 			 * reservation the job is in
 			 */
-			if (find_node_info(job->job->resv->ninfo_arr, ninfo->name) != NULL)
+			if (find_node_info(job->job->resv->ninfo_arr->nodes, ninfo->name) != NULL)
 				return 0;
 			else
 				/* error case - a job in a running reservation should never be

@@ -2857,7 +2857,7 @@ dup_job_info(job_info *ojinfo, queue_info *nqinfo, server_info *nsinfo)
 	njinfo->queued_subjobs = dup_range_list(ojinfo->queued_subjobs);
 	njinfo->max_run_subjobs = ojinfo->max_run_subjobs;
 
-	njinfo->resreleased = dup_nspecs(ojinfo->resreleased, nsinfo->nodes, NULL);
+	njinfo->resreleased = dup_nspecs(ojinfo->resreleased, nsinfo->nodes->nodes, NULL);
 	njinfo->resreq_rel = dup_resource_req_list(ojinfo->resreq_rel);
 
 	if (nqinfo->server->fairshare !=NULL) {
@@ -3766,8 +3766,10 @@ select_index_to_preempt(status *policy, resource_resv *hjob,
 		}
 
 		if (good) {
-			for (j = 0; good && rjobs[i]->ninfo_arr[j] != NULL; j++) {
-				if (rjobs[i]->ninfo_arr[j]->is_down || rjobs[i]->ninfo_arr[j]->is_offline)
+			node_info **ninfo_arr = rjobs[i]->ninfo_arr->nodes;
+
+			for (j = 0; good && ninfo_arr[j] != NULL; j++) {
+				if (ninfo_arr[j]->is_down || ninfo_arr[j]->is_offline)
 					good = 0;
 			}
 		}
@@ -3778,9 +3780,10 @@ select_index_to_preempt(status *policy, resource_resv *hjob,
 
 		if (good) {
 			if (hjob->ninfo_arr != NULL) {
-				for (j = 0; hjob->ninfo_arr[j] != NULL; j++) {
-					if (find_node_by_rank(rjobs[i]->ninfo_arr,
-						hjob->ninfo_arr[j]->rank) != NULL)
+				node_info **ninfo_arr = hjob->ninfo_arr->nodes;
+
+				for (j = 0; ninfo_arr[j] != NULL; j++) {
+					if (find_node_by_rank(ninfo_arr, ninfo_arr[j]->rank) != NULL)
 						break;
 				}
 
@@ -3788,21 +3791,22 @@ select_index_to_preempt(status *policy, resource_resv *hjob,
 				 * nodes for us to use... don't select it, unless it's not node resources we're after
 				 */
 
-				if (hjob->ninfo_arr[j] == NULL)
+				if (ninfo_arr[j] == NULL)
 					good = 0;
 			}
 		}
 		if (good) {
 			schd_error *err;
 			node_good = 0;
+			node_info **ninfo_arr = rjobs[i]->ninfo_arr->nodes;
 
 			err = new_schd_error();
 			if(err == NULL)
 				return NO_JOB_FOUND;
 
-			for (j = 0; rjobs[i]->ninfo_arr[j] != NULL && !node_good; j++) {
+			for (j = 0; ninfo_arr[j] != NULL && !node_good; j++) {
 				resdef **rdtc_here = NULL; /* at first assume all resources (including consumables) need to be checked */
-				node_info *node = rjobs[i]->ninfo_arr[j];
+				node_info *node = ninfo_arr[j];
 				if (node->is_multivnoded) {
 					/* unsafe to consider vnodes from multivnoded hosts "no good" when "not enough" of some consumable
 					 * resource can be found in the vnode, since rest may be provided by other vnodes on the same host
@@ -5018,8 +5022,8 @@ preemption_similarity(resource_resv *hjob, resource_resv *pjob, schd_error *full
 			case SET_TOO_SMALL:
 
 				if (hjob->ninfo_arr != NULL && pjob->ninfo_arr != NULL) {
-					for (j = 0; hjob->ninfo_arr[j] != NULL && !match; j++) {
-						if (find_node_by_rank(pjob->ninfo_arr, hjob->ninfo_arr[j]->rank) != NULL)
+					for (j = 0; hjob->ninfo_arr->nodes[j] != NULL && !match; j++) {
+						if (find_node_by_rank(pjob->ninfo_arr->nodes, hjob->ninfo_arr->nodes[j]->rank) != NULL)
 							match = 1;
 					}
 				}
@@ -5098,7 +5102,7 @@ nspec **create_res_released_array(status *policy, resource_resv *resresv)
 	if ((resresv == NULL) || (resresv->nspec_arr == NULL) || (resresv->ninfo_arr == NULL))
 		return NULL;
 
-	nspec_arr = dup_nspecs(resresv->nspec_arr, resresv->ninfo_arr, NULL);
+	nspec_arr = dup_nspecs(resresv->nspec_arr, resresv->ninfo_arr->nodes, NULL);
 	if (nspec_arr == NULL)
 		return NULL;
 	if (policy->rel_on_susp != NULL) {
@@ -5336,7 +5340,7 @@ static int cull_preemptible_jobs(resource_resv *job, void *arg)
 				}
 			} else if (inp->err->rdef == getallres(RES_HOST)) {
 				resource_req *hreq = find_resource_req(inp->job->resreq, inp->err->rdef);
-				if (find_node_by_host(job->ninfo_arr, hreq->res_str) != NULL)
+				if (find_node_by_host(job->ninfo_arr->nodes, hreq->res_str) != NULL)
 					return 1;
 			} else {
 				if (inp->err->rdef->type.is_non_consumable) {

@@ -414,15 +414,14 @@ struct server_info
 	struct schd_resource *res;	/* list of resources */
 	void *liminfo;			/* limit storage information */
 	int num_queues;			/* number of queues that reside on the server */
-	int num_nodes;			/* number of nodes associated with the server */
 	int num_resvs;			/* number of reservations on the server */
 	int num_preempted;		/* number of jobs currently preempted */
 	char **node_group_key;		/* the node grouping resources */
 	state_count sc;			/* number of jobs in each state */
 	queue_info **queues;		/* array of queues */
 	queue_info ***queue_list;	/* 3 dimensional array, used to order jobs in round_robin */
-	node_info **nodes;		/* array of nodes associated with the server */
-	node_info **unassoc_nodes;	/* array of nodes not associated with queues */
+	node_info_arr *nodes;		/* array of nodes associated with the server */
+	node_info_arr *unassoc_nodes;	/* array of nodes not associated with queues */
 	resource_resv **resvs;		/* the reservations on the server */
 	resource_resv **running_jobs;	/* array of jobs which are in state R */
 	resource_resv **exiting_jobs;	/* array of jobs which are in state E */
@@ -476,7 +475,7 @@ struct server_info
 	fairshare_head *fairshare;	/* root of fairshare tree */
 	resresv_set **equiv_classes;
 	node_bucket **buckets;		/* node bucket array */
-	node_info **unordered_nodes;
+	node_info_arr *unordered_nodes;
 #ifdef NAS
 	/* localmod 034 */
 	share_head *share_head;	/* root of share info */
@@ -516,12 +515,11 @@ struct queue_info
 	/* localmod 040 */
 	unsigned ignore_nodect_sort:1; /* job_sort_key nodect ignored in this queue */
 #endif
-	int num_nodes;		/* number of nodes associated with queue */
 	struct schd_resource *qres;	/* list of resources on the queue */
 	resource_resv *resv;		/* the resv if this is a resv queue */
 	resource_resv **jobs;		/* array of jobs that reside in queue */
 	resource_resv **running_jobs;	/* array of jobs in the running state */
-	node_info **nodes;		/* array of nodes associated with the queue */
+	node_info_arr *nodes;		/* array of nodes associated with the queue */
 	counts *group_counts;		/* group resource and running counts */
 	counts *project_counts;		/* project resource and running counts */
 	counts *user_counts;		/* user resource and running counts */
@@ -763,7 +761,7 @@ struct resv_info
 	enum resv_states resv_state;	/* reservation state */
 	enum resv_states resv_substate;	/* reservation substate */
 	queue_info *resv_queue;		/* general resv: queue which is owned by resv */
-	node_info **resv_nodes;		/* node universe for reservation */
+	node_info_arr *resv_nodes;		/* node universe for reservation */
 	char *partition;		/* name of the partition in which the reservation was confirmed */
 	selspec *select_orig;		/* original schedselect pre-alter */
 	selspec *select_standing;	/* original schedselect for standing reservations */
@@ -810,7 +808,7 @@ struct resource_resv
 	place *place_spec;		/* placement spec */
 
 	server_info *server;		/* pointer to server which owns res resv */
-	node_info **ninfo_arr; 		/* nodes belonging to res resv */
+	node_info_arr *ninfo_arr; 		/* nodes belonging to res resv */
 	nspec **nspec_arr;		/* exec vnode of object in internal sched form (one nspec per node) */
 
 	job_info *job;			/* pointer to job specific structure */
@@ -819,7 +817,7 @@ struct resource_resv
 	char *aoename;			   /* store name of aoe if requested */
 	char *eoename;			   /* store name of eoe if requested */
 	char **node_set_str;		   /* user specified node string */
-	node_info **node_set;		   /* node array specified by node_set_str */
+	node_info_arr *node_set;		   /* node array specified by node_set_str */
 #ifdef NAS				   /* localmod 034 */
 	enum site_j_share_type share_type; /* How resv counts against group share */
 #endif					   /* localmod 034 */
@@ -970,7 +968,7 @@ struct resresv_set
 
 struct node_info_arr
 {
-	node_info **ninfo_arr;
+	node_info **nodes;
 	int num_nodes;
 };
 
@@ -982,10 +980,9 @@ struct node_partition
 	/* name of resource and value which define the node partition */
 	resdef *def;
 	char *res_val;
-	int tot_nodes;		/* the total number of nodes  */
 	int free_nodes;		/* the number of nodes in state Free  */
 	schd_resource *res;		/* total amount of resources in node part */
-	node_info **ninfo_arr;	/* array of pointers to node structures  */
+	node_info_arr *ninfo_arr;	/* array of pointers to node structures  */
 	node_bucket **bkts;	/* node buckets for node part */
 	int rank;		/* unique numeric identifier for node partition */
 };
@@ -993,7 +990,7 @@ struct node_partition
 struct np_cache
 {
 	char **resnames;		/* resource names used to create partitions */
-	node_info **ninfo_arr;	/* ptr to array of nodes used to create pools */
+	node_info_arr *ninfo_arr;	/* ptr to array of nodes used to create pools */
 	int num_parts;		/* number of partitions in nodepart */
 	node_partition **nodepart;	/* node partitions */
 };

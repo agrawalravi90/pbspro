@@ -908,8 +908,8 @@ create_events(server_info *sinfo)
 	}
 
 	/* for nodes that are in state=sleep add a timed event */
-	for (i = 0; sinfo->nodes[i] != NULL; i++) {
-		node_info *node = sinfo->nodes[i];
+	for (i = 0; sinfo->nodes->nodes[i] != NULL; i++) {
+		node_info *node = sinfo->nodes->nodes[i];
 		if (node->is_sleeping) {
 			te = create_event(TIMED_NODE_UP_EVENT, sinfo->server_time + PROVISION_DURATION,
 					(event_ptr_t *) node, (event_func_t) node_up_event, NULL);
@@ -1314,8 +1314,7 @@ find_event_ptr(timed_event *ote, server_info *nsinfo)
 			break;
 		case TIMED_NODE_DOWN_EVENT:
 		case TIMED_NODE_UP_EVENT:
-			event_ptr = find_node_info(nsinfo->nodes,
-				((node_info*)(ote->event_ptr))->name);
+			event_ptr = find_node_info(nsinfo->nodes->nodes, ((node_info*)(ote->event_ptr))->name);
 			break;
 		default:
 			log_eventf(PBSEVENT_SCHED, PBS_EVENTCLASS_SCHED, LOG_WARNING, __func__,

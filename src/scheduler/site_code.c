@@ -682,7 +682,7 @@ site_init_alloc(server_info *sinfo)
 	/*
 	 * Scan nodes to total number of CPUs of each type -> sh_total
 	 */
-	count_cpus(sinfo->nodes, sinfo->num_nodes, sinfo->queues, sh_total);
+	count_cpus(sinfo->nodes->nodes, sinfo->nodes->num_nodes, sinfo->queues, sh_total);
 	/*
 	 * Scan jobs to accumulate CPUs in use or requested into share info
 	 * structures.

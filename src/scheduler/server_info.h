@@ -484,7 +484,7 @@ int create_resource_assn_for_node(node_info *);
 int compare_resource_avail_list(schd_resource *r1, schd_resource *r2);
 int compare_resource_avail(schd_resource *r1, schd_resource *r2);
 
-node_info **dup_unordered_nodes(node_info **old_unordered_nodes, node_info **nnodes);
+node_info_arr *dup_unordered_nodes(node_info_arr *old_unordered_nodes, node_info_arr *nnodes);
 
 #ifdef	__cplusplus
 }

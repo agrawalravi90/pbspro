@@ -122,7 +122,7 @@ node_partition **copy_node_partition_ptr_array(node_partition **onp_arr, node_pa
  *
  *
  */
-node_partition **create_node_partitions(status *policy, node_info **nodes, char **resnames,
+node_partition **create_node_partitions(status *policy, node_info_arr *nodes, char **resnames,
 					unsigned int flags, int *num_parts);
 
 /*
@@ -176,29 +176,13 @@ void free_np_cache_array(np_cache **npc_arr);
 void free_np_cache(np_cache *npc);
 
 /*
- *	find_np_cache - find a np_cache by the array of resource names and
- *			nodes which created it.
- *
- *	  npc_arr - the array to search
- *	  resnames - the list of names
- *	  ninfo_arr - array of nodes
- *
- *	NOTE: function does node node_info pointer comparison to save time
- *
- *	returns the node found node partition or NULL if not (or on error)
- *
- */
-np_cache *
-find_np_cache(np_cache **npc_arr,
-	char **resnames, node_info **ninfo_arr);
-/*
  *	find_alloc_np_cache - find a np_cache by the array of resource names
  *			      and nodes which created it.  If the np_cache
  *			      does not exist, create it and add it to the list
  */
 np_cache *
 find_alloc_np_cache(status *policy, np_cache ***pnpc_arr,
-	char **resnames, node_info **ninfo_arr,
+	char **resnames, node_info_arr *ninfo_arr,
 	int (*sort_func)(const void *, const void *));
 /*
  *	add_np_cache - add an np_cache to an array
@@ -212,12 +196,6 @@ int add_np_cache(np_cache ***npc_arr, np_cache *npc);
  */
 int resresv_can_fit_nodepart(status *policy, node_partition *np, resource_resv *resresv, int total, schd_error *err);
 
-/*
- *	create_specific_nodepart - create a node partition with specific
- *				   nodes, rather than from a placement
- *				   set resource=value
- */
-node_partition *create_specific_nodepart(status *policy, char *name, node_info **nodes, int flags );
 /* create the placement sets for the server and queues */
 int create_placement_sets(status *policy, server_info *sinfo);
 

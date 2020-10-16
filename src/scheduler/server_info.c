@@ -190,6 +190,7 @@ query_server(status *pol, int pbs_sd)
 	resource_resv **jobs_alive;
 	status *policy;
 	int job_arrays_associated = FALSE;
+	node_info **tmp_ninfo_arr = NULL;
 
 	if (pol == NULL)
 		return NULL;
@@ -256,7 +257,7 @@ query_server(status *pol, int pbs_sd)
 
 	/* sort the nodes before we filter them down to more useful lists */
 	if (policy->node_sort[0].res_name != NULL)
-		qsort(sinfo->nodes, sinfo->num_nodes, sizeof(node_info *),
+		qsort(sinfo->nodes->nodes, sinfo->nodes->num_nodes, sizeof(node_info *),
 			multi_node_sort);
 
 	/* get the queues */
@@ -269,8 +270,7 @@ query_server(status *pol, int pbs_sd)
 	}
 
 	if (sinfo->has_nodes_assoc_queue)
-		sinfo->unassoc_nodes =
-			node_filter(sinfo->nodes, sinfo->num_nodes, is_unassoc_node, NULL, 0);
+		sinfo->unassoc_nodes = node_filter(sinfo->nodes, sinfo->nodes->num_nodes, is_unassoc_node, NULL, 0);
 	else
 		sinfo->unassoc_nodes = sinfo->nodes;
 
@@ -420,22 +420,22 @@ query_server(status *pol, int pbs_sd)
 	 * nodes, which are accounted for by collect_jobs_on_nodes in
 	 * query_reservation, hence the use of the filtered list of jobs
 	 */
-	collect_jobs_on_nodes(sinfo->nodes, jobs_alive, count_array(jobs_alive), DETECT_GHOST_JOBS);
+	collect_jobs_on_nodes(sinfo->nodes->nodes, jobs_alive, count_array(jobs_alive), DETECT_GHOST_JOBS);
 
 	/* Now that the job_arr is created, garbage collect the jobs */
 	free(jobs_alive);
 
-	collect_resvs_on_nodes(sinfo->nodes, sinfo->resvs, sinfo->num_resvs);
+	collect_resvs_on_nodes(sinfo->nodes->nodes, sinfo->resvs, sinfo->num_resvs);
 
-	sinfo->unordered_nodes = malloc((sinfo->num_nodes+1) * sizeof(node_info*));
-	if(sinfo->unordered_nodes == NULL) {
+	tmp_ninfo_arr = malloc((sinfo->nodes->num_nodes + 1) * sizeof(node_info *));
+	if(tmp_ninfo_arr == NULL) {
 		sinfo->fairshare = NULL;
 		free_server(sinfo);
 		return NULL;
 	}
 
-	for (i = 0; sinfo->nodes[i] != NULL; i++) {
-		node_info *ninfo = sinfo->nodes[i];
+	for (i = 0; sinfo->nodes->nodes[i] != NULL; i++) {
+		node_info *ninfo = sinfo->nodes->nodes[i];
 		ninfo->nodesig = create_resource_signature(ninfo  ->res,
 			policy->resdef_to_check_no_hostvnode, ADD_ALL_BOOL);
 		ninfo->nodesig_ind = add_str_to_unique_array(&(sinfo->nodesigs),
@@ -444,11 +444,18 @@ query_server(status *pol, int pbs_sd)
 		if(ninfo->has_ghost_job)
 			create_resource_assn_for_node(ninfo);
 
-		sinfo->nodes[i]->node_ind = i;
-		sinfo->unordered_nodes[i] = ninfo;
+		sinfo->nodes->nodes[i]->node_ind = i;
+		tmp_ninfo_arr[i] = ninfo;
 	}
-	sinfo->unordered_nodes[i] = NULL;
+	tmp_ninfo_arr[i] = NULL;
 
+	sinfo->unordered_nodes = create_node_info_arr(tmp_ninfo_arr, i);
+	if (sinfo->unordered_nodes == NULL) {
+		sinfo->fairshare = NULL;
+		free_server(sinfo);
+		free_nodes(tmp_ninfo_arr);
+		return NULL;
+	}
 
 	generic_sim(sinfo->calendar, TIMED_RUN_EVENT, 0, 0, add_node_events, NULL, NULL);
 
@@ -1158,7 +1165,6 @@ new_server_info(int limallocflag)
 	sinfo->buckets = NULL;
 	sinfo->unordered_nodes = NULL;
 	sinfo->num_queues = 0;
-	sinfo->num_nodes = 0;
 	sinfo->num_resvs = 0;
 	sinfo->num_hostsets = 0;
 	sinfo->server_time = 0;
@@ -1547,7 +1553,11 @@ free_server(server_info *sinfo)
 	free_server_info(sinfo);
 
 	free_queues(sinfo->queues);
-	free_nodes(sinfo->nodes);
+	if (sinfo->nodes != NULL) {
+		free_nodes(sinfo->nodes->nodes);
+		sinfo->nodes->nodes = NULL;	/* for static node_info_arr objects which might refer to this */
+	}
+	free(sinfo->nodes);
 	free_resource_resv_array(sinfo->resvs);
 
 #ifdef NAS /* localmod 053 */
@@ -1631,21 +1641,18 @@ update_server_on_run(status *policy, server_info *sinfo,
 		if (cstat.node_sort[0].res_name != NULL && conf.node_sort_unused) {
 			if (resresv->job->resv != NULL &&
 				resresv->job->resv->resv != NULL) {
-				node_info **resv_nodes;
+				node_info_arr *resv_nodes;
 				int num_resv_nodes;
 
 				resv_nodes = resresv->job->resv->resv->resv_nodes;
-				num_resv_nodes = count_array(resv_nodes);
-				qsort(resv_nodes, num_resv_nodes, sizeof(node_info *),
-					multi_node_sort);
+				num_resv_nodes = resv_nodes->num_nodes;
+				qsort(resv_nodes->nodes, num_resv_nodes, sizeof(node_info *), multi_node_sort);
 			} else {
-				qsort(sinfo->nodes, sinfo->num_nodes, sizeof(node_info *),
-					multi_node_sort);
+				qsort(sinfo->nodes->nodes, sinfo->nodes->num_nodes, sizeof(node_info *), multi_node_sort);
 
-				if (sinfo->nodes != sinfo->unassoc_nodes) {
-					num_unassoc = count_array(sinfo->unassoc_nodes);
-					qsort(sinfo->unassoc_nodes, num_unassoc, sizeof(node_info *),
-						multi_node_sort);
+				if (sinfo->nodes->nodes != sinfo->unassoc_nodes->nodes) {
+					num_unassoc = sinfo->unassoc_nodes->num_nodes;
+					qsort(sinfo->unassoc_nodes->nodes, num_unassoc, sizeof(node_info *), multi_node_sort);
 				}
 			}
 		}
@@ -2114,7 +2121,7 @@ check_resv_running_on_node(resource_resv *resv, void *arg)
 {
 	if (resv->is_resv && resv->resv != NULL) {
 		if (resv->resv->is_running || resv->resv->resv_state == RESV_BEING_DELETED)
-			if (find_node_info(resv->ninfo_arr, (char *) arg))
+			if (find_node_info(resv->ninfo_arr->nodes, (char *) arg))
 				return 1;
 	}
 	return 0;
@@ -2136,6 +2143,8 @@ dup_server_info(server_info *osinfo)
 {
 	server_info *nsinfo;		/* scheduler internal form of server info */
 	int i;
+	node_info **onodes = NULL;
+	node_info **nnodes = NULL;
 
 	if (osinfo == NULL)
 		return NULL;
@@ -2187,14 +2196,11 @@ dup_server_info(server_info *osinfo)
 
 	nsinfo->policy = dup_status(osinfo->policy);
 
-	nsinfo->num_nodes = osinfo->num_nodes;
-
 	/* dup the nodes, if there are any nodes */
 	nsinfo->nodes = dup_nodes(osinfo->nodes, nsinfo, NO_FLAGS);
 
 	if (nsinfo->has_nodes_assoc_queue) {
-		nsinfo->unassoc_nodes =
-			node_filter(nsinfo->nodes, nsinfo->num_nodes, is_unassoc_node, NULL, 0);
+		nsinfo->unassoc_nodes = node_filter(nsinfo->nodes, nsinfo->nodes->num_nodes, is_unassoc_node, NULL, 0);
 	} else
 		nsinfo->unassoc_nodes = nsinfo->nodes;
 
@@ -2280,9 +2286,10 @@ dup_server_info(server_info *osinfo)
 	/* the jobs are not dupped when we dup the nodes, so we need to copy
 	 * the node's job arrays now
 	 */
-	for (i = 0; osinfo->nodes[i] != NULL; i++)
-		nsinfo->nodes[i]->job_arr =
-			copy_resresv_array(osinfo->nodes[i]->job_arr, nsinfo->jobs);
+	onodes = osinfo->nodes->nodes;
+	nnodes = nsinfo->nodes->nodes;
+	for (i = 0; onodes[i] != NULL; i++)
+		nnodes[i]->job_arr = copy_resresv_array(onodes[i]->job_arr, nsinfo->jobs);
 
 	nsinfo->num_parts = osinfo->num_parts;
 	if (osinfo->nodepart != NULL) {
@@ -2303,8 +2310,8 @@ dup_server_info(server_info *osinfo)
 		/* reattach nodes to their host sets*/
 		for (j = 0; nsinfo->hostsets[j] != NULL; j++) {
 			node_partition *hset = nsinfo->hostsets[j];
-			for (k = 0; hset->ninfo_arr[k] != NULL; k++)
-				hset->ninfo_arr[k]->hostset = hset;
+			for (k = 0; hset->ninfo_arr->nodes[k] != NULL; k++)
+				hset->ninfo_arr->nodes[k]->hostset = hset;
 		}
 		nsinfo->num_hostsets = osinfo->num_hostsets;
 	}
@@ -2312,13 +2319,11 @@ dup_server_info(server_info *osinfo)
 	/* the running resvs are not dupped when we dup the nodes, so we need to copy
 	 * the node's running resvs arrays now
 	 */
-	for (i = 0; osinfo->nodes[i] != NULL; i++) {
-		nsinfo->nodes[i]->run_resvs_arr =
-			copy_resresv_array(osinfo->nodes[i]->run_resvs_arr, nsinfo->resvs);
-		nsinfo->nodes[i]->np_arr =
-			copy_node_partition_ptr_array(osinfo->nodes[i]->np_arr, nsinfo->nodepart);
+	for (i = 0; onodes[i] != NULL; i++) {
+		nnodes[i]->run_resvs_arr = copy_resresv_array(onodes[i]->run_resvs_arr, nsinfo->resvs);
+		nnodes[i]->np_arr = copy_node_partition_ptr_array(onodes[i]->np_arr, nsinfo->nodepart);
 		if (nsinfo->calendar != NULL)
-			nsinfo->nodes[i]->node_events = dup_te_lists(osinfo->nodes[i]->node_events, nsinfo->calendar->next_event);
+			nnodes[i]->node_events = dup_te_lists(onodes[i]->node_events, nsinfo->calendar->next_event);
 	}
 	nsinfo->buckets = dup_node_bucket_array(osinfo->buckets, nsinfo);
 	/* Now that all job information has been created, time to associate
@@ -2977,8 +2982,8 @@ update_universe_on_end(status *policy, resource_resv *resresv, char *job_state, 
 	}
 
 	if (resresv->ninfo_arr != NULL) {
-		for (i = 0; resresv->ninfo_arr[i] != NULL; i++)
-			update_node_on_end(resresv->ninfo_arr[i], resresv, job_state);
+		for (i = 0; resresv->ninfo_arr->nodes[i] != NULL; i++)
+			update_node_on_end(resresv->ninfo_arr->nodes[i], resresv, job_state);
 	}
 
 
@@ -3946,19 +3951,20 @@ compare_resource_avail_list(schd_resource *r1, schd_resource *r2) {
  *
  * @return new unordered_nodes
  */
-node_info **
-dup_unordered_nodes(node_info **old_unordered_nodes, node_info **nnodes)
+node_info_arr *
+dup_unordered_nodes(node_info_arr *old_unordered_nodes, node_info_arr *nnodes)
 {
 	int i;
 	int ct1;
 	int ct2;
 	node_info **new_unordered_nodes;
+	node_info_arr *new_arr = NULL;
 
 	if (old_unordered_nodes == NULL || nnodes == NULL)
 		return NULL;
 
-	ct1 = count_array(nnodes);
-	ct2 = count_array(old_unordered_nodes);
+	ct1 = nnodes->num_nodes;
+	ct2 = old_unordered_nodes->num_nodes;
 
 	if(ct1 != ct2)
 		return NULL;
@@ -3970,9 +3976,15 @@ dup_unordered_nodes(node_info **old_unordered_nodes, node_info **nnodes)
 	}
 
 	for (i = 0; i < ct1; i++)
-		new_unordered_nodes[nnodes[i]->node_ind] = nnodes[i];
+		new_unordered_nodes[nnodes->nodes[i]->node_ind] = nnodes->nodes[i];
 
 	new_unordered_nodes[ct1] = NULL;
 
-	return new_unordered_nodes;
+	new_arr = create_node_info_arr(new_unordered_nodes, ct1);
+	if (new_arr == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		free_nodes(new_unordered_nodes);
+	}
+
+	return new_arr;
 }

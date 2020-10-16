@@ -51,7 +51,7 @@ void query_node_info_chunk(th_data_query_ninfo *data);
 /*
  *      query_nodes - query all the nodes associated with a server
  */
-node_info **query_nodes(int pbs_sd, server_info *sinfo);
+node_info_arr *query_nodes(int pbs_sd, server_info *sinfo);
 
 /*
  *      query_node_info - collect information from a batch_status and
@@ -103,8 +103,8 @@ int add_node_state(node_info *ninfo, char *state);
 /*
  *      node_filter - filter a node array and return a new filterd array
  */
-node_info **
-node_filter(node_info **nodes, int size,
+node_info_arr *
+node_filter(node_info_arr *nodes, int size,
 	int (*filter_func)(node_info*, void*), void *arg, int flags);
 
 
@@ -129,7 +129,7 @@ void dup_node_info_chunk(th_data_dup_nd_info *data);
 /*
  *      dup_nodes - duplicate an array of nodes
  */
-node_info **dup_nodes(node_info **onodes, server_info *nsinfo, unsigned int flags);
+node_info_arr *dup_nodes(node_info_arr *onode_arr, server_info *nsinfo, unsigned int flags);
 
 /*
  *      set_node_type - set the node type bits
@@ -195,7 +195,7 @@ void update_node_on_end(node_info *ninfo, resource_resv *resresv, char *job_stat
  *                            This means we have to use the names from the
  *                            first array and find them in the second array
  */
-node_info **copy_node_ptr_array(node_info  **oarr, node_info  **narr);
+node_info_arr *copy_node_ptr_array(node_info_arr *oarr, node_info_arr *narr);
 
 /*
  *      create_execvnode - create an execvnode to run a multi-node job
@@ -346,7 +346,7 @@ nspec **combine_nspec_array(nspec **nspec_arr);
  */
 int
 eval_selspec(status *policy, selspec *spec, place *placespec,
-	node_info **ninfo_arr, node_partition **nodepart,
+	node_info_arr *ninfo_arr, node_partition **nodepart,
 	resource_resv *resresv, unsigned int flags,
 	nspec ***nspec_arr, schd_error *err);
 
@@ -367,7 +367,7 @@ eval_selspec(status *policy, selspec *spec, place *placespec,
  *
  */
 int
-eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
+eval_placement(status *policy, selspec *spec, node_info_arr *ninfo_arr, place *pl,
 	resource_resv *resresv, unsigned int flags, nspec ***nspec_arr, schd_error *err);
 /*
  *	eval_complex_selspec - handle a complex (plus'd) select spec
@@ -384,7 +384,7 @@ eval_placement(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
  *		0 if not
  */
 int
-eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place *pl,
+eval_complex_selspec(status *policy, selspec *spec, node_info_arr *ninfo_arr, place *pl,
 	resource_resv *resresv, unsigned int flags, nspec ***nspec_arr, schd_error *err);
 
 /*
@@ -402,7 +402,7 @@ eval_complex_selspec(status *policy, selspec *spec, node_info **ninfo_arr, place
  * 		0 if not
  */
 int
-eval_simple_selspec(status *policy, chunk *chk, node_info **ninfo_arr,
+eval_simple_selspec(status *policy, chunk *chk, node_info_arr *ninfo_arr,
 	place *pl, resource_resv *resresv, unsigned int flags,
 	nspec ***nspec_arr, schd_error *err, int check_eligible);
 
@@ -460,15 +460,7 @@ check_resources_for_node(resource_req *resreq, node_info *ninfo,
  *				       ninfo pointers out of a nspec array
  *	returns new node_info array or NULL on error
  */
-node_info **create_node_array_from_nspec(nspec **nspec_arr);
-
-/*
- *	reorder_nodes - reorder nodes for smp_cluster_dist or
- *				provision_policy_types
- *	NOTE: uses global last_node_name for round_robin
- *	returns pointer to static buffer of nodes (reordered appropretly)
- */
-node_info **reorder_nodes(node_info **nodes, resource_resv *resresv);
+node_info_arr *create_node_array_from_nspec(nspec **nspec_arr);
 
 /*
  *	ok_break_chunk - is it OK to break up a chunk on a list of nodes?
@@ -584,7 +576,7 @@ int node_down_event(node_info *node, void *arg);
 /*
  *	create a node_info array from a list of nodes in a string array
  */
-node_info **create_node_array_from_str(node_info **nodes, char **strnodes);
+node_info_arr *create_node_array_from_str(node_info **nodes, char **strnodes);
 
 /*
  *      find node by unique rank
@@ -625,7 +617,7 @@ void
 check_node_eligibility_chunk(th_data_nd_eligible *data);
 
 /* check nodes for eligibility and mark them ineligible if not */
-void check_node_array_eligibility(node_info **ninfo_arr, resource_resv *resresv, place *pl,
+void check_node_array_eligibility(node_info_arr *ninfo_arr, resource_resv *resresv, place *pl,
 		int num_nodes, schd_error *err);
 
 int node_in_partition(node_info *ninfo, char *partition);
@@ -635,6 +627,8 @@ node_info **add_node_to_array(node_info **ninfo_arr, node_info *node);
 int add_event_to_nodes(timed_event *te, nspec **nspecs);
 
 int add_node_events(timed_event *te, void *arg1, void *arg2);
+
+node_info_arr *create_node_info_arr(node_info **ninfo_arr, int num_nodes);
 
 /*
  * Find a node by its hostname

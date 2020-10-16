@@ -662,14 +662,12 @@ dup_resource_resv(resource_resv *oresresv, server_info *nsinfo, queue_info *nqin
 				nresresv->ninfo_arr = copy_node_ptr_array(oresresv->ninfo_arr,
 					nresresv->job->resv->resv->resv_nodes);
 				nresresv->nspec_arr = dup_nspecs(oresresv->nspec_arr,
-					nresresv->job->resv->ninfo_arr, NULL);
+					nresresv->job->resv->ninfo_arr->nodes, NULL);
 
 			}
 			else {
-				nresresv->ninfo_arr = copy_node_ptr_array(oresresv->ninfo_arr,
-					nsinfo->nodes);
-				nresresv->nspec_arr = dup_nspecs(oresresv->nspec_arr,
-					nsinfo->nodes, NULL);
+				nresresv->ninfo_arr = copy_node_ptr_array(oresresv->ninfo_arr, nsinfo->nodes);
+				nresresv->nspec_arr = dup_nspecs(oresresv->nspec_arr, nsinfo->nodes->nodes, NULL);
 			}
 		}
 	}
@@ -681,9 +679,9 @@ dup_resource_resv(resource_resv *oresresv, server_info *nsinfo, queue_info *nqin
 			sel = nresresv->resv->select_orig;
 		else
 			sel = nresresv->select;
-		nresresv->resv->orig_nspec_arr = dup_nspecs(oresresv->resv->orig_nspec_arr, nsinfo->nodes, sel);
+		nresresv->resv->orig_nspec_arr = dup_nspecs(oresresv->resv->orig_nspec_arr, nsinfo->nodes->nodes, sel);
 		nresresv->ninfo_arr = copy_node_ptr_array(oresresv->ninfo_arr, nsinfo->nodes);
-		nresresv->nspec_arr = dup_nspecs(oresresv->nspec_arr, nsinfo->nodes, NULL);
+		nresresv->nspec_arr = dup_nspecs(oresresv->nspec_arr, nsinfo->nodes->nodes, NULL);
 	}
 	else  { /* error */
 		free_resource_resv(nresresv);

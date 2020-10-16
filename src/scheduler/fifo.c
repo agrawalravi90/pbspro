@@ -2063,8 +2063,7 @@ add_job_to_calendar(int pbs_sd, status *policy, server_info *sinfo,
 				char *selectspec;
 				if (bjob->ninfo_arr != NULL)
 					free(bjob->ninfo_arr);
-				bjob->ninfo_arr =
-					create_node_array_from_nspec(bjob->nspec_arr);
+				bjob->ninfo_arr = create_node_array_from_nspec(bjob->nspec_arr);
 				selectspec = create_select_from_nspec(bjob->nspec_arr);
 				if (selectspec != NULL) {
 					free_selspec(bjob->execselect);
@@ -2113,10 +2112,10 @@ add_job_to_calendar(int pbs_sd, status *policy, server_info *sinfo,
 			int ind = bjob->nspec_arr[i]->ninfo->node_ind;
 			add_te_list(&(bjob->nspec_arr[i]->ninfo->node_events), te_start);
 
-			if (ind != -1 && sinfo->unordered_nodes[ind]->bucket_ind != -1) {
+			if (ind != -1 && sinfo->unordered_nodes->nodes[ind]->bucket_ind != -1) {
 				node_bucket *bkt;
 
-				bkt = sinfo->buckets[sinfo->unordered_nodes[ind]->bucket_ind];
+				bkt = sinfo->buckets[sinfo->unordered_nodes->nodes[ind]->bucket_ind];
 				if (pbs_bitmap_get_bit(bkt->free_pool->truth, ind)) {
 					pbs_bitmap_bit_off(bkt->free_pool->truth, ind);
 					bkt->free_pool->truth_ct--;

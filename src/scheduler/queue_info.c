@@ -216,11 +216,8 @@ query_queues(status *policy, int pbs_sd, server_info *sinfo)
 				qinfo->is_ok_to_run = 0;
 
 			if (qinfo->has_nodes) {
-				qinfo->nodes = node_filter(sinfo->nodes, sinfo->num_nodes,
+				qinfo->nodes = node_filter(sinfo->nodes, sinfo->nodes->num_nodes,
 					node_queue_cmp, (void *) qinfo->name, 0);
-
-				qinfo->num_nodes = count_array(qinfo->nodes);
-
 			}
 
 			if (ret != QUEUE_NOT_EXEC) {
@@ -556,7 +553,6 @@ new_queue_info(int limallocflag)
 	init_state_count(&(qinfo->sc));
 	if ((limallocflag != 0))
 		qinfo->liminfo = lim_alloc_liminfo();
-	qinfo->num_nodes	 = 0;
 	qinfo->name		 = NULL;
 	qinfo->qres		 = NULL;
 	qinfo->jobs		 = NULL;
@@ -659,7 +655,7 @@ update_queue_on_run(queue_info *qinfo, resource_resv *resresv, char *job_state)
 
 	if (cstat.node_sort[0].res_name != NULL &&
 		conf.node_sort_unused && qinfo->nodes != NULL)
-		qsort(qinfo->nodes, qinfo->num_nodes, sizeof(node_info *),
+		qsort(qinfo->nodes->nodes, qinfo->nodes->num_nodes, sizeof(node_info *),
 			multi_node_sort);
 
 
@@ -983,7 +979,7 @@ dup_queue_info(queue_info *oqinfo, server_info *nsinfo)
 			nqinfo->sc.total, check_run_job, NULL, 0);
 
 	if (oqinfo->nodes != NULL)
-		nqinfo->nodes = node_filter(nsinfo->nodes, nsinfo->num_nodes,
+		nqinfo->nodes = node_filter(nsinfo->nodes, nsinfo->nodes->num_nodes,
 			node_queue_cmp, (void *) nqinfo->name, 0);
 
 	if (oqinfo->partition != NULL) {

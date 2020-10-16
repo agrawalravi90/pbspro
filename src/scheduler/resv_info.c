@@ -234,7 +234,7 @@ query_reservations(int pbs_sd, server_info *sinfo, struct batch_status *resvs)
 			ignore_resv = 1;
 		}
 		else if ((resresv->resv->resv_state == RESV_BEING_DELETED) && (resresv->resv->resv_nodes != NULL) &&
-			(!is_string_in_arr(resresv->resv->resv_nodes[0]->resvs, resresv->name))) {
+			(!is_string_in_arr(resresv->resv->resv_nodes->nodes[0]->resvs, resresv->name))) {
 			log_event(PBSEVENT_SCHED, PBS_EVENTCLASS_RESV, LOG_DEBUG,
 				resresv->name, "Reservation is being deleted and not present on node, ignoring this reservation");
 			ignore_resv = 1;
@@ -289,13 +289,13 @@ query_reservations(int pbs_sd, server_info *sinfo, struct batch_status *resvs)
 
 		if (resresv->node_set_str != NULL) {
 			resresv->node_set = create_node_array_from_str(
-				resresv->server->unassoc_nodes, resresv->node_set_str);
+				resresv->server->unassoc_nodes->nodes, resresv->node_set_str);
 		}
 		resresv->resv->resv_queue =
 			find_queue_info(sinfo->queues, resresv->resv->queuename);
 		if (is_resresv_running(resresv)) {
-			for (j = 0; resresv->ninfo_arr[j] != NULL; j++)
-				resresv->ninfo_arr[j]->num_run_resv++;
+			for (j = 0; resresv->ninfo_arr->nodes[j] != NULL; j++)
+				resresv->ninfo_arr->nodes[j]->num_run_resv++;
 		}
 
 		if (resresv->resv->resv_queue != NULL) {
@@ -306,9 +306,8 @@ query_reservations(int pbs_sd, server_info *sinfo, struct batch_status *resvs)
 					rjob->job->resv = resresv;
 					rjob->job->can_not_preempt = 1;
 					if (rjob->node_set_str != NULL)
-						rjob->node_set =
-							create_node_array_from_str(resresv->resv->resv_nodes,
-							rjob->node_set_str);
+						rjob->node_set = create_node_array_from_str(resresv->resv->resv_nodes->nodes,
+								rjob->node_set_str);
 
 					/* if a job will exceed the end time of a duration, it will be
 					 * killed by the server. We set the job's end time to the resv's
@@ -328,13 +327,12 @@ query_reservations(int pbs_sd, server_info *sinfo, struct batch_status *resvs)
 						 */
 						for (k = 0; rjob->nspec_arr[k] != NULL; k++) {
 							ns = rjob->nspec_arr[k];
-							resvnode = find_node_info(resresv->resv->resv_nodes,
-								ns->ninfo->name);
+							resvnode = find_node_info(resresv->resv->resv_nodes->nodes, ns->ninfo->name);
 
 							if (resvnode != NULL) {
 								/* update the ninfo to point to the ninfo in our universe */
 								ns->ninfo = resvnode;
-								rjob->ninfo_arr[k] = resvnode;
+								rjob->ninfo_arr->nodes[k] = resvnode;
 
 								/* update resource assigned amounts on the nodes in the
 								 * reservation's universe
@@ -359,7 +357,7 @@ query_reservations(int pbs_sd, server_info *sinfo, struct batch_status *resvs)
 #endif /* localmod 031 */
 							}
 						}
-						if (rjob->ninfo_arr[k] != NULL) {
+						if (rjob->ninfo_arr->nodes[k] != NULL) {
 							log_event(PBSEVENT_RESV, PBS_EVENTCLASS_RESV, LOG_INFO, rjob->name,
 								"Job's node array has different length than nspec_arr in query_reservations()");
 						}
@@ -368,14 +366,12 @@ query_reservations(int pbs_sd, server_info *sinfo, struct batch_status *resvs)
 				jobs_in_reservations = resource_resv_filter(resresv->resv->resv_queue->jobs,
 									    count_array(resresv->resv->resv_queue->jobs),
 									    check_running_job_in_reservation, NULL, 0);
-				collect_jobs_on_nodes(resresv->resv->resv_nodes, jobs_in_reservations,
+				collect_jobs_on_nodes(resresv->resv->resv_nodes->nodes, jobs_in_reservations,
 					              count_array(jobs_in_reservations), NO_FLAGS);
 				free(jobs_in_reservations);
 
 				/* Sort the nodes to ensure correct job placement. */
-				qsort(resresv->resv->resv_nodes,
-					count_array(resresv->resv->resv_nodes),
-					sizeof(node_info *), multi_node_sort);
+				qsort(resresv->resv->resv_nodes->nodes, resresv->resv->resv_nodes->num_nodes, sizeof(node_info *), multi_node_sort);
 			}
 		}
 		/* The server's info only gives information about a single reservation
@@ -896,7 +892,8 @@ free_resv_info(resv_info *rinfo)
 		free(rinfo->queuename);
 
 	if (rinfo->resv_nodes != NULL)
-		free_nodes(rinfo->resv_nodes);
+		free_nodes(rinfo->resv_nodes->nodes);
+	free(rinfo->resv_nodes);
 
 	if (rinfo->timezone != NULL)
 		free(rinfo->timezone);
@@ -1813,8 +1810,8 @@ check_down_running(resource_resv *resv, int chunk_ind)
 			if (resv->resv->resv_queue->running_jobs != NULL)
 				for (j = 0; resv->resv->resv_queue->running_jobs[j] != NULL && ret != -2; j++) {
 					resource_resv *job = resv->resv->resv_queue->running_jobs[j];
-					for (k = 0; job->ninfo_arr[k] != NULL && ret != -2; k++)
-						if (job->ninfo_arr[k]->rank == ninfo->rank) {
+					for (k = 0; job->ninfo_arr->nodes[k] != NULL && ret != -2; k++)
+						if (job->ninfo_arr->nodes[k]->rank == ninfo->rank) {
 							if (ret == -1)
 								ret = -2;
 							else
@@ -2083,7 +2080,11 @@ check_vnodes_unavailable(resource_resv *resv)
 void
 release_nodes(resource_resv *resresv)
 {
-	free_nodes(resresv->resv->resv_nodes);
+	if (resresv->resv->resv_nodes != NULL) {
+		free_nodes(resresv->resv->resv_nodes->nodes);
+		resresv->resv->resv_nodes->nodes = NULL;
+	}
+	free(resresv->resv->resv_nodes);
 	resresv->resv->resv_nodes = NULL;
 
 	free(resresv->ninfo_arr);
@@ -2113,9 +2114,10 @@ release_nodes(resource_resv *resresv)
  * @return	new node universe
  * @retval	NULL	: on error
  */
-node_info **
+node_info_arr *
 create_resv_nodes(nspec **nspec_arr, server_info *sinfo)
 {
+	node_info_arr *ret_arr = NULL;
 	node_info **nodes = NULL;
 	schd_resource *res;
 	resource_req *req;
@@ -2160,7 +2162,18 @@ create_resv_nodes(nspec **nspec_arr, server_info *sinfo)
 			nodes[i] = NULL;
 		}
 	}
-	return nodes;
+
+
+	if (nodes != NULL) {
+		ret_arr = create_node_info_arr(nodes, i);
+		if (ret_arr == NULL) {
+			log_err(errno, __func__, MEM_ERR_MSG);
+			free_nodes(nodes);
+			return NULL;
+		}
+	}
+
+	return ret_arr;
 }
 
 /**
@@ -2179,7 +2192,7 @@ end_resv_on_nodes(resource_resv *resv, node_info **all_nodes)
 	node_info *ninfo = NULL;
 	int i;
 
-	resv_nodes = resv->ninfo_arr;
+	resv_nodes = resv->ninfo_arr->nodes;
 	for (i = 0; resv_nodes[i] != NULL; i++) {
 		ninfo = find_node_by_indrank(all_nodes, resv_nodes[i]->node_ind, resv_nodes[i]->rank);
 		update_node_on_end(ninfo, resv, NULL);
@@ -2207,9 +2220,9 @@ release_running_resv_nodes(resource_resv *resv, server_info *sinfo)
 	if (resv == NULL || sinfo == NULL )
 		return;
 	if (resv->resv->is_running && (resv->resv->resv_substate == RESV_DEGRADED || resv->resv->resv_state == RESV_BEING_ALTERED)) {
-		resv_nodes = resv->ninfo_arr;
+		resv_nodes = resv->ninfo_arr->nodes;
 		for (i = 0; resv_nodes[i] != NULL; i++) {
-			ninfo = find_node_by_indrank(sinfo->nodes, resv_nodes[i]->node_ind, resv_nodes[i]->rank);
+			ninfo = find_node_by_indrank(sinfo->nodes->nodes, resv_nodes[i]->node_ind, resv_nodes[i]->rank);
 			update_node_on_end(ninfo, resv, NULL);
 		}
 		sinfo->pset_metadata_stale = 1;

@@ -107,7 +107,7 @@ void release_nodes(resource_resv *resc_resv);
 /*
  *	create_resv_nodes - create a node universe for a reservation
  */
-node_info **create_resv_nodes(nspec **nspec_arr, server_info *sinfo);
+node_info_arr *create_resv_nodes(nspec **nspec_arr, server_info *sinfo);
 
 /*
  *	release_running_resv_nodes - adjust nodes resources for reservations that

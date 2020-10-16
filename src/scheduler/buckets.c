@@ -393,17 +393,19 @@ char *create_node_bucket_name(status *policy, node_bucket *nb) {
  * @retval NULL on error
  */
 node_bucket **
-create_node_buckets(status *policy, node_info **nodes, queue_info **queues, unsigned int flags) {
+create_node_buckets(status *policy, node_info_arr *node_arr, queue_info **queues, unsigned int flags) {
 	int i;
 	int j = 0;
 	node_bucket **buckets = NULL;
 	node_bucket **tmp;
 	int node_ct;
+	node_info **nodes = NULL;
 
-	if (policy == NULL || nodes == NULL)
+	if (policy == NULL || node_arr == NULL)
 		return NULL;
 
-	node_ct = count_array(nodes);
+	nodes = node_arr->nodes;
+	node_ct = node_arr->num_nodes;
 
 	buckets = calloc((node_ct + 1), sizeof(node_bucket *));
 	if (buckets == NULL) {
@@ -667,9 +669,9 @@ bucket_match(chunk_map **cmap, resource_resv *resresv, schd_error *err)
 			     k = pbs_bitmap_next_on_bit(bkt->busy_later_pool->working, k)) {
 				clear_schd_error(err);
 				if (resresv->aoename != NULL) {
-					if (sinfo->unordered_nodes[k]->current_aoe == NULL ||
-					   strcmp(sinfo->unordered_nodes[k]->current_aoe, resresv->aoename) != 0)
-						if (is_provisionable(sinfo->unordered_nodes[k], resresv, err) == NOT_PROVISIONABLE) {
+					if (sinfo->unordered_nodes->nodes[k]->current_aoe == NULL ||
+					   strcmp(sinfo->unordered_nodes->nodes[k]->current_aoe, resresv->aoename) != 0)
+						if (is_provisionable(sinfo->unordered_nodes->nodes[k], resresv, err) == NOT_PROVISIONABLE) {
 							continue;
 						}
 				}
@@ -689,9 +691,9 @@ bucket_match(chunk_map **cmap, resource_resv *resresv, schd_error *err)
 			     k = pbs_bitmap_next_on_bit(bkt->free_pool->working, k)) {
 				clear_schd_error(err);
 				if (resresv->aoename != NULL) {
-					if (sinfo->unordered_nodes[k]->current_aoe == NULL ||
-					   strcmp(sinfo->unordered_nodes[k]->current_aoe, resresv->aoename) != 0)
-						if (is_provisionable(sinfo->unordered_nodes[k], resresv, err) == NOT_PROVISIONABLE) {
+					if (sinfo->unordered_nodes->nodes[k]->current_aoe == NULL ||
+					   strcmp(sinfo->unordered_nodes->nodes[k]->current_aoe, resresv->aoename) != 0)
+						if (is_provisionable(sinfo->unordered_nodes->nodes[k], resresv, err) == NOT_PROVISIONABLE) {
 							continue;
 						}
 				}
@@ -734,7 +736,7 @@ node_can_fit_job_time(int node_ind, resource_resv *resresv)
 
 	sinfo = resresv->server;
 	end = sinfo->server_time + calc_time_left(resresv, 0);
-	tel = sinfo->unordered_nodes[node_ind]->node_events;
+	tel = sinfo->unordered_nodes->nodes[node_ind]->node_events;
 	if (tel != NULL && tel->event != NULL)
 		if (tel->event->event_time < end)
 			return 0;
@@ -852,7 +854,7 @@ bucket_to_nspecs(status *policy, chunk_map **cb_map, resource_resv *resresv)
 			 * For the final chunk, we might allocate less.
 			 */
 			for( ; cnt > 0 && chunks_needed > 0; cnt--, chunks_needed--, n++) {
-				ns_arr[n] = chunk_to_nspec(policy, cb_map[i]->chunk, sinfo->unordered_nodes[j], resresv->aoename);
+				ns_arr[n] = chunk_to_nspec(policy, cb_map[i]->chunk, sinfo->unordered_nodes->nodes[j], resresv->aoename);
 				if (ns_arr[n] == NULL) {
 					free_nspecs(ns_arr);
 					return NULL;
@@ -1078,7 +1080,7 @@ check_node_buckets(status *policy, server_info *sinfo, queue_info *qinfo, resour
 	if (resresv->place_spec->group != NULL) {
 		char *grouparr[2] = {0};
 		np_cache *npc = NULL;
-		node_info **ninfo_arr;
+		node_info_arr *ninfo_arr;
 
 		if (qinfo->has_nodes)
 			ninfo_arr = qinfo->nodes;
