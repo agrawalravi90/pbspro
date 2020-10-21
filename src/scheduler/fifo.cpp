@@ -753,16 +753,16 @@ get_high_prio_cmd(int *is_conn_lost, sched_cmd *high_prior_cmd)
 {
 	int i;
 	sched_cmd cmd;
-	int num_conf_servers = get_num_servers();
-	svr_conn_t *svr_conns = get_conn_svr_instances(clust_secondary_sock);
+	int nsvrs = get_num_servers();
+	svr_conn_t **svr_conns = static_cast<svr_conn_t **>(get_conn_svr_instances(clust_secondary_sock));
 
-	for (i = 0; i < num_conf_servers; i++) {
+	for (i = 0; svr_conns[i]; i++) {
 		int rc;
 
-		if (svr_conns[i].sd < 0)
+		if (svr_conns[i]->sd < 0)
 			continue;
 
-		rc = get_sched_cmd_noblk(svr_conns[i].sd, &cmd);
+		rc = get_sched_cmd_noblk(svr_conns[i]->sd, &cmd);
 		if (rc == -2) {
 			*is_conn_lost = 1;
 			return 0;
@@ -772,7 +772,7 @@ get_high_prio_cmd(int *is_conn_lost, sched_cmd *high_prior_cmd)
 
 		if (cmd.cmd == SCH_SCHEDULE_RESTART_CYCLE) {
 			*high_prior_cmd = cmd;
-			if (i == num_conf_servers - 1) {
+			if (i == nsvrs - 1) {
 				/* We need to return only after checking all servers. This way even if multiple
 				 * servers send SCH_SCHEDULE_RESTART_CYCLE we only have to consider one such request
 				 */
@@ -1306,12 +1306,11 @@ send_run_job(int pbs_sd, int has_runjob_hook, char *jobid, char *execvnode,
 	     char *svr_id_node, char *svr_id_job, int msvr_local)
 {
 	char extend[PBS_MAXHOSTNAME + 6];
-	int pbs_sd_node = get_svr_inst_fd(pbs_sd, svr_id_node);
 	int pbs_sd_job = get_svr_inst_fd(pbs_sd, svr_id_job);
 
 	extend[0] = '\0';
-	if (pbs_sd_job != pbs_sd_node)
-		snprintf(extend, sizeof(extend), "%s", svr_id_node);
+	if (strcmp(svr_id_node, svr_id_job) != 0)
+		snprintf(extend, sizeof(extend), "%s=%s", SERVER_IDENTIFIER, svr_id_node);
 
 	if (sc_attrs.runjob_mode == RJ_EXECJOB_HOOK)
 		return pbs_runjob(pbs_sd_job, jobid, execvnode, extend);
@@ -1483,6 +1482,7 @@ run_update_resresv(status *policy, int pbs_sd, server_info *sinfo,
 	int pbsrc;			     /* return codes from pbs IFL calls */
 	char buf[COMMENT_BUF_SIZE] = {'\0'}; /* generic buffer - comments & logging*/
 	int num_nspec;
+	char *node_owner = NULL;
 
 	/* used for jobs with nodes resource */
 	nspec **ns = NULL;

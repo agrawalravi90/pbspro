@@ -303,7 +303,7 @@ parse_psi(char *conf_value)
 			fprintf(stderr, "Error parsing PBS_SERVER_INSTANCES %s \n", list[i]);
 			free_string_array(list);
 			return -1;
-		}	
+		}
 		strcpy(pbs_conf.psi[i].name, svrname);
 
 		if (pbs_conf.psi[i].name[0] == '\0') {

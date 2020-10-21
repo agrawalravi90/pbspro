@@ -101,7 +101,6 @@ libpbs_la_SOURCES = \
 	../Libcmds/parse_stage.c \
 	../Libcmds/pbs_json.c \
 	../Libcmds/prepare_path.c \
-	../Libcmds/prt_job_err.c \
 	../Libcmds/set_attr.c \
 	../Libcmds/set_resource.c \
 	../Libdis/dis_helpers.c \
@@ -227,6 +226,7 @@ libpbs_la_SOURCES = \
 	../Libifl/int_modify_resv.c \
 	../Libifl/int_preempt_jobs.c \
 	../Libifl/list_link.c \
+	../Libifl/ifl_util.c \
 	../Libifl/PBS_attr.c \
 	../Libifl/pbs_get_attribute_errors.c \
 	../Libifl/pbs_geterrmg.c \
