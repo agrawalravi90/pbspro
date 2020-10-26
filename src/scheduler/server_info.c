@@ -453,7 +453,7 @@ query_server(status *pol, int pbs_sd)
 	if (sinfo->unordered_nodes == NULL) {
 		sinfo->fairshare = NULL;
 		free_server(sinfo);
-		free_nodes(tmp_ninfo_arr);
+		free_nodes(tmp_ninfo_arr, i);
 		return NULL;
 	}
 
@@ -1554,7 +1554,7 @@ free_server(server_info *sinfo)
 
 	free_queues(sinfo->queues);
 	if (sinfo->nodes != NULL) {
-		free_nodes(sinfo->nodes->nodes);
+		free_nodes(sinfo->nodes->nodes, sinfo->nodes->num_nodes);
 		sinfo->nodes->nodes = NULL;	/* for static node_info_arr objects which might refer to this */
 	}
 	free(sinfo->nodes);
@@ -3983,7 +3983,7 @@ dup_unordered_nodes(node_info_arr *old_unordered_nodes, node_info_arr *nnodes)
 	new_arr = create_node_info_arr(new_unordered_nodes, ct1);
 	if (new_arr == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
-		free_nodes(new_unordered_nodes);
+		free_nodes(new_unordered_nodes, ct1);
 	}
 
 	return new_arr;

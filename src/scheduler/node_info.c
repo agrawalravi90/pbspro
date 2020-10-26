@@ -195,7 +195,7 @@ query_node_info_chunk(th_data_query_ninfo *data)
 	for (i = start, nidx = 0; i <= end && cur_node != NULL; cur_node = cur_node->next, i++) {
 		/* get node info from the batch_status */
 		if ((ninfo = query_node_info(cur_node, sinfo)) == NULL) {
-			free_nodes(ninfo_arr);
+			free_nodes(ninfo_arr, num_nodes_chunk);
 			data->error = 1;
 			return;
 		}
@@ -396,7 +396,7 @@ query_nodes(int pbs_sd, server_info *sinfo)
 		}
 		if (th_err) {
 			pbs_statfree(nodes);
-			free_nodes(ninfo_arr);
+			free_nodes(ninfo_arr, num_nodes);
 			return NULL;
 		}
 		/* Assemble node info objects from various threads into the ninfo_arr */
@@ -793,25 +793,30 @@ alloc_tdata_free_nodes(node_info **ninfo_arr, int sidx, int eidx)
  *		free_nodes - free all the nodes in a node_info array
  *
  * @param[in,out]	ninfo_arr - the node info array
+ * @param[in]		num_nodes - number of nodes in the array (set to -1 if unknown)
  *
  * @return	nothing
  *
  */
 void
-free_nodes(node_info **ninfo_arr)
+free_nodes(node_info **ninfo_arr, int num_nodes)
 {
 	int i;
 	int chunk_size;
 	th_data_free_ninfo *tdata = NULL;
 	th_task_info *task = NULL;
 	int num_tasks;
-	int num_nodes;
 	int tid;
 
 	if (ninfo_arr == NULL)
 		return;
 
-	num_nodes = count_array(ninfo_arr);
+	if (num_nodes < 0)
+		num_nodes = count_array(ninfo_arr);
+	if (num_nodes < 1) {
+		free(ninfo_arr);
+		return;
+	}
 
 	tid = *((int *) pthread_getspecific(th_id_key));
 	if (tid != 0 || num_threads <= 1) {
@@ -1375,7 +1380,7 @@ dup_nodes(node_info_arr *onode_arr, server_info *nsinfo, unsigned int flags)
 		/* don't use multi-threading if I am a worker thread or num_threads is 1 */
 		tdata = alloc_tdata_dup_nodes(flags, nsinfo, onodes, nnodes, 0, num_nodes - 1);
 		if (tdata == NULL) {
-			free_nodes(nnodes);
+			free_nodes(nnodes, num_nodes);
 			log_err(errno, __func__, MEM_ERR_MSG);
 			return NULL;
 		}
@@ -1427,7 +1432,7 @@ dup_nodes(node_info_arr *onode_arr, server_info *nsinfo, unsigned int flags)
 	}
 
 	if (th_err) {
-		free_nodes(nnodes);
+		free_nodes(nnodes, num_nodes);
 		return NULL;
 	}
 	nnodes[num_nodes] = NULL;
@@ -1459,7 +1464,7 @@ dup_nodes(node_info_arr *onode_arr, server_info *nsinfo, unsigned int flags)
 										!strcmp(nres->indirect_vnode_name,
 										nres->indirect_vnode_name)) {
 										if (set_resource(tres, namebuf, RF_AVAIL) == 0) {
-											free_nodes(nnodes);
+											free_nodes(nnodes, num_nodes);
 											return NULL;
 										}
 									}
@@ -1467,7 +1472,7 @@ dup_nodes(node_info_arr *onode_arr, server_info *nsinfo, unsigned int flags)
 							}
 							if (set_resource(nres,
 								ores->indirect_res->orig_str_avail, RF_AVAIL) ==0) {
-								free_nodes(nnodes);
+								free_nodes(nnodes, num_nodes);
 								return NULL;
 							}
 							nres->assigned = ores->indirect_res->assigned;
@@ -1480,13 +1485,13 @@ dup_nodes(node_info_arr *onode_arr, server_info *nsinfo, unsigned int flags)
 	}
 
 	if (resolve_indirect_resources(nnodes) == 0) {
-		free_nodes(nnodes);
+		free_nodes(nnodes, num_nodes);
 		return NULL;
 	}
 
 	nnode_arr = create_node_info_arr(nnodes, num_nodes);
 	if (nnode_arr == NULL)
-		free_nodes(nnodes);
+		free_nodes(nnodes, num_nodes);
 
 	return nnode_arr;
 }
@@ -1652,7 +1657,7 @@ copy_node_ptr_array(node_info_arr *oarr, node_info_arr *narr)
 
 	arr_obj = create_node_info_arr(ninfo_arr, i);
 	if (arr_obj == NULL)
-		free_nodes(ninfo_arr);
+		free_nodes(ninfo_arr, oarr->num_nodes + 1);
 
 	return arr_obj;
 }
@@ -2924,7 +2929,7 @@ eval_placement(status *policy, selspec *spec, node_info_arr *node_arr, place *pl
 					while (*nsa != NULL)
 						nsa++;
 				}
-				free_nodes(dup_ninfo_arr);
+				free_nodes(dup_ninfo_arr, dup_arr->num_nodes);
 				free(dup_arr);
 			}
 			else {
@@ -3084,7 +3089,7 @@ eval_complex_selspec(status *policy, selspec *spec, node_info_arr *ninfo_arr, pl
 		}
 	}
 	if (dup_arr != NULL) {
-		free_nodes(nodes);
+		free_nodes(nodes, dup_arr->num_nodes);
 		free(dup_arr);
 	}
 
@@ -3219,7 +3224,7 @@ eval_simple_selspec(status *policy, chunk *chk, node_info_arr *pninfo_arr,
 		set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
 
 		if (dup_arr != NULL) {
-			free_nodes(ninfo_arr);
+			free_nodes(ninfo_arr, dup_arr->num_nodes);
 			free(dup_arr);
 		}
 		return 0;
@@ -3314,7 +3319,7 @@ eval_simple_selspec(status *policy, chunk *chk, node_info_arr *pninfo_arr,
 					if (specreq_noncons != NULL)
 						free_resource_req_list(specreq_noncons);
 					if (dup_arr != NULL) {
-						free_nodes(ninfo_arr);
+						free_nodes(ninfo_arr, dup_arr->num_nodes);
 						free(dup_arr);
 					}
 					set_schd_error_codes(err, NOT_RUN, SCHD_ERROR);
@@ -3430,7 +3435,7 @@ eval_simple_selspec(status *policy, chunk *chk, node_info_arr *pninfo_arr,
 		free_resource_req_list(specreq_noncons);
 
 	if (dup_arr != NULL) {
-		free_nodes(ninfo_arr);
+		free_nodes(ninfo_arr, dup_arr->num_nodes);
 		free(dup_arr);
 	}
 
@@ -4823,7 +4828,7 @@ create_node_array_from_nspec(nspec **nspec_arr)
 
 	ret_arr =  create_node_info_arr(ninfo_arr, j);
 	if (ret_arr == NULL)
-		free_nodes(ninfo_arr);
+		free_nodes(ninfo_arr, j);
 
 	return ret_arr;
 }
@@ -5571,7 +5576,7 @@ create_node_array_from_str(node_info **nodes, char **strnodes)
 
 	ret_arr = create_node_info_arr(ninfo_arr, j);
 	if (ret_arr == NULL)
-		free_nodes(ninfo_arr);
+		free_nodes(ninfo_arr, j);
 
 	return ret_arr;
 }

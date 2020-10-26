@@ -68,7 +68,7 @@ free_node_info_chunk(th_data_free_ninfo *data);
 /*
  *      free_nodes - free all the nodes in a node_info array
  */
-void free_nodes(node_info **ninfo_arr);
+void free_nodes(node_info **ninfo_arr, int num_nodes);
 
 
 /*

@@ -892,7 +892,7 @@ free_resv_info(resv_info *rinfo)
 		free(rinfo->queuename);
 
 	if (rinfo->resv_nodes != NULL)
-		free_nodes(rinfo->resv_nodes->nodes);
+		free_nodes(rinfo->resv_nodes->nodes, rinfo->resv_nodes->num_nodes);
 	free(rinfo->resv_nodes);
 
 	if (rinfo->timezone != NULL)
@@ -2081,7 +2081,7 @@ void
 release_nodes(resource_resv *resresv)
 {
 	if (resresv->resv->resv_nodes != NULL) {
-		free_nodes(resresv->resv->resv_nodes->nodes);
+		free_nodes(resresv->resv->resv_nodes->nodes, resresv->resv->resv_nodes->num_nodes);
 		resresv->resv->resv_nodes->nodes = NULL;
 	}
 	free(resresv->resv->resv_nodes);
@@ -2168,7 +2168,7 @@ create_resv_nodes(nspec **nspec_arr, server_info *sinfo)
 		ret_arr = create_node_info_arr(nodes, i);
 		if (ret_arr == NULL) {
 			log_err(errno, __func__, MEM_ERR_MSG);
-			free_nodes(nodes);
+			free_nodes(nodes, i);
 			return NULL;
 		}
 	}

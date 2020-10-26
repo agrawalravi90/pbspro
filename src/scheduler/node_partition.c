@@ -1214,7 +1214,7 @@ create_specific_nodepart(status *policy, char *name, node_info_arr *node_arr, in
 	np->ninfo_arr = create_node_info_arr(np_ninfo_arr, j);
 	if (np->ninfo_arr == NULL) {
 		log_err(errno, __func__, MEM_ERR_MSG);
-		free_nodes(np_ninfo_arr);
+		free_nodes(np_ninfo_arr, j);
 		free_node_partition(np);
 		return NULL;
 	}
