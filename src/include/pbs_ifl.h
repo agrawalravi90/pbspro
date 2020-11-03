@@ -523,9 +523,10 @@ struct attropl {
 
 struct batch_status {
 	struct batch_status *next;
-	char		    *name;
-	struct attrl	    *attribs;
-	char		    *text;
+	char *name;
+	struct attrl *attribs;
+	char *text;
+	int sock;
 };
 
 struct batch_deljob_status {

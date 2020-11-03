@@ -1505,6 +1505,7 @@ check_normal_node_path(status *policy, server_info *sinfo, queue_info *qinfo, re
 	int			error = 0;
 	node_partition		**nodepart = NULL;
 	node_info		**ninfo_arr = NULL;
+	int using_svr_local = 0;
 
 	if (sinfo == NULL || resresv == NULL || err == NULL) {
 		if (err != NULL)
@@ -1560,12 +1561,23 @@ check_normal_node_path(status *policy, server_info *sinfo, queue_info *qinfo, re
 			/* if there are nodes assigned to the queue, then check those */
 			if (qinfo->has_nodes)
 				ninfo_arr = qinfo->nodes;
-			else
-				ninfo_arr = sinfo->unassoc_nodes;
-		} else
-			/* last up we're not in a queue with nodes -- use the unassociated nodes */
-			ninfo_arr = sinfo->unassoc_nodes;
+			else if (sinfo->svr_to_psets != NULL) {
+				int i;
+
+				/* Find the nodes of the server which owns the job */
+				for (i = 0; sinfo->svr_to_psets[i] != NULL; i++) {
+					if (strcmp(sinfo->svr_to_psets[i]->svr_inst_id, resresv->job->svr_inst_id) == 0) {
+						ninfo_arr = sinfo->svr_to_psets[i]->np->ninfo_arr;
+						using_svr_local = 1;
+						resresv->local_run = 1;
+					}
+				}
+			}
+		}
 	}
+
+	if (ninfo_arr == NULL)
+		ninfo_arr = sinfo->unassoc_nodes;
 
 	if (resresv->node_set_str != NULL) {
 		/* Note that jobs inside reservations have their node_set
@@ -1601,12 +1613,24 @@ check_normal_node_path(status *policy, server_info *sinfo, queue_info *qinfo, re
 	get_resresv_spec(resresv, &spec, &pl);
 
 	err->status_code = NOT_RUN;
-	rc = eval_selspec(policy, spec, pl, ninfo_arr, nodepart, resresv,
-		flags, &nspec_arr, err);
+	rc = eval_selspec(policy, spec, pl, ninfo_arr, nodepart, resresv, flags, &nspec_arr, err);
 
 	/* We can run, yippie! */
 	if (rc > 0)
 		return nspec_arr;
+	else if (using_svr_local) {
+		/*
+		 * Couldn't run the job with server's local nodes, try all nodes available
+		 * For now, only try non-local nodes for normal jobs
+		 */
+		if (!resresv->job->is_subjob) {
+			resresv->local_run = 0;
+			rc = eval_selspec(policy, spec, pl, sinfo->unassoc_nodes,
+					  nodepart, resresv, flags, &nspec_arr, err);
+			if (rc > 0)
+				return nspec_arr;
+		}
+	}
 
 	/* We were not told why the resresv can't run: Use generic reason */
 	if (err->status_code == SCHD_UNKWN)

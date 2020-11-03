@@ -359,7 +359,7 @@ tcp_connect(char *hostname, int server_port, char *extend_data)
  *
  * @par MT-safe: Yes
  */
-void *
+svr_conn_t *
 get_conn_svr_instances(int parentfd)
 {
 	svr_conns_list_t *conn_list = NULL;

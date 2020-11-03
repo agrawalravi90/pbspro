@@ -124,6 +124,7 @@
 #include "pbs_error.h"
 #include "log.h"
 #include "pbs_share.h"
+#include "libpbs.h"
 #include "server_info.h"
 #include "constant.h"
 #include "queue_info.h"
@@ -457,6 +458,34 @@ query_server(status *pol, int pbs_sd)
 	 * we don't want to account for resources consumed by ghost jobs
 	 */
 	create_placement_sets(policy, sinfo);
+	if (!sinfo->node_group_enable && sinfo->node_group_key != NULL &&
+			strcmp(sinfo->node_group_key[0], "msvr_node_group") == 0) {
+		node_partition **np = NULL;
+
+		np = create_node_partitions(policy, sinfo->unassoc_nodes,
+				sinfo->node_group_key, NP_NONE, &sinfo->num_parts);
+
+		/* For each job, we'll need the placement set of nodes which belong to its server
+		 * So, we need to associate psets with their respective server ids
+		 */
+		if (np != NULL) {
+			int i;
+
+			sinfo->svr_to_psets = new_server_psets(sinfo->num_parts);
+			if (sinfo->svr_to_psets == NULL) {
+				free_node_partition_array(np);
+				free_server(sinfo);
+				return NULL;
+			}
+			for (i = 0; i < sinfo->num_parts; i++) {
+				pbs_strncpy(sinfo->svr_to_psets[i]->svr_inst_id, np[i]->ninfo_arr[0]->svr_inst_id,
+					    sizeof(sinfo->svr_to_psets[i]->svr_inst_id));
+				sinfo->svr_to_psets[i]->np = np[i];
+			}
+			sinfo->svr_to_psets[i] = NULL;
+		}
+		free(np);
+	}
 
 	sinfo->buckets = create_node_buckets(policy, sinfo->nodes, sinfo->queues, UPDATE_BUCKET_IND);
 
@@ -641,6 +670,15 @@ query_server_info(status *pol, struct batch_status *server)
 	site_set_share_head(sinfo);
 #endif /* localmod 034 */
 
+	if (sinfo->node_group_key == NULL and get_num_servers() > 1) {
+		/* Set node_group_key to msvr_node_group for server local placement */
+		sinfo->node_group_key = break_comma_list((char *) "msvr_node_group");
+
+		/* This will ensure that create_placement_sets doesn't create placement sets,
+		 * we'll create directly by calling create_node_partitions
+		 */
+		sinfo->node_group_enable = 0;
+	}
 	return sinfo;
 }
 
@@ -995,6 +1033,8 @@ free_server_info(server_info *sinfo)
 		free_node_partition_array(sinfo->nodepart);
 	if (sinfo->allpart)
 		free_node_partition(sinfo->allpart);
+	if (sinfo->svr_to_psets != NULL)
+		free_server_psets(sinfo->svr_to_psets);
 	if (sinfo->hostsets != NULL)
 		free_node_partition_array(sinfo->hostsets);
 	if (sinfo->nodesigs)
@@ -1170,6 +1210,7 @@ new_server_info(int limallocflag)
 	sinfo->num_hostsets = 0;
 	sinfo->server_time = 0;
 	sinfo->job_sort_formula = NULL;
+	sinfo->svr_to_psets = NULL;
 
 	if ((limallocflag != 0))
 		sinfo->liminfo = lim_alloc_liminfo();

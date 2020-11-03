@@ -76,6 +76,8 @@
 #include <log.h>
 #include <pbs_ifl.h>
 #include <pbs_internal.h>
+#include <libpbs.h>
+
 #include "config.h"
 #include "constant.h"
 #include "data_types.h"
@@ -1402,4 +1404,61 @@ update_all_nodepart(status *policy, server_info *sinfo, unsigned int flags)
 	sort_all_nodepart(policy, sinfo);
 
 	sinfo->pset_metadata_stale = 0;
+}
+
+/**
+ * @brief	Constructor for a server_psets array
+ *
+ * @param	nothing
+ *
+ * @return	server_psets *
+ * @retval	new server_psets object
+ * @retval	NULL for malloc error
+ */
+server_psets **
+new_server_psets(int num_psets)
+{
+	server_psets **ret = NULL;
+	int i;
+
+	ret = static_cast<server_psets **> (malloc((num_psets + 1) * sizeof(server_psets *)));
+	if (ret == NULL) {
+		log_err(errno, __func__, MEM_ERR_MSG);
+		return NULL;
+	}
+
+	for (i = 0; i < num_psets; i++) {
+		ret[i] = static_cast<server_psets *> (malloc(sizeof(server_psets)));
+		if (ret[i] == NULL) {
+			free_server_psets(ret);
+			log_err(errno, __func__, MEM_ERR_MSG);
+			return NULL;
+		}
+		ret[i]->svr_inst_id[0] = '\0';
+		ret[i]->np = NULL;
+		ret[i + 1] = NULL;
+	}
+
+	return ret;
+}
+
+/**
+ * @brief	destructor for server_psets
+ *
+ * @param[out]	obj - the object to deallocate
+ *
+ * @return	void
+ */
+void
+free_server_psets(server_psets **arr)
+{
+	if (arr != NULL) {
+		int i;
+
+		for (i = 0; arr[i] != NULL; i++) {
+			free_node_partition(arr[i]->np);
+			free(arr[i]);
+		}
+		free(arr);
+	}
 }

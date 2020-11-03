@@ -203,7 +203,8 @@ int add_job_to_calendar(int pbs_sd, status *policy, server_info *sinfo, resource
  *	       first move it to the local server and then run it.
  *	       if it's a local job, just run it.
  */
-int run_job(int pbs_sd, resource_resv *rjob, char *execvnode, int had_runjob_hook, schd_error *err);
+int run_job(int pbs_sd_job, resource_resv *rjob, char *execvnode, int had_runjob_hook,
+	    schd_error *err, char *svr_id_node);
 
 /*
  *	should_backfill_with_job - should we call add_job_to_calendar() with job
@@ -258,7 +259,8 @@ int validate_running_user(char *exename);
 
 void clear_last_running();
 
-int send_run_job(int pbs_sd, int has_runjob_hook, char *jobid, char *execvnode);
+int send_run_job(int pbs_sd, int has_runjob_hook, char *jobid, char *execvnode,
+		 char *svr_id_node, char *svr_id_job, int msvr_local);
 
 #ifdef	__cplusplus
 }

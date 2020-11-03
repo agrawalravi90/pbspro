@@ -227,6 +227,10 @@ void update_all_nodepart(status *policy, server_info *sinfo, unsigned int flags)
 /* Sort all placement sets (server's psets, queue's psets, and hostsets) */
 void sort_all_nodepart(status *policy, server_info *sinfo);
 
+server_psets **new_server_psets(int num_psets);
+
+void free_server_psets(server_psets **arr);
+
 /*
  * update the node buckets associated with a node
  */

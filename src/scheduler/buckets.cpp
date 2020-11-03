@@ -1132,11 +1132,25 @@ check_node_buckets(status *policy, server_info *sinfo, queue_info *qinfo, resour
 			 * use that error code
 			 */
 			move_schd_error(err, failerr);
-	}
-	else
-		return map_buckets(policy, sinfo->buckets, resresv, err);
+	} else if (sinfo->svr_to_psets != NULL) {
+		int i;
 
-	return NULL;
+		/* Find buckets associated with nodes of the server which owns the job */
+		for (i = 0; sinfo->svr_to_psets[i] != NULL; i++) {
+			if (strcmp(sinfo->svr_to_psets[i]->svr_inst_id, resresv->job->svr_inst_id) == 0) {
+				nspec **nspecs;
+
+				nspecs = map_buckets(policy, sinfo->svr_to_psets[i]->np->bkts, resresv, err);
+				if (nspecs != NULL) {
+					resresv->local_run = 1;
+					return nspecs;
+				}
+				break;
+			}
+		}
+	}
+
+	return map_buckets(policy, sinfo->buckets, resresv, err);
 }
 
 /*

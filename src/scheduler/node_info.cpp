@@ -468,7 +468,7 @@ query_node_info(struct batch_status *node, server_info *sinfo)
 		/* Node State... i.e. offline down free etc */
 		if (!strcmp(attrp->name, ATTR_NODE_state))
 			set_node_info_state(ninfo, attrp->value);
-		
+
 		else if (!strcmp(attrp->name, ATTR_server_inst_id)) {
 			ninfo->svr_inst_id = string_dup(attrp->value);
 			if (ninfo->svr_inst_id == NULL) {

@@ -195,6 +195,7 @@ new_resource_resv()
 	resresv->resresv_ind = -1;
 	resresv->run_event = NULL;
 	resresv->end_event = NULL;
+	resresv->local_run = 0;
 
 	return resresv;
 }

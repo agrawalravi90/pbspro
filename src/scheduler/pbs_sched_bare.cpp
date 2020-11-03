@@ -55,6 +55,7 @@
 #include "data_types.h"
 #include "fifo.h"
 #include "globals.h"
+#include "libpbs.h"
 #include "log.h"
 #include "resource.h"
 #include "server_info.h"
@@ -80,6 +81,7 @@ main_sched_loop_bare(int sd, server_info *sinfo)
 	int ij;
 	int in = 0;
 	char execvnode[PBS_MAXHOSTNAME + strlen("(:ncpus=1)") + 1];
+	int num_svrs = get_num_servers();
 
 	/* Algorithm:
      * - Loop over all jobs, assume that they need just 1 ncpu to run, and
@@ -111,7 +113,12 @@ main_sched_loop_bare(int sd, server_info *sinfo)
 			snprintf(execvnode, sizeof(execvnode), "(%s:ncpus=1)", node->name);
 
 			/* Send the run request */
-			send_run_job(sd, 0, jobs[ij]->name, execvnode);
+			if (num_svrs <= 1 || strcmp(node->svr_inst_id, jobs[ij]->job->svr_inst_id) == 0)
+				send_run_job(sd, 0, jobs[ij]->name, execvnode, node->svr_inst_id,
+					     jobs[ij]->job->svr_inst_id, 1);
+			else
+				send_run_job(sd, 0, jobs[ij]->name, execvnode, node->svr_inst_id,
+					     jobs[ij]->job->svr_inst_id, 0);
 
 			break;
 		}
