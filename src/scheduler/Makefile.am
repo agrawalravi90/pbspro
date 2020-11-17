@@ -99,6 +99,7 @@ libpbs_sched_a_SOURCES = \
 	parse.h \
 	pbs_bitmap.cpp \
 	pbs_bitmap.h \
+	pbs_sched_utils.h \
 	prev_job_info.cpp \
 	prev_job_info.h \
 	prime.cpp \
@@ -129,7 +130,9 @@ sbin_PROGRAMS = pbs_sched pbsfs
 
 pbs_sched_CPPFLAGS = ${common_cflags}
 pbs_sched_LDADD = ${common_libs} @libundolr_lib@
-pbs_sched_SOURCES = pbs_sched.cpp
+pbs_sched_SOURCES = \
+	pbs_sched_utils.cpp \
+	pbs_sched.cpp
 
 pbsfs_CPPFLAGS = ${common_cflags}
 pbsfs_LDADD = ${common_libs}
