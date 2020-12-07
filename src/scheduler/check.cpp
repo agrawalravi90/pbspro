@@ -1570,6 +1570,7 @@ check_normal_node_path(status *policy, server_info *sinfo, queue_info *qinfo, re
 						ninfo_arr = sinfo->svr_to_psets[i]->np->ninfo_arr;
 						using_svr_local = 1;
 						resresv->local_run = 1;
+						break;
 					}
 				}
 			}

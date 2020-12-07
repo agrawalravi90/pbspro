@@ -1306,10 +1306,15 @@ send_run_job(int pbs_sd, int has_runjob_hook, char *jobid, char *execvnode,
 	     char *svr_id_node, char *svr_id_job, int msvr_local)
 {
 	char extend[PBS_MAXHOSTNAME + 6];
-	int pbs_sd_job = get_svr_inst_fd(pbs_sd, svr_id_job);
+	int pbs_sd_job;
+
+	if (svr_id_job != NULL)
+		pbs_sd_job = get_svr_inst_fd(pbs_sd, svr_id_job);
+	else
+		pbs_sd_job = pbs_sd;
 
 	extend[0] = '\0';
-	if (strcmp(svr_id_node, svr_id_job) != 0)
+	if (svr_id_node && svr_id_job && strcmp(svr_id_node, svr_id_job) != 0)
 		snprintf(extend, sizeof(extend), "%s=%s", SERVER_IDENTIFIER, svr_id_node);
 
 	if (sc_attrs.runjob_mode == RJ_EXECJOB_HOOK)
