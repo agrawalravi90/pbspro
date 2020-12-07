@@ -371,7 +371,7 @@ err:
  *
  * @par MT-safe: Yes
  */
-svr_conn_t *
+svr_conn_t **
 get_conn_svr_instances(int parentfd)
 {
 	svr_conns_list_t *conn_list = NULL;
