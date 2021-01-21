@@ -242,13 +242,12 @@ static int send_spl_packet(stream_t *strm, int type);
 static int leaf_send_ctl_join(int tfd, void *c);
 static int send_to_router(tpp_packet_t *pkt);
 
-/* forward declarations */
-static int leaf_pkt_presend_handler(int tfd, tpp_packet_t *pkt, void *ctx, void *extra);
-static int leaf_pkt_handler(int tfd, void *data, int len, void *ctx, void *extra);
-static int leaf_pkt_handler_inner(int tfd, void *buf, void **data_out, int len, void *c, void *extra);
-static int leaf_close_handler(int tfd, int error, void *ctx, void *extra);
-static int leaf_timer_handler(time_t now);
-static int leaf_post_connect_handler(int tfd, void *data, void *ctx, void *extra);
+/* externally called functions */
+int leaf_pkt_presend_handler(int tfd, tpp_packet_t *pkt, void *ctx, void *extra);
+int leaf_pkt_handler(int tfd, void *data, int len, void *ctx, void *extra);
+int leaf_close_handler(int tfd, int error, void *ctx, void *extra);
+int leaf_timer_handler(time_t now);
+int leaf_post_connect_handler(int tfd, void *data, void *ctx, void *extra);
 
 /**
  * @brief
@@ -441,7 +440,7 @@ leaf_send_ctl_join(int tfd, void *c)
  * @par MT-safe: No
  *
  */
-static int
+int
 leaf_post_connect_handler(int tfd, void *data, void *c, void *extra)
 {
 	tpp_context_t *ctx = (tpp_context_t *) c;
@@ -649,7 +648,7 @@ tpp_init(struct tpp_config *cnf)
 	max_routers = 0;
 	while (tpp_conf->routers[max_routers])
 		max_routers++; /* count max_routers */
-
+	
 	if (max_routers == 0) {
 		tpp_log(LOG_CRIT, NULL, "No pbs_comms configured, cannot start");
 		return -1;
@@ -684,15 +683,15 @@ tpp_init(struct tpp_config *cnf)
 
 #ifndef WIN32
 
-	/*
+	/* 
 	 * As such atfork handlers are required since after a fork, fork() replicates
 	 * only calling thread that called fork() and TPP layer never calls fork. So, this
 	 * means that the TPP thread is always dead/unavailable in a child process.
-	 *
+	 * 
 	 * We register only a post_fork child handler to set "tpp_terminated_in_child" flag
-	 * which renders TPP functions to return right away without doing anything,
+	 * which renders TPP functions to return right away without doing anything, 
 	 * rendering TPP functionality "bypassed" in the child process.
-	 *
+	 * 
 	 */
 
 	/* for unix, set a pthread_atfork handler */
@@ -941,7 +940,7 @@ tpp_send(int sd, void *data, int len)
 		/* do other stuff */
 		return tpp_mcast_send(sd, data_dup, to_send, len);
 	}
-
+	
 	/* create a new pkt and add the dhdr chunk first */
 	pkt = tpp_bld_pkt(NULL, NULL, sizeof(tpp_data_pkt_hdr_t), 1, (void **) &dhdr);
 	if (!pkt) {
@@ -956,7 +955,7 @@ tpp_send(int sd, void *data, int len)
 	dhdr->totlen = htonl(len);
 	memcpy(&dhdr->src_addr, &strm->src_addr, sizeof(tpp_addr_t));
 	memcpy(&dhdr->dest_addr, &strm->dest_addr, sizeof(tpp_addr_t));
-
+	
 	/* add the data chunk to the already created pkt */
 	if (!tpp_bld_pkt(pkt, data_dup, to_send, 0, NULL)) { /* data is already a duplicate buffer */
 		tpp_log(LOG_CRIT, __func__, "Failed to build packet");
@@ -966,12 +965,12 @@ tpp_send(int sd, void *data, int len)
 	rc = send_to_router(pkt);
 	if (rc == 0)
 		return len;  /* all given data sent, so return len */
-
+	
 	if (rc == -2)
 		tpp_log(LOG_CRIT, __func__, "mbox full, returning error to App!");
 	else if (rc == -1)
 		tpp_log(LOG_ERR, __func__, "Failed to send to router");
-
+		
 	send_app_strm_close(strm, TPP_CMD_NET_CLOSE, 0);
 	return rc;
 }
@@ -1336,7 +1335,7 @@ tpp_terminate()
 {
 	/* Warning: Do not attempt to destroy any lock
 	 * This is not required since our library is effectively
-	 * not used after a fork.
+	 * not used after a fork. 
 	 * Also never log anything from (or after) a terminate handler.
 	 *
 	 * Don't bother to free any TPP data as well, as the forked
@@ -1715,7 +1714,7 @@ tpp_mcast_add_strm(int mtfd, int tfd)
 		mstrm->mcast_data->num_fds = 0;
 	} else if (mstrm->mcast_data->num_fds >= mstrm->mcast_data->num_slots) {
 		p = realloc(mstrm->mcast_data->strms, (mstrm->mcast_data->num_slots + TPP_MCAST_SLOT_INC) * sizeof(int));
-		if (!p) {
+		if (!p) {				
 			tpp_log(LOG_CRIT, __func__, "Out of memory resizing strm array to %lu bytes", (mstrm->mcast_data->num_slots + TPP_MCAST_SLOT_INC) * sizeof(int));
 			return -1;
 		}
@@ -1884,7 +1883,7 @@ tpp_mcast_send(int mtfd, void *data, unsigned int to_send, unsigned int len)
 		tmp_minfo.src_sd = htonl(strm->sd);
 		tmp_minfo.src_magic = htonl(strm->src_magic);
 		tmp_minfo.dest_sd = htonl(strm->dest_sd);
-
+	
 		TPP_DBPRT("MCAST src_sd=%u, dest_sd=%u", strm->sd, strm->dest_sd);
 
 		memcpy(&tmp_minfo.dest_addr, &strm->dest_addr, sizeof(tpp_addr_t));
@@ -1926,7 +1925,7 @@ tpp_mcast_send(int mtfd, void *data, unsigned int to_send, unsigned int len)
 	}
 
 	TPP_DBPRT("*** sending %d totlen", pkt->totlen);
-
+	
 	rc = send_to_router(pkt);
 	if (rc == 0)
 		return len; /* all given data sent, so return len */
@@ -2027,7 +2026,7 @@ queue_strm_close(stream_t *strm)
 	tpp_lock(&strm_action_queue_lock);
 	if (tpp_enque(&strm_action_queue, c) == NULL)
 		tpp_log(LOG_CRIT, __func__, "Failed to Queue close");
-
+		
 	tpp_unlock(&strm_action_queue_lock);
 
 	TPP_DBPRT("Enqueued strm close for sd=%u", strm->sd);
@@ -2055,7 +2054,7 @@ queue_strm_close(stream_t *strm)
  * @par Functionality
  *	The slot is not marked free immediately, rather after a period. This is to
  *	ensure that wandering/delayed messages do not cause havoc.
- *	Additionally deletes the stream's entry in the Stream index.
+ *	Additionally deletes the stream's entry in the Stream index. 
  *
  * @param[in] sd - The stream descriptor
  *
@@ -2209,7 +2208,7 @@ act_strm(time_t now, int force)
 
 			/* unlock and call action function, then reacquire lock */
 			c->strm_action_func(c->sd);
-
+			
 			tpp_lock(&strm_action_queue_lock);
 			if (c->strm_action_func == free_stream) {
 				/* free stream itself clears elements from the strm_action_queue
@@ -2240,7 +2239,7 @@ act_strm(time_t now, int force)
  * @par MT-safe: No
  *
  */
-static int
+int
 leaf_timer_handler(time_t now)
 {
 	act_strm(now, 0);
@@ -2541,7 +2540,7 @@ free_stream(unsigned int sd)
  * @par MT-safe: No
  *
  */
-static int
+int
 leaf_pkt_presend_handler(int tfd, tpp_packet_t *pkt, void *c, void *extra)
 {
 	conn_auth_t *authdata = (conn_auth_t *)extra;
@@ -2587,7 +2586,7 @@ leaf_pkt_presend_handler(int tfd, tpp_packet_t *pkt, void *c, void *extra)
 
 	if (authdata->encryptdef == NULL)
 		return 0; /* no encryption set, so no need to encrypt packets */
-
+	
 	return (tpp_encrypt_pkt(authdata, pkt));
 }
 
@@ -2645,40 +2644,7 @@ check_strm_valid(unsigned int src_sd, tpp_addr_t *dest_addr, int dest_sd, char *
 
 /**
  * @brief
- *	Wrapper function for the leaf to handle incoming data. This
- *  wrapper exists only to detect if the inner function
- *  allocated memory in data_out and free that memory in a
- *  clean way, so that we do not have to add a goto or free
- *  in every return path of the inner function.
- *
- * @param[in] tfd - The physical connection over which data arrived
- * @param[in] buf - The pointer to the received data packet
- * @param[in] len - The length of the received data packet
- * @param[in] c   - The context associated with this physical connection
- * @param[in] extra - The extra data associated with IO connection
- *
- * @return Error code
- * @retval -1 - Failure
- * @retval  0 - Success
- *
- * @par Side Effects:
- *	None
- *
- * @par MT-safe: Yes
- *
- */
-static int
-leaf_pkt_handler(int tfd, void *buf, int len, void *c, void *extra)
-{
-	void *data_out = NULL;
-	int rc = leaf_pkt_handler_inner(tfd, buf, &data_out, len, c, extra);
-	free(data_out);
-	return rc;
-}
-
-/**
- * @brief
- *	Inner handler function for the received packet handler registered with the IO thread.
+ *	The received packet handler registered with the IO thread.
  *
  * @par Functionality
  *	When the IO thread is received a packet over the wire, it calls
@@ -2694,8 +2660,7 @@ leaf_pkt_handler(int tfd, void *buf, int len, void *c, void *extra)
  *
  * @param[in] tfd - The actual IO connection on which data was about to be
  *			sent (unused)
- * @param[in] buf - The pointer to the data that arrived
- * @param[out] data_out - The pointer to the newly allocated data buffer, if any
+ * @param[in] data - The pointer to the data that arrived
  * @param[in] len  - Length of the arrived data
  * @param[in] ctx - The context (prior associated, if any) with the IO thread
  *		    (unused at the leaf)
@@ -2707,8 +2672,8 @@ leaf_pkt_handler(int tfd, void *buf, int len, void *c, void *extra)
  * @par MT-safe: No
  *
  */
-static int
-leaf_pkt_handler_inner(int tfd, void *buf, void **data_out, int len, void *ctx, void *extra)
+int
+leaf_pkt_handler(int tfd, void *buf, int len, void *ctx, void *extra)
 {
 	stream_t *strm;
 	enum TPP_MSG_TYPES type;
@@ -2740,16 +2705,14 @@ again:
 				return -1;
 			}
 
-			if (authdata->encryptdef->decrypt_data(authdata->encryptctx, (void *)((char *)buf + sz), (size_t)len - sz, data_out, (size_t *)&len_out) != 0) {
+			if (authdata->encryptdef->decrypt_data(authdata->encryptctx, (void *)((char *)buf + sz), (size_t)len - sz, (void *) &dhdr, (size_t *)&len_out) != 0) {
 				return -1;
 			}
 
-			if ((len - sz) > 0 && len_out <= 0) {
+			if (len_out == 0) {
 				tpp_log(LOG_CRIT, __func__, "invalid decrypted data len: %d, pktlen: %d", len_out, len - sz);
 				return -1;
 			}
-			dhdr = *data_out;
-			len = len_out;
 			goto again;
 		}
 		break;
@@ -2760,14 +2723,14 @@ again:
 			void *data_in = NULL;
 			int rc = 0;
 
-			memcpy(&ahdr, dhdr, sizeof(tpp_auth_pkt_hdr_t));
+			memcpy(&ahdr, buf, sizeof(tpp_auth_pkt_hdr_t));
 			len_in = (size_t)len - sizeof(tpp_auth_pkt_hdr_t);
 			data_in = calloc(1, len_in);
 			if (data_in == NULL) {
 				tpp_log(LOG_CRIT, __func__, "Out of memory");
 				return -1;
 			}
-			memcpy(data_in, (char *)dhdr + sizeof(tpp_auth_pkt_hdr_t), len_in);
+			memcpy(data_in, (char *)buf + sizeof(tpp_auth_pkt_hdr_t), len_in);
 
 			rc = tpp_handle_auth_handshake(tfd, tfd, authdata, ahdr.for_encrypt, data_in, len_in);
 			if (rc != 1) {
@@ -2796,14 +2759,14 @@ again:
 		break; /* TPP_AUTH_CTX */
 
 		case TPP_CTL_MSG: {
-			tpp_ctl_pkt_hdr_t *hdr = (tpp_ctl_pkt_hdr_t *) dhdr;
+			tpp_ctl_pkt_hdr_t *hdr = (tpp_ctl_pkt_hdr_t *) buf;
 			int code = hdr->code;
 
 			if (code == TPP_MSG_NOROUTE) {
 				unsigned int src_sd = ntohl(hdr->src_sd);
 				strm = get_strm_atomic(src_sd);
 				if (strm) {
-					char *msg = ((char *) dhdr) + sizeof(tpp_ctl_pkt_hdr_t);
+					char *msg = ((char *) buf) + sizeof(tpp_ctl_pkt_hdr_t);
 					tpp_log(LOG_DEBUG, NULL, "sd %u, Received noroute to dest %s, msg=\"%s\"", src_sd, tpp_netaddr(&hdr->src_addr), msg);
 					send_app_strm_close(strm, TPP_CMD_NET_CLOSE, 0);
 				}
@@ -2819,7 +2782,7 @@ again:
 			}
 
 			if (code == TPP_MSG_AUTHERR) {
-				char *msg = ((char *) dhdr) + sizeof(tpp_ctl_pkt_hdr_t);
+				char *msg = ((char *) buf) + sizeof(tpp_ctl_pkt_hdr_t);
 				tpp_log(LOG_CRIT, NULL, "tfd %d, Received authentication error from router %s, err=%d, msg=\"%s\"", tfd, tpp_netaddr(&hdr->src_addr), hdr->error_num, msg);
 				return -1; /* close connection */
 			}
@@ -2827,7 +2790,7 @@ again:
 		break; /* TPP_CTL_MSG */
 
 		case TPP_CTL_LEAVE: {
-			tpp_leave_pkt_hdr_t *hdr = (tpp_leave_pkt_hdr_t *) dhdr;
+			tpp_leave_pkt_hdr_t *hdr = (tpp_leave_pkt_hdr_t *) buf;
 			tpp_que_t send_close_queue;
 			tpp_addr_t *addrs;
 			int i;
@@ -2839,7 +2802,7 @@ again:
 			TPP_QUE_CLEAR(&send_close_queue);
 
 			/* go past the header and point to the list of addresses following it */
-			addrs = (tpp_addr_t *) (((char *) dhdr) + sizeof(tpp_leave_pkt_hdr_t));
+			addrs = (tpp_addr_t *) (((char *) buf) + sizeof(tpp_leave_pkt_hdr_t));
 			for (i = 0; i < hdr->num_addrs; i++) {
 				void *idx_ctx = NULL;
 				void *paddr = &addrs[i];
@@ -2879,7 +2842,7 @@ again:
 			unsigned int dest_sd;
 			unsigned int src_magic;
 			unsigned int sz = len - sizeof(tpp_data_pkt_hdr_t);
-			void *data = (char *) dhdr + sizeof(tpp_data_pkt_hdr_t);
+			void *data = (char *) buf + sizeof(tpp_data_pkt_hdr_t);
 
 			src_sd = ntohl(dhdr->src_sd);
 			dest_sd = ntohl(dhdr->dest_sd);
@@ -2970,7 +2933,7 @@ again:
  * @par MT-safe: No
  *
  */
-static int
+int
 leaf_close_handler(int tfd, int error, void *c, void *extra)
 {
 	int rc;
@@ -3014,7 +2977,7 @@ leaf_close_handler(int tfd, int error, void *c, void *extra)
 		unsigned int i;
 		/* log disconnection message */
 		tpp_log(LOG_CRIT, NULL, "Connection to pbs_comm %s down", r->router_name);
-
+		
 		/* send individual net close messages to app */
 		tpp_read_lock(&strmarray_lock); /* walking stream idx, so read lock */
 		for (i = 0; i < max_strms; i++) {
@@ -3059,18 +3022,18 @@ leaf_close_handler(int tfd, int error, void *c, void *extra)
 	return 0;
 }
 
-/* @brief
+/* @brief 
  * wrapper routine that checks the router connection status before calling
  * tpp_transport_send(). This function can check not just the router fd
  * but that the connection  is actually in fully connected state
- *
+ * 
  * @return  Error code
  * @retval  -1 - Failure
  * @retval  -2 - transport buffers full
  * @retval   0 - Success
- *
+ * 
  */
-static int
+static int 
 send_to_router(tpp_packet_t *pkt)
 {
 	tpp_router_t *router = get_active_router();
