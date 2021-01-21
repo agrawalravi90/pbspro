@@ -142,7 +142,9 @@ tpp_pipe_err:
 		closesocket(fds[1]);
 
 	errno = tr_2_errno(WSAGetLastError());
-	tpp_log(LOG_CRIT, __func__, "%s failed, winsock errno= %d", op, WSAGetLastError());
+	snprintf(tpp_get_logbuf(), TPP_LOGBUF_SZ,
+		"%s failed, winsock errno= %d", op, WSAGetLastError());
+	tpp_log_func(LOG_CRIT, __func__, tpp_get_logbuf());
 	return -1;
 }
 
@@ -488,7 +490,8 @@ tpp_sock_layer_init()
 {
 	WSADATA	data;
 	if (WSAStartup(MAKEWORD(2, 2), &data)) {
-		tpp_log(LOG_CRIT, NULL, "winsock_init failed! error=%d", WSAGetLastError());
+		snprintf(tpp_get_logbuf(), TPP_LOGBUF_SZ, "winsock_init failed! error=%d\n", WSAGetLastError());
+		tpp_log_func(LOG_CRIT, NULL, tpp_get_logbuf());
 		return -1;
 	}
 	return 0;
@@ -575,11 +578,12 @@ tpp_get_nfiles()
 	struct rlimit rlp;
 
 	if (getrlimit(RLIMIT_NOFILE, &rlp) == -1) {
-		tpp_log(LOG_CRIT, __func__, "getrlimit failed");
+		tpp_log_func(LOG_CRIT, __func__, "getrlimit failed");
 		return -1;
 	}
 
-	tpp_log(LOG_INFO, NULL, "Max files allowed = %ld", (long) rlp.rlim_cur);
+	snprintf(tpp_get_logbuf(), TPP_LOGBUF_SZ, "Max files allowed = %ld", (long) rlp.rlim_cur);
+	tpp_log_func(LOG_INFO, NULL, tpp_get_logbuf());
 
 	return (rlp.rlim_cur);
 }
@@ -616,12 +620,12 @@ set_pipe_disposition()
 		if (oact.sa_handler == SIG_DFL) {
 			act.sa_handler = SIG_IGN;
 			if (sigaction(SIGPIPE, &act, &oact) != 0) {
-				tpp_log(LOG_CRIT, __func__, "Could not set SIGPIPE to IGN");
+				tpp_log_func(LOG_CRIT, __func__, "Could not set SIGPIPE to IGN");
 				return -1;
 			}
 		}
 	} else {
-		tpp_log(LOG_CRIT, __func__, "Could not query SIGPIPEs disposition");
+		tpp_log_func(LOG_CRIT, __func__, "Could not query SIGPIPEs disposition");
 		return -1;
 	}
 	return 0;
@@ -670,7 +674,7 @@ tpp_sock_resolve_ip(tpp_addr_t *addr, char *host, int len)
 
 	rc = getnameinfo(sa, salen, host, len, NULL, 0, 0);
 	if (rc != 0) {
-		TPP_DBPRT("Error: %s", gai_strerror(rc));
+		TPP_DBPRT(("Error: %s", gai_strerror(rc)));
 	}
 	return rc;
 }
@@ -711,7 +715,8 @@ tpp_sock_resolve_host(char *host, int *count)
 	hints.ai_protocol = IPPROTO_TCP;
 
 	if ((rc = getaddrinfo(host, NULL, &hints, &pai)) != 0) {
-		tpp_log(LOG_CRIT, NULL, "Error %d resolving %s", rc, host);
+		snprintf(tpp_get_logbuf(), TPP_LOGBUF_SZ, "Error %d resolving %s\n", rc, host);
+		tpp_log_func(LOG_CRIT, NULL, tpp_get_logbuf());
 		return NULL;
 	}
 
@@ -723,7 +728,8 @@ tpp_sock_resolve_host(char *host, int *count)
 	}
 
 	if (*count == 0) {
-		tpp_log(LOG_CRIT, NULL, "Could not find any usable IP address for host %s", host);
+		snprintf(tpp_get_logbuf(), TPP_LOGBUF_SZ, "Could not find any usable IP address for host %s", host);
+		tpp_log_func(LOG_CRIT, NULL, tpp_get_logbuf());
 		return NULL;
 	}
 
@@ -750,7 +756,7 @@ tpp_sock_resolve_host(char *host, int *count)
 			ips[i].family = (aip->ai_family == AF_INET6)? TPP_ADDR_FAMILY_IPV6 : TPP_ADDR_FAMILY_IPV4;
 			ips[i].port = 0;
 
-			for (j=0; j < i; j++) {
+			for(j=0; j < i; j++) {
 				/* check for duplicate ip addresses dont add if duplicate */
 				if (memcmp(&ips[j].ip, &ips[i].ip, sizeof(ips[j].ip)) == 0) {
 					break;
@@ -814,7 +820,7 @@ tpp_sock_attempt_connection(int fd, char *host, int port)
 		return -1;
 	}
 
-	for (i = 0; i < count; i++) {
+	for(i = 0; i < count; i++) {
 		if (addr[i].family == TPP_ADDR_FAMILY_IPV4)
 			break;
 	}

@@ -208,7 +208,8 @@ int tpp_network_up = 0;
 void
 net_restore_handler(void *data)
 {
-	log_event(PBSEVENT_ERROR | PBSEVENT_FORCE, PBS_EVENTCLASS_SERVER, LOG_ALERT,  __func__, "net restore handler called");
+	if (tpp_log_func)
+		tpp_log_func(LOG_INFO, NULL, "net restore handler called");
 	tpp_network_up = 1;
 }
 
@@ -227,7 +228,8 @@ net_down_handler(void *data)
 	if (tpp_network_up == 1) {
 		tpp_network_up = 0;
 		/* now loop and set all nodes to down */
-		log_event(PBSEVENT_ERROR | PBSEVENT_FORCE, PBS_EVENTCLASS_SERVER, LOG_ALERT, __func__, "marking all nodes unknown");
+		if (tpp_log_func)
+			tpp_log_func(LOG_CRIT, NULL, "marking all nodes unknown");
 		mark_nodes_unknown(1);
 	}
 }
@@ -1194,7 +1196,7 @@ main(int argc, char **argv)
 	}
 
 	/* set tpp config */
-	rc = set_tpp_config(&pbs_conf, &tpp_conf, nodename, pbs_server_port_dis, pbs_conf.pbs_leaf_routers);
+	rc = set_tpp_config(NULL, &pbs_conf, &tpp_conf, nodename, pbs_server_port_dis, pbs_conf.pbs_leaf_routers);
 	free(nodename);
 	if (rc == -1) {
 		(void) sprintf(log_buffer, "Error setting TPP config");

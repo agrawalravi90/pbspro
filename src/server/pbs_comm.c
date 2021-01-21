@@ -62,7 +62,6 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <signal.h>
-#include <avltree.h>
 
 #include <grp.h>
 #include <sys/resource.h>
@@ -491,7 +490,7 @@ main(int argc, char **argv)
 	}
 
 	/* set tpp config */
-	rc = set_tpp_config(&pbs_conf, &conf, host, port, routers);
+	rc = set_tpp_config(NULL, &pbs_conf, &conf, host, port, routers);
 	if (rc == -1) {
 		(void) sprintf(log_buffer, "Error setting TPP config");
 		log_err(-1, __func__, log_buffer);
@@ -529,9 +528,6 @@ main(int argc, char **argv)
 #ifndef DEBUG
 	pbs_close_stdfiles();
 #endif
-
-	/* comm runs 1 + tpp_conf.nuthreads threads - these might use avltree functionality */
-	avl_set_maxthreads(numthreads + 1);
 
 	sigemptyset(&act.sa_mask);
 	act.sa_flags = 0;
@@ -604,14 +600,16 @@ main(int argc, char **argv)
 			memcpy(&pbs_conf_bak, &pbs_conf, sizeof(struct pbs_config));
 
 			if (pbs_loadconf(1) == 0) {
-				log_err(-1, NULL, "Configuration error, ignoring");
+				if (tpp_log_func)
+					tpp_log_func(LOG_CRIT, NULL, "Configuration error, ignoring");
 				memcpy(&pbs_conf, &pbs_conf_bak, sizeof(struct pbs_config));
 			} else {
 				/* restore old pbs.conf */
 				new_logevent = pbs_conf.pbs_comm_log_events;
 				memcpy(&pbs_conf, &pbs_conf_bak, sizeof(struct pbs_config));
 				pbs_conf.pbs_comm_log_events = new_logevent;
-				log_err(-1, NULL, "Processed SIGHUP");
+				if (tpp_log_func)
+					tpp_log_func(LOG_INFO, NULL, "Processed SIGHUP");
 
 				log_event_mask = &pbs_conf.pbs_comm_log_events;
 				tpp_set_logmask(*log_event_mask);

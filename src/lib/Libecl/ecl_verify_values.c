@@ -1132,7 +1132,7 @@ verify_value_credname(int batch_request, int parent_object, int cmd,
 
 /**
  * @brief
- *	 for some attributes which can have 0 or +ve values
+ *	 for some attributes which can have 0 or +ve values like ATTR_rpp_retry
  *
  * @see
  *
@@ -1338,7 +1338,7 @@ verify_value_preempt_targets(int batch_request, int parent_object, int cmd,
 
 /**
  * @brief
- *	for some attributes which can have only +ve values
+ *	for some attributes which can have only +ve values, eg, ATTR_rpp_highwater
  *
  * @see
  *
