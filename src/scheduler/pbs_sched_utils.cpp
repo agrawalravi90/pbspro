@@ -44,6 +44,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <sstream>
 
 #include <arpa/inet.h>
 #include <ctype.h>
@@ -598,6 +599,13 @@ connect_svrpool()
 			continue;
 		}
 
+		svrinstfd_map.clear();
+		for (i = 0; svr_conns_primary[i] != NULL; i++) {
+			std::ostringstream tmpbuf;
+
+			tmpbuf << svr_conns_primary[i]->name << ":" << svr_conns_primary[i]->port;
+			svrinstfd_map[tmpbuf.str()] = svr_conns_primary[i]->sd;
+		}
 		/* Reached here means everything is success, so we will break out of the loop */
 		break;
 	}

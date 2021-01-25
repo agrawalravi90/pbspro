@@ -72,7 +72,9 @@ send_run_job(int virtual_sd, int has_runjob_hook, char *jobid, char *execvnode,
 	if (jobid == NULL || execvnode == NULL || svr_id_node == NULL || svr_id_job == NULL)
 		return 1;
 
-  	job_owner_sd = get_svr_inst_fd(virtual_sd, svr_id_job);
+	if (svrinstfd_map.find(svr_id_job) == svrinstfd_map.end())
+		svrinstfd_map[svr_id_job] = get_svr_inst_fd(virtual_sd, svr_id_job);
+  	job_owner_sd = svrinstfd_map[svr_id_job];
 
   	extend[0] = '\0';
  	if (svr_id_node && svr_id_job && strcmp(svr_id_node, svr_id_job) != 0)
