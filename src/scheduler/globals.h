@@ -42,6 +42,8 @@
 #include <pthread.h>
 #include <limits.h>
 
+#include <unordered_map>
+
 #include "data_types.h"
 #include "queue.h"
 #include "sched_cmds.h"
@@ -117,6 +119,8 @@ extern int send_job_attr_updates;
 extern int clust_primary_sock;
 
 extern int clust_secondary_sock;
+
+extern std::unordered_map<const char*, int> svrinstfd_map;
 
 /**
  * @brief

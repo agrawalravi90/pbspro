@@ -43,6 +43,8 @@
 #include <pthread.h>
 #include <limits.h>
 
+#include <unordered_map>
+
 #include "globals.h"
 #include "constant.h"
 #include "sort.h"
@@ -193,3 +195,6 @@ int clust_primary_sock = -1;
 
 /* secondary socket descriptor to the server pool */
 int clust_secondary_sock = -1;
+
+/* Hash map for svr_inst_id: server fd */
+std::unordered_map<const char*, int> svrinstfd_map;
