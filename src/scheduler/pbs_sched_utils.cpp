@@ -598,12 +598,6 @@ connect_svrpool()
 			continue;
 		}
 
-		svrinstfd_map.clear();
-		char tmpbuf[MAX_SVR_ID];
-		for (i = 0; svr_conns_primary[i] != NULL; i++) {
-			snprintf(tmpbuf, sizeof(tmpbuf), "%s:%d", svr_conns_primary[i]->name, svr_conns_primary[i]->port);
-			svrinstfd_map[tmpbuf] = svr_conns_primary[i]->sd;
-		}
 		/* Reached here means everything is success, so we will break out of the loop */
 		break;
 	}

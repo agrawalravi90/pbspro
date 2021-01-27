@@ -1392,10 +1392,7 @@ run_job(int pbs_sd, resource_resv *rjob, char *execvnode, int has_runjob_hook, s
 	if (rc) {
 		char buf[MAX_LOG_SIZE];
 		set_schd_error_codes(err, NOT_RUN, RUN_FAILURE);
-
-		if (svrinstfd_map.find(rjob->job->svr_inst_id) == svrinstfd_map.end())
-			svrinstfd_map[rjob->job->svr_inst_id] = get_svr_inst_fd(pbs_sd, rjob->job->svr_inst_id);
-		errbuf = pbs_geterrmsg(svrinstfd_map[rjob->job->svr_inst_id]);
+		errbuf = pbs_geterrmsg(get_svr_inst_fd(pbs_sd, rjob->job->svr_inst_id));
 		if (errbuf == NULL)
 			errbuf = "";
 		set_schd_error_arg(err, ARG1, errbuf);
@@ -1513,10 +1510,7 @@ run_update_resresv(status *policy, int pbs_sd, server_info *sinfo,
 	pbs_errno = PBSE_NONE;
 	if (resresv->is_job && resresv->job->is_suspended) {
 		if (pbs_sd != SIMULATE_SD) {
-			if (svrinstfd_map.find(resresv->job->svr_inst_id) == svrinstfd_map.end())
-				svrinstfd_map[resresv->job->svr_inst_id] = get_svr_inst_fd(pbs_sd, resresv->job->svr_inst_id);
-			pbsrc = pbs_sigjob(svrinstfd_map[resresv->job->svr_inst_id], resresv->name, const_cast<char *>("resume"), NULL);
-
+			pbsrc = pbs_sigjob(get_svr_inst_fd(pbs_sd, resresv->job->svr_inst_id), resresv->name, const_cast<char *>("resume"), NULL);
 			if (!pbsrc)
 				ret = 1;
 			else {
