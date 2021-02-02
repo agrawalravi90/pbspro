@@ -409,7 +409,6 @@ struct server_info
 	unsigned power_provisioning:1;	/* controls if power provisioning occurs */
 	unsigned has_nonCPU_licenses:1;	/* server has non-CPU (e.g. socket-based) licenses */
 	unsigned use_hard_duration:1;	/* use hard duration when creating the calendar */
-	unsigned pset_metadata_stale:1;	/* The placement set meta data is stale and needs to be regenerated before the next use */
 	char *name;			/* name of server */
 	struct schd_resource *res;	/* list of resources */
 	void *liminfo;			/* limit storage information */

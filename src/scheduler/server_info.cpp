@@ -1182,7 +1182,6 @@ new_server_info(int limallocflag)
 	sinfo->power_provisioning = 0;
 	sinfo->has_nonCPU_licenses = 0;
 	sinfo->use_hard_duration = 0;
-	sinfo->pset_metadata_stale = 0;
 	sinfo->num_parts = 0;
 	sinfo->name = NULL;
 	sinfo->res = NULL;
@@ -2226,7 +2225,6 @@ dup_server_info(server_info *osinfo)
 	nsinfo->power_provisioning = osinfo->power_provisioning;
 	nsinfo->has_nonCPU_licenses = osinfo->has_nonCPU_licenses;
 	nsinfo->use_hard_duration = osinfo->use_hard_duration;
-	nsinfo->pset_metadata_stale = osinfo->pset_metadata_stale;
 	nsinfo->name = string_dup(osinfo->name);
 	nsinfo->liminfo = lim_dup_liminfo(osinfo->liminfo);
 	nsinfo->server_time = osinfo->server_time;
@@ -3037,8 +3035,13 @@ update_universe_on_end(status *policy, resource_resv *resresv, const char *job_s
 	}
 
 	if (resresv->ninfo_arr != NULL) {
-		for (i = 0; resresv->ninfo_arr[i] != NULL; i++)
-			update_node_on_end(resresv->ninfo_arr[i], resresv, job_state);
+		bool sort_nodepart = false;
+
+		for (i = 0; resresv->ninfo_arr[i] != NULL; i++) {
+			sort_nodepart = sort_nodepart || update_node_on_end(resresv->ninfo_arr[i], resresv, job_state);
+		}
+		if (sort_nodepart)
+			sort_all_nodepart(policy, sinfo);
 	}
 
 
@@ -3049,8 +3052,6 @@ update_universe_on_end(status *policy, resource_resv *resresv, const char *job_s
 	/* update soft limits for jobs that are not in reservation */
 	if (resresv->is_job && resresv->job->resv_id == NULL)
 		update_soft_limits(sinfo, qinfo, resresv);
-	/* Mark the metadata stale.  It will be updated in the next call to is_ok_to_run() */
-	sinfo->pset_metadata_stale = 1;
 
 	update_resresv_on_end(resresv, job_state);
 

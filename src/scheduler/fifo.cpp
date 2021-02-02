@@ -1730,20 +1730,9 @@ run_update_resresv(status *policy, int pbs_sd, server_info *sinfo,
 		}
 
 		if (ns != NULL) {
-			int sort_nodepart = 0;
+			bool sort_nodepart = false;
 			for (i = 0; ns[i] != NULL; i++) {
-				int j;
-				update_node_on_run(ns[i], rr, &old_state);
-				if (ns[i]->ninfo->np_arr != NULL) {
-					node_partition **npar = ns[i]->ninfo->np_arr;
-					for (j = 0; npar[j] != NULL; j++) {
-						modify_resource_list(npar[j]->res, ns[i]->resreq, SCHD_INCR);
-						if (!ns[i]->ninfo->is_free)
-							npar[j]->free_nodes--;
-						sort_nodepart = 1;
-						update_buckets_for_node(npar[j]->bkts, ns[i]->ninfo);
-					}
-				}
+				sort_nodepart = sort_nodepart || update_node_on_run(ns[i], rr, &old_state);
 				/* if the node is being provisioned, it's brought down in
 				 * update_node_on_run().  We need to add an event in the calendar to
 				 * bring it back up.

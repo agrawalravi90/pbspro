@@ -789,10 +789,6 @@ is_ok_to_run(status *policy, server_info *sinfo,
 		}
 	}
 
-	/* If the pset metadata is stale, update it now for the allpart */
-	if (sinfo->pset_metadata_stale && !(flags & NO_ALLPART))
-		update_all_nodepart(policy, sinfo, NO_FLAGS);
-
 	/* quick check to see if there are enough consumable resources over all nodes
 	 * on the system to see if the resresv can possibly fit.
 	 * This check is bypassed for jobs in reservations.  They have their own
@@ -1467,9 +1463,6 @@ dedtime_conflict(resource_resv *resresv)
 nspec **
 check_nodes(status *policy, server_info *sinfo, queue_info *qinfo, resource_resv *resresv, unsigned int flags, schd_error *err) {
 	nspec **ns_arr;
-
-	if (sinfo->pset_metadata_stale)
-		update_all_nodepart(policy, sinfo, (flags & NO_ALLPART));
 
 	if (flags & USE_BUCKETS)
 		ns_arr = check_node_buckets(policy, sinfo, qinfo, resresv, err);

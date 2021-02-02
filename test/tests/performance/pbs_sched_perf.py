@@ -465,3 +465,78 @@ class TestSchedPerf(TestPerformance):
         msg1 = 'Multi scheduler is faster than single scheduler by '
         msg2 = 'secs in scheduling 5000 jobs with 5 schedulers'
         self.logger.info(msg1 + str(cyc_dur - max_dur) + msg2)
+
+    @timeout(10000)
+    def test_pset_update_calendaring(self):
+        """
+        Performance test for time taken to update placement sets when calendaring
+        """
+        # Create ~10k nodes with node grouping
+        self.common_setup1()
+        a = {'node_group_key': 'color', 'node_group_enable': 'True'}
+        self.server.manager(MGR_CMD_SET, SERVER, a)
+
+        # Turn strict ordering on and backfill_depth = 50
+        a = {'strict_ordering': 'True'}
+        self.scheduler.set_sched_config(a)
+        self.server.manager(MGR_CMD_SET, MGR_OBJ_SERVER,
+                            {'backfill_depth': '50'})
+
+        self.server.manager(MGR_CMD_SET, MGR_OBJ_SERVER,
+                            {'scheduling': 'False'})
+        # Fill the system up so that calendaring can happen
+        total_ncpus = 10000 # rounding off
+        small_jobs = [int(total_ncpus/100), int(total_ncpus/50)]
+        large_jobs = [int(total_ncpus/25), int(total_ncpus/10)]
+        walltimes = [1800, 2700, 3600]
+        ncpus_filled = 0
+        while ncpus_filled < total_ncpus:
+            attrs = {'Resource_List.walltime': random.choice(walltimes)}
+            # Frequency of small jobs:large jobs = 10:1
+            for _ in range(10):
+                ncpus = random.choice(small_jobs)
+                ncpus_filled += ncpus
+                attrs['Resource_List.select'] = '1:ncpus=' + str(ncpus)
+                j = Job(TEST_USER, attrs=attrs)
+                j.set_sleep_time(10000)
+                self.server.submit(j)
+            if ncpus_filled > total_ncpus:
+                break
+            ncpus = random.choice(large_jobs)
+            ncpus_filled += ncpus
+            attrs['Resource_List.select'] = '1:ncpus=' + str(ncpus)
+            j = Job(TEST_USER, attrs=attrs)
+            j.set_sleep_time(10000)
+            self.server.submit(j)
+        self.scheduler.run_scheduling_cycle()
+
+        # Ok, now that the system is full, scheduler will do calendaring
+        # Submit 50 small jobs
+        for _ in range(50):
+            attrs = {'Resource_List.walltime': random.choice(walltimes)}
+            ncpus = random.choice(small_jobs)
+            attrs['Resource_List.select'] = '1:ncpus=' + str(ncpus)
+            j = Job(TEST_USER, attrs=attrs)
+            j.set_sleep_time(10000)
+            self.server.submit(j)
+
+        # Run 50 sched cycles, in each cycle sched will calendar these jobs
+        # and we'll exercise the placement set update code as well
+        t1 = time.time()
+        for _ in range(50):
+            self.scheduler.run_scheduling_cycle()
+        t2 = time.time()
+        self.logger.info("Time taken: " + str(t2 - t1))
+
+        # Set backfill fuzzy to high and try again
+        a = {'opt_backfill_fuzzy': 'High'}
+        self.server.manager(MGR_CMD_SET, SCHED, a, id='default')
+
+        t1 = time.time()
+        for _ in range(50):
+            self.scheduler.run_scheduling_cycle()
+        t2 = time.time()
+        self.logger.info("Time taken: " + str(t2 - t1))
+
+        # Delete all jobs
+        self.server.cleanup_jobs()

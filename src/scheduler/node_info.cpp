@@ -1827,10 +1827,12 @@ collect_jobs_on_nodes(node_info **ninfo_arr, resource_resv **resresv_arr, int si
  *				then only resources that were released
  *				during suspension will be accounted.
  *
- * @return	nothing
+ * @return	int
+ * @retval	true: all placement sets need to be sorted
+ * @retval	false: no need to sort placement sets
  *
  */
-void
+bool
 update_node_on_run(nspec *ns, resource_resv *resresv, const char *job_state)
 {
 	resource_req *resreq;
@@ -1838,22 +1840,23 @@ update_node_on_run(nspec *ns, resource_resv *resresv, const char *job_state)
 	counts *cts;
 	resource_resv **tmp_arr;
 	node_info *ninfo;
+	bool sort_psets = false;
 
 	if (ns == NULL || resresv == NULL)
-		return;
+		return false;
 
 	ninfo = ns->ninfo;
 
 	/* Don't account for resources of a node that is unavailable */
 	if (ninfo->is_offline || ninfo->is_down)
-		return;
+		return false;
 
 	if (resresv->is_job) {
 		ninfo->num_jobs++;
 		if (find_resource_resv_by_indrank(ninfo->job_arr, resresv->resresv_ind, resresv->rank) == NULL) {
 			tmp_arr = add_resresv_to_array(ninfo->job_arr, resresv, NO_FLAGS);
 			if (tmp_arr == NULL)
-				return;
+				return false;
 
 			ninfo->job_arr = tmp_arr;
 		}
@@ -1864,7 +1867,7 @@ update_node_on_run(nspec *ns, resource_resv *resresv, const char *job_state)
 		if (find_resource_resv_by_indrank(ninfo->run_resvs_arr, resresv->resresv_ind, resresv->rank) == NULL) {
 			tmp_arr = add_resresv_to_array(ninfo->run_resvs_arr, resresv, NO_FLAGS);
 			if (tmp_arr == NULL)
-				return;
+				return false;
 
 			ninfo->run_resvs_arr = tmp_arr;
 		}
@@ -1972,6 +1975,18 @@ update_node_on_run(nspec *ns, resource_resv *resresv, const char *job_state)
 		pbs_bitmap_bit_on(bkt->busy_pool->truth, ind);
 		bkt->busy_pool->truth_ct++;
 	}
+
+	node_partition **npar = ns->ninfo->np_arr;
+	if (npar != NULL) {
+		for (int j = 0; npar[j] != NULL; j++) {
+			modify_resource_list(npar[j]->res, ns->resreq, SCHD_INCR);
+			if (!ns->ninfo->is_free)
+				npar[j]->free_nodes--;
+			sort_psets = true;
+			update_buckets_for_node(npar[j]->bkts, ns->ninfo);
+		}
+	}
+	return sort_psets;
 }
 
 /**
@@ -1988,7 +2003,7 @@ update_node_on_run(nspec *ns, resource_resv *resresv, const char *job_state)
  * @return	nothing
  *
  */
-void
+bool
 update_node_on_end(node_info *ninfo, resource_resv *resresv, const char *job_state)
 {
 	resource_req *resreq = NULL;
@@ -1997,13 +2012,14 @@ update_node_on_end(node_info *ninfo, resource_resv *resresv, const char *job_sta
 	nspec *ns;		/* nspec from resresv for this node */
 	int ind;
 	int i;
+	bool sort_psets = false;
 
 	if (ninfo == NULL || resresv == NULL || resresv->nspec_arr == NULL)
-		return;
+		return false;
 
 	/* Don't account for resources of a node that is unavailable */
 	if (ninfo->is_offline || ninfo->is_down)
-		return;
+		return false;
 
 	if (resresv->is_job) {
 		ninfo->num_jobs--;
@@ -2090,7 +2106,18 @@ update_node_on_end(node_info *ninfo, resource_resv *resresv, const char *job_sta
 		bkt->busy_pool->truth_ct--;
 	}
 
+	node_partition **npar = ninfo->np_arr;
+	if (npar != NULL) {
+		for (int j = 0; npar[j] != NULL; j++) {
+			modify_resource_list(npar[j]->res, resresv->resreq, SCHD_DECR);
+			if (ninfo->is_free)
+				npar[j]->free_nodes++;
+			sort_psets = true;
+			update_buckets_for_node(npar[j]->bkts, ninfo);
+		}
+	}
 
+	return sort_psets;
 }
 
 /**

@@ -167,7 +167,7 @@ resource_req *ssinode_reqlist(resource_req *reqlist, node_info *ninfo);
  *      update_node_on_run - update internal scheduler node data when a job
  *                           is run.
  */
-void update_node_on_run(nspec *ns, resource_resv *resresv, const char *job_state);
+bool update_node_on_run(nspec *ns, resource_resv *resresv, const char *job_state);
 
 /*
  *      node_queue_cmp - used with node_filter to filter nodes attached to a
@@ -184,7 +184,7 @@ int node_partition_cmp(node_info *ninfo, void *arg);
 /*
  *      update_node_on_end - update a node when a job ends
  */
-void update_node_on_end(node_info *ninfo, resource_resv *resresv, const char *job_state);
+bool update_node_on_end(node_info *ninfo, resource_resv *resresv, const char *job_state);
 
 /*
  *      copy_node_ptr_array - copy an array of jobs using a different set of

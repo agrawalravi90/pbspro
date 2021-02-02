@@ -1403,6 +1403,4 @@ update_all_nodepart(status *policy, server_info *sinfo, unsigned int flags)
 		node_partition_update(policy, sinfo->allpart);
 
 	sort_all_nodepart(policy, sinfo);
-
-	sinfo->pset_metadata_stale = 0;
 }

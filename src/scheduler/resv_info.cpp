@@ -2173,29 +2173,6 @@ create_resv_nodes(nspec **nspec_arr, server_info *sinfo)
 }
 
 /**
- * @brief end a running reservation on its nodes.  This is used so we can assign
- * 		them back to a running reservation when reconfirming it.
- *
- * @param[in] resv - the reservation
- * @param[in] all_nodes - The server's nodes list
- *
- * @return void
- */
-void
-end_resv_on_nodes(resource_resv *resv, node_info **all_nodes)
-{
-	node_info **resv_nodes = NULL;
-	node_info *ninfo = NULL;
-	int i;
-
-	resv_nodes = resv->ninfo_arr;
-	for (i = 0; resv_nodes[i] != NULL; i++) {
-		ninfo = find_node_by_indrank(all_nodes, resv_nodes[i]->node_ind, resv_nodes[i]->rank);
-		update_node_on_end(ninfo, resv, NULL);
-	}
-}
-
-/**
  * @brief - adjust resources on nodes belonging to a reservation that is
  *	    running and is either degraded or being altered.  We need to free
  * 	    the resources on these nodes so the resources are available for
@@ -2216,12 +2193,15 @@ release_running_resv_nodes(resource_resv *resv, server_info *sinfo)
 	if (resv == NULL || sinfo == NULL )
 		return;
 	if (resv->resv->is_running && (resv->resv->resv_substate == RESV_DEGRADED || resv->resv->resv_state == RESV_BEING_ALTERED)) {
+		bool sort_psets = false;
+
 		resv_nodes = resv->ninfo_arr;
 		for (i = 0; resv_nodes[i] != NULL; i++) {
 			ninfo = find_node_by_indrank(sinfo->nodes, resv_nodes[i]->node_ind, resv_nodes[i]->rank);
-			update_node_on_end(ninfo, resv, NULL);
+			sort_psets = sort_psets || update_node_on_end(ninfo, resv, NULL);
 		}
-		sinfo->pset_metadata_stale = 1;
+		if (sort_psets)
+			sort_all_nodepart(sinfo->policy, sinfo);
 	}
 }
 
