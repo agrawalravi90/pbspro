@@ -253,7 +253,6 @@ job_save_db(job *pjob)
 		pjob->newobj = 0;
 
 done:
-	free_db_attr_list(&dbjob.db_attr_list);
 
 	if (rc != 0) {
 		/* revert mtime, flags update */

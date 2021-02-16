@@ -80,6 +80,8 @@ extern "C" {
 #define OBJ_SAVE_NEW    1   /* object is new, so whole object should be saved */
 #define OBJ_SAVE_QS     2   /* quick save area modified, it should be saved */
 
+#define DB_SAVE_INTERVAL	10	/* Minimum time in secs since last save before next save to db is done */
+
 /**
  * @brief
  * Following are a set of mapping of DATABASE vs C data types. These are

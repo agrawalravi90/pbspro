@@ -152,6 +152,8 @@ pg_db_fn_t db_fn_arr[PBS_DB_NUM_TYPES] = {
 	}
 };
 
+static void *dbsavecache = NULL;
+
 /**
  * @brief
  *	Initialize a query state variable, before being used in a cursor
@@ -867,6 +869,36 @@ pbs_db_disconnect(void *conn)
 	return 0;
 }
 
+static char *
+get_dbobj_id(pbs_db_obj_info_t *obj)
+{
+	switch (obj->pbs_db_obj_type) {	/* we are caching only job and node updates */
+		case PBS_DB_JOB:
+			return obj->pbs_db_un.pbs_db_job->ji_jobid;
+		case PBS_DB_JOBSCR:
+			return obj->pbs_db_un.pbs_db_jobscr->ji_jobid;
+		case PBS_DB_NODE:
+			return obj->pbs_db_un.pbs_db_node->nd_name;
+		default:
+			return NULL;
+	}
+
+	return NULL;
+}
+
+static pbs_db_attr_list_t *
+get_dbobj_attrlist(pbs_db_obj_info_t *obj)
+{
+	switch (obj->pbs_db_obj_type) {	/* we are caching only job and node updates */
+		case PBS_DB_JOB:
+			return &(obj->pbs_db_un.pbs_db_job->db_attr_list);
+		case PBS_DB_NODE:
+			return &(obj->pbs_db_un.pbs_db_node->db_attr_list);
+		default:
+			return NULL;
+	}
+}
+
 /**
  * @brief
  *	Saves a new object into the database
@@ -884,7 +916,59 @@ pbs_db_disconnect(void *conn)
 int
 pbs_db_save_obj(void *conn, pbs_db_obj_info_t *obj, int savetype)
 {
-	return (db_fn_arr[obj->pbs_db_obj_type].pbs_db_save_obj(conn, obj, savetype));
+	static time_t last_save_ts = 0;
+	time_t currtime;
+	struct dbcacheobj {
+		pbs_db_obj_info_t *obj;
+		int savetype;
+	};
+	struct dbcacheobj *old;
+	char *id = get_dbobj_id(obj);
+
+	if (id == NULL || DB_SAVE_INTERVAL <= 0)
+		return (db_fn_arr[obj->pbs_db_obj_type].pbs_db_save_obj(conn, obj, savetype));
+
+	if (dbsavecache == NULL) {
+		dbsavecache = pbs_idx_create(0, 0);
+		if (dbsavecache == NULL)
+			return -1;
+	}
+
+	old = NULL;
+	pbs_idx_find(dbsavecache, (void **) id, (void **) &old, NULL);
+	if (old != NULL) {	/* Update existing */
+		free_db_attr_list(get_dbobj_attrlist(old));
+		old->obj = obj;
+		if (savetype == OBJ_SAVE_NEW)
+			old->savetype = OBJ_SAVE_NEW;
+	} else {	/* no existing cache for this object, create one */
+		struct dbcacheobj *new = NULL;
+
+		new = malloc(sizeof(struct dbcacheobj));
+		new->obj = obj;
+		new->savetype = savetype;
+		pbs_idx_insert(dbsavecache, id, new);
+	}
+	currtime = time();
+	if ((currtime - last_save_ts) > DB_SAVE_INTERVAL) {	/* Push to db */
+		int ret = 0;
+		int ret_l = 0;
+		void *idx_ctx;
+		pbs_db_obj_info_t *iterobj;
+
+		/* Push all pending updates to db */
+		while (pbs_idx_find(dbsavecache, NULL, (void **)&iterobj, &idx_ctx) == PBS_IDX_RET_OK) {
+			ret_l = (db_fn_arr[obj->pbs_db_obj_type].pbs_db_save_obj(conn, iterobj, savetype));
+			ret = ret || ret_l;
+			pbs_idx_delete(dbsavecache, id);
+			free_db_attr_list(get_dbobj_attrlist(iterobj));
+		}
+		last_save_ts = currtime;
+
+		return ret;
+	}
+
+	return 0;
 }
 
 /**
