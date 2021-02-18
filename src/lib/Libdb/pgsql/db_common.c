@@ -1044,8 +1044,12 @@ pbs_db_save_obj(void *conn, pbs_db_obj_info_t *objin, int savetype)
  */
 int pbs_db_delete_attr_obj(void *conn, pbs_db_obj_info_t *obj, void *obj_id, pbs_db_attr_list_t *db_attr_list)
 {
+	int ret;
+
+	ret = db_fn_arr[obj->pbs_db_obj_type].pbs_db_del_attr_obj(conn, obj_id, db_attr_list);
 	delete_dbsavecache_obj(obj);
-	return (db_fn_arr[obj->pbs_db_obj_type].pbs_db_del_attr_obj(conn, obj_id, db_attr_list));
+
+	return ret;
 }
 
 /**

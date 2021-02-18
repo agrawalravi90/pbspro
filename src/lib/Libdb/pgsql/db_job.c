@@ -535,6 +535,9 @@ pbs_db_delete_job(void *conn, pbs_db_obj_info_t *obj)
 	if (db_cmd(conn, STMT_DELETE_JOBSCR, 1) == -1)
 		goto err;
 
+	if (rc == 1)
+		rc = 0;	/* looks like there was nothing to delete, just return success */
+
 	return rc;
 err:
 	return -1;
@@ -648,6 +651,8 @@ pbs_db_del_attr_job(void *conn, void *obj_id, pbs_db_attr_list_t *attr_list)
 	SET_PARAM_BIN(conn_data, raw_array, len, 1);
 
 	rc = db_cmd(conn, STMT_REMOVE_JOBATTRS, 2);
+	if (rc == 1)
+		rc = 0;	/* looks like there was nothing to delete, just return success */
 
 	return rc;
 }

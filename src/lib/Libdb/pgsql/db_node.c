@@ -415,9 +415,15 @@ pbs_db_next_node(void *conn, void *st, pbs_db_obj_info_t *obj)
 int
 pbs_db_delete_node(void *conn, pbs_db_obj_info_t *obj)
 {
+	int ret;
+
 	pbs_db_node_info_t *pnd = obj->pbs_db_un.pbs_db_node;
 	SET_PARAM_STR(conn_data, pnd->nd_name, 0);
-	return (db_cmd(conn, STMT_DELETE_NODE, 1));
+	ret = db_cmd(conn, STMT_DELETE_NODE, 1);
+	if (ret == 1)
+		ret = 0;	/* looks like there was nothing to delete, just return success */
+
+	return ret;
 }
 
 /**
@@ -447,6 +453,8 @@ pbs_db_del_attr_node(void *conn, void *obj_id, pbs_db_attr_list_t *attr_list)
 	SET_PARAM_BIN(conn_data, raw_array, len, 1);
 
 	rc = db_cmd(conn, STMT_REMOVE_NODEATTRS, 2);
+	if (rc == 1)	/* looks like there was nothing to delete, just return success */
+		rc = 0;
 
 	return rc;
 }
