@@ -258,7 +258,7 @@ int
 svr_save_db(struct server *ps)
 {
 	void *conn = (void *) svr_db_conn;
-	pbs_db_svr_info_t dbsvr = {0};
+	pbs_db_svr_info_t *dbsvr = NULL;
 	pbs_db_obj_info_t obj;
 	int savetype;
 	int rc = -1;
@@ -270,18 +270,17 @@ svr_save_db(struct server *ps)
 	if (update_svrlive() != 0)
 		goto done;
 
-	if ((savetype = svr_to_db(ps, &dbsvr)) == -1)
+	dbsvr = calloc(1, sizeof(pbs_db_svr_info_t));
+	if ((savetype = svr_to_db(ps, dbsvr)) == -1)
 		goto done;
 
 	obj.pbs_db_obj_type = PBS_DB_SVR;
-	obj.pbs_db_un.pbs_db_svr = &dbsvr;
+	obj.pbs_db_un.pbs_db_svr = dbsvr;
 
 	if ((rc = pbs_db_save_obj(conn, &obj, savetype)) == 0)
 		ps->newobj = 0;
 
 done:
-	free_db_attr_list(&dbsvr.db_attr_list);
-
 	if (rc != 0) {
 		pbs_db_get_errmsg(PBS_DB_ERR, &conn_db_err);
 		log_errf(PBSE_INTERNAL, __func__, "Failed to save server %s", conn_db_err? conn_db_err : "");
@@ -365,24 +364,23 @@ int
 sched_save_db(pbs_sched *ps)
 {
 	void *conn = (void *) svr_db_conn;
-	pbs_db_sched_info_t dbsched = {{0}};
+	pbs_db_sched_info_t *dbsched = NULL;
 	pbs_db_obj_info_t obj;
 	int savetype;
 	int rc = -1;
 	char *conn_db_err = NULL;
 
-	if ((savetype = sched_to_db(ps, &dbsched)) == -1)
+	dbsched = calloc(1, sizeof(pbs_db_sched_info_t));
+	if ((savetype = sched_to_db(ps, dbsched)) == -1)
 		goto done;
 
 	obj.pbs_db_obj_type = PBS_DB_SCHED;
-	obj.pbs_db_un.pbs_db_sched = &dbsched;
+	obj.pbs_db_un.pbs_db_sched = dbsched;
 
 	if ((rc = pbs_db_save_obj(conn, &obj, savetype)) == 0)
 		ps->newobj = 0;
 
 done:
-	free_db_attr_list(&dbsched.db_attr_list);
-
 	if (rc != 0) {
 		pbs_db_get_errmsg(PBS_DB_ERR, &conn_db_err);
 		log_errf(PBSE_INTERNAL, __func__, "Failed to save sched %s %s", ps->sc_name, conn_db_err? conn_db_err : "");

@@ -60,6 +60,8 @@
 #include "ticket.h"
 #include "log.h"
 #include "server_limits.h"
+#include "pbs_idx.h"
+#include "svrfunc.h"
 
 #define IPV4_STR_LEN 15
 
@@ -81,6 +83,13 @@ extern int pbs_decrypt_pwd(char *, int, size_t, char **, const unsigned char *, 
 extern unsigned char pbs_aes_key[][16];
 extern unsigned char pbs_aes_iv[][16];
 
+static char *get_dbobj_id(pbs_db_obj_info_t *obj);
+static pbs_db_attr_list_t *get_dbobj_attrlist(pbs_db_obj_info_t *obj);
+static void delete_dbsavecache_obj(pbs_db_obj_info_t *obj);
+struct dbcacheobj {
+	pbs_db_obj_info_t *obj;
+	int savetype;
+};
 
 /**
  * An array of structures(of function pointers) for each of the database object
@@ -297,6 +306,7 @@ db_cursor_next(void *conn, void *st, pbs_db_obj_info_t *obj)
 int
 pbs_db_delete_obj(void *conn, pbs_db_obj_info_t *obj)
 {
+	delete_dbsavecache_obj(obj);
 	return (db_fn_arr[obj->pbs_db_obj_type].pbs_db_delete_obj(conn, obj));
 }
 
@@ -872,11 +882,11 @@ pbs_db_disconnect(void *conn)
 static char *
 get_dbobj_id(pbs_db_obj_info_t *obj)
 {
+	if (obj == NULL)
+		return NULL;
 	switch (obj->pbs_db_obj_type) {	/* we are caching only job and node updates */
 		case PBS_DB_JOB:
 			return obj->pbs_db_un.pbs_db_job->ji_jobid;
-		case PBS_DB_JOBSCR:
-			return obj->pbs_db_un.pbs_db_jobscr->ji_jobid;
 		case PBS_DB_NODE:
 			return obj->pbs_db_un.pbs_db_node->nd_name;
 		default:
@@ -886,14 +896,40 @@ get_dbobj_id(pbs_db_obj_info_t *obj)
 	return NULL;
 }
 
+static void
+delete_dbsavecache_obj(pbs_db_obj_info_t *obj)
+{
+	if (obj && dbsavecache != NULL) {
+		char *id = get_dbobj_id(obj);
+		if (id) {
+			struct dbcacheobj *cachedobj;
+
+			pbs_idx_find(dbsavecache, (void **) &id, (void **) &cachedobj, NULL);
+			if (cachedobj != NULL) {
+				pbs_idx_delete(dbsavecache, id);
+				free(cachedobj->obj);
+				free(cachedobj);
+			}
+		}
+	}
+}
+
 static pbs_db_attr_list_t *
 get_dbobj_attrlist(pbs_db_obj_info_t *obj)
 {
-	switch (obj->pbs_db_obj_type) {	/* we are caching only job and node updates */
+	switch (obj->pbs_db_obj_type) {
 		case PBS_DB_JOB:
 			return &(obj->pbs_db_un.pbs_db_job->db_attr_list);
 		case PBS_DB_NODE:
 			return &(obj->pbs_db_un.pbs_db_node->db_attr_list);
+		case PBS_DB_RESV:
+			return &(obj->pbs_db_un.pbs_db_resv->db_attr_list);
+		case PBS_DB_QUEUE:
+			return &(obj->pbs_db_un.pbs_db_que->db_attr_list);
+		case PBS_DB_SVR:
+			return &(obj->pbs_db_un.pbs_db_svr->db_attr_list);
+		case PBS_DB_SCHED:
+			return &(obj->pbs_db_un.pbs_db_sched->db_attr_list);
 		default:
 			return NULL;
 	}
@@ -902,6 +938,9 @@ get_dbobj_attrlist(pbs_db_obj_info_t *obj)
 /**
  * @brief
  *	Saves a new object into the database
+ *	Will delay writing to disk for job and node objects, as configured via db save interval
+ *	Note: will free db_attr_list when object is written to disk
+ *	Note: will also free pbs_db_un when object is written to disk
  *
  * @param[in]	conn - Connected database handle
  * @param[in]	pbs_db_obj_info_t - Wrapper object that describes the object (and data) to insert
@@ -914,19 +953,20 @@ get_dbobj_attrlist(pbs_db_obj_info_t *obj)
  *
  */
 int
-pbs_db_save_obj(void *conn, pbs_db_obj_info_t *obj, int savetype)
+pbs_db_save_obj(void *conn, pbs_db_obj_info_t *objin, int savetype)
 {
 	static time_t last_save_ts = 0;
 	time_t currtime;
-	struct dbcacheobj {
-		pbs_db_obj_info_t *obj;
-		int savetype;
-	};
 	struct dbcacheobj *old;
-	char *id = get_dbobj_id(obj);
+	char *id = get_dbobj_id(objin);
+	int ret = 0;
 
-	if (id == NULL || DB_SAVE_INTERVAL <= 0)
-		return (db_fn_arr[obj->pbs_db_obj_type].pbs_db_save_obj(conn, obj, savetype));
+	if (id == NULL || DB_SAVE_INTERVAL <= 0) {
+		ret = (db_fn_arr[objin->pbs_db_obj_type].pbs_db_save_obj(conn, objin, savetype));
+		free_db_attr_list(get_dbobj_attrlist(objin));
+		free(objin->pbs_db_un.pbs_db_svr);	/* all pointers in union point to same memory */
+		return ret;
+	}
 
 	if (dbsavecache == NULL) {
 		dbsavecache = pbs_idx_create(0, 0);
@@ -935,40 +975,57 @@ pbs_db_save_obj(void *conn, pbs_db_obj_info_t *obj, int savetype)
 	}
 
 	old = NULL;
-	pbs_idx_find(dbsavecache, (void **) id, (void **) &old, NULL);
+	pbs_idx_find(dbsavecache, (void **) &id, (void **) &old, NULL);
 	if (old != NULL) {	/* Update existing */
-		free_db_attr_list(get_dbobj_attrlist(old));
-		old->obj = obj;
+		free_db_attr_list(get_dbobj_attrlist(old->obj));
+		free(old->obj->pbs_db_un.pbs_db_svr);	/* all pointers in union point to same memory */
+		old->obj->pbs_db_un = objin->pbs_db_un;
 		if (savetype == OBJ_SAVE_NEW)
 			old->savetype = OBJ_SAVE_NEW;
 	} else {	/* no existing cache for this object, create one */
 		struct dbcacheobj *new = NULL;
 
 		new = malloc(sizeof(struct dbcacheobj));
-		new->obj = obj;
+		if (new == NULL)
+			return -1;
+		new->obj = malloc(sizeof(pbs_db_obj_info_t));
+		if (new->obj == NULL) {
+			free(new);
+			return -1;
+		}
+		new->obj->pbs_db_obj_type = objin->pbs_db_obj_type;
+		new->obj->pbs_db_un = objin->pbs_db_un;
 		new->savetype = savetype;
 		pbs_idx_insert(dbsavecache, id, new);
 	}
-	currtime = time();
+	currtime = time(NULL);
 	if ((currtime - last_save_ts) > DB_SAVE_INTERVAL) {	/* Push to db */
-		int ret = 0;
 		int ret_l = 0;
-		void *idx_ctx;
-		pbs_db_obj_info_t *iterobj;
+		void *idx_ctx = NULL;
+		struct dbcacheobj *iterobj = NULL;
 
 		/* Push all pending updates to db */
-		while (pbs_idx_find(dbsavecache, NULL, (void **)&iterobj, &idx_ctx) == PBS_IDX_RET_OK) {
-			ret_l = (db_fn_arr[obj->pbs_db_obj_type].pbs_db_save_obj(conn, iterobj, savetype));
-			ret = ret || ret_l;
-			pbs_idx_delete(dbsavecache, id);
-			free_db_attr_list(get_dbobj_attrlist(iterobj));
+		while (pbs_idx_find(dbsavecache, NULL, (void **) &iterobj, &idx_ctx) == PBS_IDX_RET_OK) {
+			if (iterobj != NULL) {
+				ret_l = (db_fn_arr[iterobj->obj->pbs_db_obj_type].pbs_db_save_obj(conn, iterobj->obj, savetype));
+				ret = ret || ret_l;
+				id = get_dbobj_id(iterobj->obj);
+				if (id) {
+					free_db_attr_list(get_dbobj_attrlist(iterobj->obj));
+					free(iterobj->obj->pbs_db_un.pbs_db_svr);	/* all pointers in union point to same memory */
+					free(iterobj->obj);
+					free(iterobj);
+				}
+				iterobj = NULL;
+			}
 		}
-		last_save_ts = currtime;
-
-		return ret;
+		pbs_idx_free_ctx(idx_ctx);
+		pbs_idx_destroy(dbsavecache);
+		dbsavecache = NULL;
+		last_save_ts = time(NULL);
 	}
 
-	return 0;
+	return ret;
 }
 
 /**
@@ -987,6 +1044,7 @@ pbs_db_save_obj(void *conn, pbs_db_obj_info_t *obj, int savetype)
  */
 int pbs_db_delete_attr_obj(void *conn, pbs_db_obj_info_t *obj, void *obj_id, pbs_db_attr_list_t *db_attr_list)
 {
+	delete_dbsavecache_obj(obj);
 	return (db_fn_arr[obj->pbs_db_obj_type].pbs_db_del_attr_obj(conn, obj_id, db_attr_list));
 }
 
@@ -1472,4 +1530,22 @@ db_ntohll(unsigned long long x)
 	 * so there is no clash.
 	 */
 	return (unsigned long long)(((unsigned long long)ntohl((x)&0xffffffff)) << 32) | ntohl(((unsigned long long)(x)) >> 32);
+}
+
+/**
+ * @brief
+ *	Frees attribute list memory
+ *
+ * @param[in]	attr_list - List of pbs_db_attr_list_t objects
+ *
+ * @return      None
+ *
+ */
+void
+free_db_attr_list(pbs_db_attr_list_t *attr_list)
+{
+	if (attr_list && attr_list->attr_count > 0) {
+		free_attrlist(&attr_list->attrs);
+		attr_list->attr_count = 0;
+	}
 }

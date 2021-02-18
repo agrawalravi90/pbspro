@@ -150,25 +150,24 @@ db_to_que(pbs_queue *pque, pbs_db_que_info_t *pdbque)
 int
 que_save_db(pbs_queue *pque)
 {
-	pbs_db_que_info_t	dbque = {{0}};
+	pbs_db_que_info_t	*dbque = NULL;
 	pbs_db_obj_info_t	obj;
 	void *conn = (void *) svr_db_conn;
 	char *conn_db_err = NULL;
 	int savetype;
 	int rc = -1;
 
-	if ((savetype = que_to_db(pque, &dbque)) == -1)
+	dbque = calloc(1, sizeof(pbs_db_que_info_t));
+	if ((savetype = que_to_db(pque, dbque)) == -1)
 		goto done;
-	
+
 	obj.pbs_db_obj_type = PBS_DB_QUEUE;
-	obj.pbs_db_un.pbs_db_que = &dbque;
+	obj.pbs_db_un.pbs_db_que = dbque;
 
 	if ((rc = pbs_db_save_obj(conn, &obj, savetype)) == 0)
 		pque->newobj = 0;
 
 done:
-	free_db_attr_list(&dbque.db_attr_list);
-	
 	if (rc != 0) {
 		pbs_db_get_errmsg(PBS_DB_ERR, &conn_db_err);
 		log_errf(PBSE_INTERNAL, __func__, "Failed to save queue %s %s", pque->qu_qs.qu_name, conn_db_err? conn_db_err : "");

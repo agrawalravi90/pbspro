@@ -230,7 +230,7 @@ db_to_job(job *pjob,  pbs_db_job_info_t *dbjob)
 int
 job_save_db(job *pjob)
 {
-	pbs_db_job_info_t dbjob = {{0}};
+	pbs_db_job_info_t *dbjob = NULL;
 	pbs_db_obj_info_t obj;
 	void *conn = svr_db_conn;
 	int savetype;
@@ -241,11 +241,12 @@ job_save_db(job *pjob)
 	old_mtime = get_jattr_long(pjob, JOB_ATR_mtime);
 	old_flags = (get_jattr(pjob, JOB_ATR_mtime))->at_flags;
 
-	if ((savetype = job_to_db(pjob, &dbjob)) == -1)
+	dbjob = calloc(1, sizeof(pbs_db_job_info_t));
+	if ((savetype = job_to_db(pjob, dbjob)) == -1)
 		goto done;
 
 	obj.pbs_db_obj_type = PBS_DB_JOB;
-	obj.pbs_db_un.pbs_db_job = &dbjob;
+	obj.pbs_db_un.pbs_db_job = dbjob;
 
 	/* update mtime before save, so the same value gets to the DB as well */
 	set_jattr_l_slim(pjob, JOB_ATR_mtime, time_now, SET);
@@ -444,7 +445,7 @@ db_to_resv(resc_resv *presv, pbs_db_resv_info_t *dbresv)
 int
 resv_save_db(resc_resv *presv)
 {
-	pbs_db_resv_info_t dbresv = {{0}};
+	pbs_db_resv_info_t *dbresv = NULL;
 	pbs_db_obj_info_t obj;
 	void *conn = svr_db_conn;
 	int savetype;
@@ -457,11 +458,12 @@ resv_save_db(resc_resv *presv)
 	old_mtime = get_attr_l(mtime);
 	old_flags = mtime->at_flags;
 
-	if ((savetype = resv_to_db(presv, &dbresv)) == -1)
+	dbresv = calloc(1, sizeof(pbs_db_resv_info_t));
+	if ((savetype = resv_to_db(presv, dbresv)) == -1)
 		goto done;
 
 	obj.pbs_db_obj_type = PBS_DB_RESV;
-	obj.pbs_db_un.pbs_db_resv = &dbresv;
+	obj.pbs_db_un.pbs_db_resv = dbresv;
 
 	/* update mtime before save, so the same value gets to the DB as well */
 	set_rattr_l_slim(presv, RESV_ATR_mtime, time_now, SET);
@@ -469,7 +471,6 @@ resv_save_db(resc_resv *presv)
 		presv->newobj = 0;
 
 done:
-	free_db_attr_list(&dbresv.db_attr_list);
 
 	if (rc != 0) {
 		set_attr_l(mtime, old_mtime, SET);

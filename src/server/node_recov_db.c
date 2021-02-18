@@ -329,18 +329,19 @@ node_to_db(struct pbsnode *pnode, pbs_db_node_info_t *pdbnd)
 int
 node_save_db(struct pbsnode *pnode)
 {
-	pbs_db_node_info_t dbnode = {{0}};
+	pbs_db_node_info_t *dbnode = NULL;
 	pbs_db_obj_info_t obj;
 	void *conn = (void *) svr_db_conn;
 	char *conn_db_err = NULL;
 	int savetype;
 	int rc = -1;
 
-	if ((savetype = node_to_db(pnode, &dbnode))  == -1)
+	dbnode = calloc(1, sizeof(pbs_db_node_info_t));
+	if ((savetype = node_to_db(pnode, dbnode))  == -1)
 		goto done;
 
 	obj.pbs_db_obj_type = PBS_DB_NODE;
-	obj.pbs_db_un.pbs_db_node = &dbnode;
+	obj.pbs_db_un.pbs_db_node = dbnode;
 
 	if ((rc = pbs_db_save_obj(conn, &obj, savetype)) != 0) {
 		savetype |= (OBJ_SAVE_NEW | OBJ_SAVE_QS);
@@ -351,7 +352,6 @@ node_save_db(struct pbsnode *pnode)
 		pnode->newobj = 0;
 
 done:
-	free_db_attr_list(&dbnode.db_attr_list);
 
 	if (rc != 0) {
 		pbs_db_get_errmsg(PBS_DB_ERR, &conn_db_err);

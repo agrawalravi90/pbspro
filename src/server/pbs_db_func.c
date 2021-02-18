@@ -579,21 +579,3 @@ try_db_again:
 	conn = NULL; /* ensure conn does not point to svr_db_conn any more */
 	return 0;
 }
-
-/**
- * @brief
- *	Frees attribute list memory
- *
- * @param[in]	attr_list - List of pbs_db_attr_list_t objects
- *
- * @return      None
- *
- */
-void
-free_db_attr_list(pbs_db_attr_list_t *attr_list)
-{
-	if (attr_list && attr_list->attr_count > 0) {
-		free_attrlist(&attr_list->attrs);
-		attr_list->attr_count = 0;
-	}
-}

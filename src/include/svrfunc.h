@@ -49,6 +49,7 @@ extern "C" {
 
 #include "net_connect.h"
 #include "pbs_db.h"
+#include "job.h"
 #include "reservation.h"
 #include "resource.h"
 #include "pbs_sched.h"

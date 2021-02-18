@@ -1735,7 +1735,7 @@ req_commit_now(struct batch_request *preq,  job *pj)
 	int newsub;
 	pbs_queue *pque;
 	int rc;
-	pbs_db_jobscr_info_t jobscr;
+	pbs_db_jobscr_info_t *jobscr = NULL;
 	pbs_db_obj_info_t obj;
 	long time_msec;
 	struct timeval tval;
@@ -1843,10 +1843,11 @@ req_commit_now(struct batch_request *preq,  job *pj)
 	}
 
 	if (pj->ji_script) {
-		strcpy(jobscr.ji_jobid, pj->ji_qs.ji_jobid);
-		jobscr.script = pj->ji_script;
+		jobscr = malloc(sizeof(pbs_db_jobscr_info_t));
+		strcpy(jobscr->ji_jobid, pj->ji_qs.ji_jobid);
+		jobscr->script = pj->ji_script;
 		obj.pbs_db_obj_type = PBS_DB_JOBSCR;
-		obj.pbs_db_un.pbs_db_jobscr = &jobscr;
+		obj.pbs_db_un.pbs_db_jobscr = jobscr;
 
 		if (pbs_db_save_obj(conn, &obj, OBJ_SAVE_NEW) != 0) {
 			job_purge(pj);

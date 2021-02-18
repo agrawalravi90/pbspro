@@ -820,7 +820,7 @@ int
 save_nodes_db(int changemodtime, void *p)
 {
 	struct pbsnode  *np;
-	pbs_db_mominfo_time_t mom_tm = {0, 0};
+	pbs_db_mominfo_time_t *mom_tm = NULL;
 	pbs_db_obj_info_t obj;
 	int           num;
 	resource     *resc;
@@ -849,10 +849,11 @@ save_nodes_db(int changemodtime, void *p)
 	}
 
 	/* insert/update the mominfo_time to db */
-	mom_tm.mit_time = mominfo_time.mit_time;
-	mom_tm.mit_gen = mominfo_time.mit_gen;
+	mom_tm = malloc(sizeof(pbs_db_mominfo_time_t));
+	mom_tm->mit_time = mominfo_time.mit_time;
+	mom_tm->mit_gen = mominfo_time.mit_gen;
 	obj.pbs_db_obj_type = PBS_DB_MOMINFO_TIME;
-	obj.pbs_db_un.pbs_db_mominfo_tm = &mom_tm;
+	obj.pbs_db_un.pbs_db_mominfo_tm = mom_tm;
 
 	if (pbs_db_save_obj(svr_db_conn, &obj, OBJ_SAVE_QS) == 1) {/* no row updated */
 		if (pbs_db_save_obj(svr_db_conn, &obj, OBJ_SAVE_NEW) != 0) /* insert also failed */
