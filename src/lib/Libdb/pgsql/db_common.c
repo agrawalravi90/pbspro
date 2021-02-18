@@ -1010,7 +1010,7 @@ pbs_db_save_obj(void *conn, pbs_db_obj_info_t *objin, int savetype)
 				ret_l = (db_fn_arr[iterobj->obj->pbs_db_obj_type].pbs_db_save_obj(conn, iterobj->obj, savetype));
 				ret = ret || ret_l;
 				id = get_dbobj_id(iterobj->obj);
-				if (id) {
+				if (ret_l == 0 && id) {
 					free_db_attr_list(get_dbobj_attrlist(iterobj->obj));
 					free(iterobj->obj->pbs_db_un.pbs_db_svr);	/* all pointers in union point to same memory */
 					free(iterobj->obj);
