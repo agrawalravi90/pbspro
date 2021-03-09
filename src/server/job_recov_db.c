@@ -238,6 +238,8 @@ job_save_db(job *pjob)
 	int old_mtime, old_flags;
 	char *conn_db_err = NULL;
 
+	return 0;
+
 	old_mtime = get_jattr_long(pjob, JOB_ATR_mtime);
 	old_flags = (get_jattr(pjob, JOB_ATR_mtime))->at_flags;
 
