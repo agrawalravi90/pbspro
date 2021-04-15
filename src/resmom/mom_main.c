@@ -364,7 +364,6 @@ pbs_list_head	svr_execjob_preresume_hooks;
 
 /* the task lists */
 pbs_list_head	task_list_immed;
-pbs_list_head	task_list_interleave;
 pbs_list_head	task_list_timed;
 pbs_list_head	task_list_event;
 
@@ -7907,7 +7906,6 @@ main(int argc, char *argv[])
 	CLEAR_HEAD(task_list_immed);
 	CLEAR_HEAD(task_list_timed);
 	CLEAR_HEAD(task_list_event);
-	CLEAR_HEAD(task_list_interleave);
 
 #if defined(PBS_SECURITY) && (PBS_SECURITY == KRB5)
 	CLEAR_HEAD(svr_allcreds);
