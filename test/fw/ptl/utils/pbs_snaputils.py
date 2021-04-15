@@ -440,12 +440,13 @@ class ObfuscateSnapshot(object):
         :param sudo - sudo True/False?
         :type bool
 
-        :return fpath - possibly updated path to the obfuscated file
+        :return str - possibly updated path to the obfuscated file
         """
         fout = self.du.create_temp_file()
         pathobj = Path(fpath)
         fname = pathobj.name
         fparent = pathobj.parent
+        newfpath = fpath
         with open(fpath, "r", encoding="latin-1") as fd, \
                 open(fout, "w") as fdout:
             alltext = fd.read()
@@ -454,16 +455,16 @@ class ObfuscateSnapshot(object):
                 alltext = re.sub(r'\b' + key + r'\b', val, alltext)
                 if key in fname:
                     fname = fname.replace(key, val)
-                    fpath = os.path.join(fparent, fname)
+                    newfpath = os.path.join(fparent, fname)
             # Remove the attr values from vals_to_del list
             for val in self.vals_to_del:
                 alltext = alltext.replace(val, "")
             fdout.write(alltext)
 
         self.du.rm(path=fpath, sudo=sudo)
-        shutil.move(fout, fpath)
+        shutil.move(fout, newfpath)
 
-        return fpath
+        return newfpath
 
     def obfuscate_snapshot(self, snap_dir, map_file, sudo_val):
         """
@@ -524,8 +525,10 @@ class ObfuscateSnapshot(object):
         mom_logs = os.path.join(snap_dir, MOM_LOGS_PATH)
         comm_logs = os.path.join(snap_dir, COMM_LOGS_PATH)
         db_logs = os.path.join(snap_dir, PG_LOGS_PATH)
+        topology = os.path.join(snap_dir, SVR_PRIV_PATH, "topology")
         sched_logs = []
-        for dirname in self.du.listdir(path=snap_dir, sudo=sudo_val):
+        for dirname in self.du.listdir(path=snap_dir, sudo=sudo_val,
+                                       fullpath=False):
             if dirname.startswith(DFLT_SCHED_LOGS_PATH):
                 dirpath = os.path.join(snap_dir, str(dirname))
                 sched_logs.append(dirpath)
@@ -564,7 +567,8 @@ class ObfuscateSnapshot(object):
             with open(fpath, "w") as fd:
                 fd.write(str(content))
 
-        dirs_to_del = [svr_logs, mom_logs, comm_logs, db_logs] + sched_logs
+        dirs_to_del = [svr_logs, mom_logs, comm_logs, db_logs, topology]
+        dirs_to_del += sched_logs
         for dirpath in dirs_to_del:
             self.du.rm(path=dirpath, recursive=True, force=True)
 
