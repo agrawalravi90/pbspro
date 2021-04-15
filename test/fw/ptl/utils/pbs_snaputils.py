@@ -52,6 +52,7 @@ import time
 import platform
 from subprocess import STDOUT
 from pathlib import Path
+from multiprocessing import Process
 
 from ptl.lib.pbs_ifl_mock import *
 from ptl.lib.pbs_testlib import (SCHED, BatchUtils, Scheduler, Server,
@@ -353,9 +354,8 @@ class ObfuscateSnapshot(object):
         :param file_path - path of acct log file
         :type file_path - str
         """
-        fout = self.du.create_temp_file()
-
-        with open(file_path, "r") as fd, open(fout, "w") as fdout:
+        newcontent = []
+        with open(file_path, "r") as fd:
             for record in fd:
                 # accounting log format is
                 # %Y/%m/%d %H:%M:%S;<Key>;<Id>;<key1=val1> <key2=val2> ...
@@ -363,7 +363,7 @@ class ObfuscateSnapshot(object):
                 if record_list is None or len(record_list) < 4:
                     continue
                 if record_list[1] in ("A", "L"):
-                    fdout.write(record)
+                    newcontent.append(record)
                     continue
                 content_list = shlex.split(record_list[3].strip())
 
@@ -402,9 +402,10 @@ class ObfuscateSnapshot(object):
                 if not skip_record:
                     record = ";".join(record_list[:3]) + ";" + \
                         " ".join(["=".join(n) for n in kvl_list])
-                    fdout.write(record + "\n")
+                    newcontent.append(record + "\n")
 
-        shutil.move(fout, file_path)
+        with open(file_path, "w") as fd:
+            fd.write("".join(newcontent))
 
     def obfuscate_acct_logs(self, snap_dir, sudo_val):
         """
@@ -425,8 +426,21 @@ class ObfuscateSnapshot(object):
         if not os.path.isdir(acct_path):
             return
         acct_fpaths = self.du.listdir(path=acct_path, sudo=sudo_val)
-        for acct_fpath in acct_fpaths:
-            self._obfuscate_acct_file(attrs_to_obf, acct_fpath)
+        ncpus = os.cpu_count()
+        nfiles = len(acct_fpaths)
+        for i in range(nfiles):
+            plist = []
+            for _ in range(ncpus - 2):  # Use all but 2 ncpus from the machine
+                acct_fpath = acct_fpaths[i]
+                p = Process(target=self._obfuscate_acct_file, args=(attrs_to_obf, acct_fpath))
+                p.start()
+                plist.append(p)
+                i += 1
+                if i >= nfiles:
+                    break
+            for p in plist:
+                p.join()
+
         if self.num_bad_acct_records > 0:
             self.logger.info("Total bad records found: " +
                              str(self.num_bad_acct_records))
