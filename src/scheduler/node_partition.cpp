@@ -113,7 +113,7 @@ new_node_partition()
 		return NULL;
 	}
 
-	np->ok_break = 1;
+	np->ok_break = 0;
 	np->excl = 0;
 	np->name = NULL;
 	np->def = NULL;
