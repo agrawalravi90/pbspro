@@ -365,6 +365,7 @@ AC_CONFIG_FILES([
 	src/cmds/scripts/pbs_poerun
 	src/cmds/scripts/pbs_postinstall
 	src/cmds/scripts/pbs.service
+	src/cmds/scripts/pbs@.service
 	src/cmds/scripts/pbsrun.poe
 	src/hooks/Makefile
 	src/iff/Makefile

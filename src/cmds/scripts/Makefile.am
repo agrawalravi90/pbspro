@@ -75,7 +75,8 @@ dist_sysprofile_DATA = \
 unitfiledir = @_unitdir@
 
 dist_unitfile_DATA = \
-	pbs.service
+	pbs.service \
+	pbs@.service
 
 dist_libexec_SCRIPTS = \
 	pbs_habitat \
