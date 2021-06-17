@@ -492,7 +492,7 @@ encode_ntype(const attribute *pattr, pbs_list_head *ph, char *aname, char *rname
  * @param[out]  rtnl - the return value, a pointer to svrattrl
  *
  * @return	int
- * @retval	<0	an error encountered; value is negative of an error code
+ * @retval	<0 or PBSE_SYSTEM	an error encountered; value is negative of an error code
  * @retval	 0	ok, encode happened and svrattrl created and linked in,
  *			or nothing to encode
  *
@@ -582,6 +582,73 @@ encode_jobs(const attribute *pattr, pbs_list_head *ph, char *aname, char *rname,
 	return (0);			/*success*/
 }
 
+/**
+ * @brief	encode function for ATTR_msvr_remote_jobs
+ *
+ * @param[in]   pattr - attribute being encoded
+ * @param[in]   ph - head of a  list of "svrattrl"
+ * @param[out]  aname - attribute's name
+ * @param[out]  rname - resource's name (null if none)
+ * @param[out]  mode - mode code, unused here
+ * @param[out]  rtnl - the return value, a pointer to svrattrl
+ *
+ * @return	int
+ * @retval	<0 or PBSE_SYSTEM	an error encountered; value is negative of an error code
+ * @retval	 0	ok, encode happened and svrattrl created and linked in,
+ *			or nothing to encode
+ *
+ */
+int
+encode_msvr_rmtjobs(const attribute *pattr, pbs_list_head *ph, char *aname, char *rname,
+		    int mode, svrattrl **rtnl)
+{
+	svrattrl *pal;
+	struct jobinfo *jip;
+	struct pbsnode *pnode;
+	struct pbssubn *psubn;
+	char *job_str = NULL; /* holds comma separated list of jobids */
+	int strsize = 0;
+
+	if (!pattr)
+		return -1;
+	if (!(pattr->at_flags & ATR_VFLAG_SET) || !pattr->at_val.at_jinfo)
+		return 0;
+
+	pnode = pattr->at_val.at_jinfo;
+	for (psubn = pnode->nd_psn; psubn; psubn = psubn->next) {
+		for (jip = psubn->jobs; jip; jip = jip->next) {
+			if (jip->remotejob) {
+				char buf[PBS_MAXSVRJOBID + 2];
+				snprintf(buf, sizeof(buf), "%s,", jip->jobid);
+				if (pbs_strcat(&job_str, &strsize, buf) == NULL) {
+					free(job_str);
+					return PBSE_SYSTEM;
+				}
+			}
+		}
+	}
+	if (job_str != NULL)	/* Erase the last comma */
+		job_str[strlen(job_str) - 1] = '\0';
+	else
+		return 0;
+
+	pal = attrlist_create(aname, rname, strsize + 1);
+	if (pal == NULL) {
+		free(job_str);
+		return PBSE_SYSTEM;
+	}
+
+	strcpy(pal->al_value, job_str);
+	pal->al_flags = ATR_VFLAG_SET;
+	free(job_str);
+
+	if (ph)
+		append_link(ph, &pal->al_link, pal);
+	if (rtnl)
+		*rtnl = pal;
+
+	return 0;
+}
 
 /**
  * @brief

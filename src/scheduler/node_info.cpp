@@ -112,6 +112,7 @@
  *
  */
 
+#include <sstream>
 #include <unordered_map>
 
 #include <pbs_config.h>
@@ -275,6 +276,7 @@ query_nodes(int pbs_sd, server_info *sinfo)
 			ATTR_NODE_Port,
 			ATTR_partition,
 			ATTR_NODE_jobs,
+			ATTR_msvr_remote_jobs,
 			ATTR_NODE_ntype,
 			ATTR_maxrun,
 			ATTR_maxuserrun,
@@ -489,6 +491,12 @@ query_node_info(struct batch_status *node, server_info *sinfo)
 		}
 		else if (!strcmp(attrp->name, ATTR_NODE_jobs))
 			ninfo->jobs = break_comma_list(attrp->value);
+		else if (!strcmp(attrp->name, ATTR_msvr_remote_jobs)) {
+			std::string rmtjid;
+			std::istringstream ss(attrp->value);
+			while (std::getline(ss, rmtjid, ','))
+				ninfo->msvr_rmt_jobs.insert(rmtjid);
+		}
 		else if (!strcmp(attrp->name, ATTR_maxrun)) {
 			count = strtol(attrp->value, &endp, 10);
 			if (*endp == '\0')
@@ -1618,9 +1626,29 @@ collect_jobs_on_nodes(node_info **ninfo_arr, resource_resv **resresv_arr, int si
 			 * mark that the node has ghost job
 			 */
 			if (size == 0 && (flags & DETECT_GHOST_JOBS)) {
-				ninfo_arr[i]->has_ghost_job = 1;
-				log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, LOG_DEBUG, ninfo_arr[i]->name,
-					  "Jobs reported running on node no longer exists or are not in running state");
+				/* Exception: for a multi-server setup with partition tolerance, exclude jobs which
+				 * are owned by another server, i.e - remote jobs for this server
+				 */
+				if (part_tolerance && !ninfo_arr[i]->msvr_rmt_jobs.empty()) {
+					bool ghostfound = false;
+
+					for (j = 0; ninfo_arr[i]->jobs[j] != NULL; j++) {
+						ptr = strchr(ninfo_arr[i]->jobs[j], '/');
+						if (ptr != NULL)
+							*ptr = '\0';
+
+						if (ninfo_arr[i]->msvr_rmt_jobs.find(ninfo_arr[i]->jobs[j]) == ninfo_arr[i]->msvr_rmt_jobs.end()) {
+							ghostfound = true;
+							break;
+						}
+					}
+					if (ghostfound)
+						ninfo_arr[i]->has_ghost_job = 1;
+				} else
+					ninfo_arr[i]->has_ghost_job = 1;
+				if (ninfo_arr[i]->has_ghost_job)
+					log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, LOG_DEBUG, ninfo_arr[i]->name,
+					  	"Jobs reported running on node no longer exists or are not in running state");
 			}
 
 			for (j = 0, k = 0; ninfo_arr[i]->jobs[j] != NULL && k < size; j++) {
@@ -1632,6 +1660,14 @@ collect_jobs_on_nodes(node_info **ninfo_arr, resource_resv **resresv_arr, int si
 				if (ptr != NULL)
 					*ptr = '\0';
 
+				/* If one/more servers is down, jobs from down servers consuming resources on other servers'
+				 * nodes should not be considered as ghost jobs. So, disqualify any remote jobs on a node.
+				 */
+				if (part_tolerance && !ninfo_arr[i]->msvr_rmt_jobs.empty()) {
+					if (ninfo_arr[i]->msvr_rmt_jobs.find(ninfo_arr[i]->jobs[j]) != ninfo_arr[i]->msvr_rmt_jobs.end()) {
+						continue;
+					}
+				}
 				job = find_resource_resv(resresv_arr, ninfo_arr[i]->jobs[j]);
 				if ((job != NULL) && (job->nspec_arr != NULL)) {
 					/* if a distributed job has more then one instance on this node
