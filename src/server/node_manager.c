@@ -3059,9 +3059,12 @@ close_streams(int stm, int ret)
 			pdmninfo = pmom->mi_dmn_info;
 			/* find the respective mom from the stream */
 			addr = tpp_getaddr(pdmninfo->dmn_stream);
-			snprintf(log_buffer, sizeof(log_buffer), "%s %d to %s(%s)",
-				dis_emsg[ret], errno, pmom->mi_host, netaddr(addr));
-			log_err(-1, __func__, log_buffer);
+			if (ret > PBSE_)
+				log_errf(ret, __func__, "Error %d to %s(%s)",
+					errno, pmom->mi_host, netaddr(addr));
+			else if (ret)
+				log_errf(-1, __func__, "%s %d to %s(%s)",
+					dis_emsg[ret], errno, pmom->mi_host, netaddr(addr));
 			stream_eof(pdmninfo->dmn_stream, ret, "mcast failed!");
 		}
 	}
@@ -6510,7 +6513,7 @@ set_nodes(void *pobj, int objtype, char *execvnod_in, char **execvnod_out, char 
 			*/
 			log_eventf(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, LOG_INFO,
 				   pjob->ji_qs.ji_jobid, "Unknown node received");
-			send_nodestat_req(CACHE_MISS);
+			send_nodestat_req(NULL);
 			return PBSE_UNKNODE;
 		}
 
@@ -6586,7 +6589,7 @@ set_nodes(void *pobj, int objtype, char *execvnod_in, char **execvnod_out, char 
 						   presv->ri_qs.ri_resvID, "Unknown node %s received", vname);
 				free(execvncopy);
 				rc = PBSE_UNKNODE;
-				send_nodestat_req(CACHE_MISS);
+				send_nodestat_req(NULL);
 				goto end;
 			}
 
@@ -6678,7 +6681,7 @@ set_nodes(void *pobj, int objtype, char *execvnod_in, char **execvnod_out, char 
 							   pjob->ji_qs.ji_jobid, "Unknown node %s received", peh);
 						free(phowl);
 						free(execvncopy);
-						send_nodestat_req(CACHE_MISS);
+						send_nodestat_req(NULL);
 						return (PBSE_UNKNODE);
 					}
 					if ((phowl + ndindex)->hw_pnd->nd_moms)

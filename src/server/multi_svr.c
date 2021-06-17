@@ -241,11 +241,12 @@ create_svr_struct(struct sockaddr_in *addr, char *hostname)
 		return NULL;
 	}
 
-	psvr_info->ps_pending_replies = 0;
 	psvr_info->ps_rsc_idx = pbs_idx_create(0, 0);
 	CLEAR_HEAD(psvr_info->ps_node_list);
 
 	psvr->mi_data = psvr_info;
+
+	update_pending_reply(psvr, UNSET);
 
 	if (psvr->mi_dmn_info) {
 		free(pul);
@@ -397,7 +398,7 @@ static void
 reverse_resc_update(psvr_ru_t *ru_head)
 {
 	psvr_ru_t *ru_cur;
-	attribute pexech;
+	attribute pexech = {0};
 
 	for (ru_cur = ru_head; ru_cur;
 	     ru_cur = GET_NEXT(ru_cur->ru_link)) {
@@ -425,6 +426,26 @@ clean_saved_rsc(void *idx)
 		free(ru_cur);
 	}
 	avl_destroy_index(idx);
+}
+
+/**
+ * @brief process server pbs server ready if server does not have pending ack
+ * 
+ * @return void
+ */
+void
+process_pbs_server_ready(void)
+{
+	struct work_task *ptask;
+
+	if (pending_ack_svr() == NULL) {
+		ptask = find_work_task(WORK_Deferred_Reply, NULL, req_stat_svr_ready);
+		if (ptask) {
+			log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, LOG_DEBUG, __func__,
+				  "All peer server acks received. Processing pbs_server_ready");
+			convert_work_task(ptask, WORK_Immed);
+		}
+	}
 }
 
 /**
@@ -470,8 +491,11 @@ send_job_resc_updates(int mtfd)
 		}
 	}
 
-	if (ct == 0)
+	if (ct == 0) {
+		/* no spanning jobs to be sent; try processing pbs_server_ready() */
+		process_pbs_server_ready();
 		return 0;
+	}
 
 	rc = ps_compose(mtfd, PS_RSC_UPDATE_FULL);
 	if (rc != DIS_SUCCESS)
@@ -492,6 +516,49 @@ end:
 }
 
 /**
+ * @brief update the pending replies variable
+ * This function also unblocks pbs_server_ready
+ * if the count reaches zero while DECR
+ * 
+ * @param[in] psvr - peer server structure
+ * @param[in] op - operation
+ */
+void
+update_pending_reply(void *psvr, enum batch_op op)
+{
+	int *pending_rply;
+
+	if (!psvr)
+		return;
+
+	pending_rply = &((svrinfo_t *) ((server_t *) psvr)->mi_data)->ps_pending_replies;
+
+	switch (op) {
+	case INCR:
+		*pending_rply += 1;
+		break;
+
+	case DECR:
+		if (*pending_rply)
+			*pending_rply -= 1;
+		else
+			log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, LOG_ALERT, __func__,
+				  "pending_rply went negative... Re-setting to zero");
+
+		if (*pending_rply == 0)
+			process_pbs_server_ready();
+		break;
+
+	case UNSET:
+		*pending_rply = 0;
+		break;
+
+	default:
+		log_errf(-1, __func__, "invalid operation %d", op);
+	}
+}
+
+/**
  * @brief process ack for resource update
  * 
  * @param[in] conn - connection stream
@@ -500,28 +567,12 @@ void
 req_peer_svr_ack(int conn)
 {
 	server_t *psvr;
-	int *pending_rply;
-	struct work_task *ptask;
 
 	if ((psvr = tfind2(conn, 0, &streams)) != NULL) {
-		pending_rply = &((svrinfo_t *) psvr->mi_data)->ps_pending_replies;
-		if (*pending_rply)
-			*pending_rply -= 1;
-		else
-			log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, LOG_ALERT, __func__,
-				  "pending_rply went negative... Re-setting to zero");
+		update_pending_reply(psvr, DECR);
 	} else {
 		log_errf(-1, __func__, "Resource update from unknown stream %d", conn);
 		return;
-	}
-
-	if (*pending_rply == 0 && pending_ack_svr() == NULL) {
-		ptask = find_work_task(WORK_Deferred_Reply, NULL, req_stat_svr_ready);
-		if (ptask) {
-			log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, LOG_DEBUG, __func__,
-				  "All peer server acks received. Processing pbs_server_ready");
-			convert_work_task(ptask, WORK_Immed);
-		}
 	}
 }
 
@@ -595,7 +646,7 @@ connect_to_peersvr(void *psvr)
 {
 	svrinfo_t *svr_info;
 	dmn_info_t *dmn_info;
-	bool resc_upd_reqd = 0;
+	bool hello_initiated = TRUE;
 
 	if (!psvr)
 		return -1;
@@ -605,7 +656,7 @@ connect_to_peersvr(void *psvr)
 
 	if (dmn_info->dmn_stream < 0 ||
 	    (dmn_info->dmn_state & INUSE_NEEDS_HELLOSVR))
-		resc_upd_reqd = 1;
+		hello_initiated = FALSE;
 
 	if (open_conn_stream(psvr) < 0)
 		return -1;
@@ -613,10 +664,10 @@ connect_to_peersvr(void *psvr)
 	if (send_connect(psvr) < 0)
 		return -1;
 
-	if (resc_upd_reqd) {
+	if (!hello_initiated) {
 		if (svr_info->ps_pending_replies)
 			mcast_resc_update_all(psvr);
-		send_nodestat_req(-1);
+		mcast_node_stat_all(psvr);
 	}
 
 	return 0;
@@ -697,8 +748,6 @@ gen_svr_inst_id(void)
 
 /**
  * @brief	Calculate the index of the current server
- *
- * @param	void
  *
  * @return	int
  * @retval	index of the server
@@ -812,7 +861,7 @@ save_resc_update(void *pobj, psvr_ru_t *ru_new)
 void
 req_resc_update(int stream, pbs_list_head *ru_head, void *psvr)
 {
-	attribute pexech;
+	attribute pexech = {0};
 	psvr_ru_t *ru_cur;
 	psvr_ru_t *ru_nxt;
 	int op = 0;

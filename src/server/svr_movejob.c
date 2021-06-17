@@ -566,7 +566,7 @@ send_job_exec(job *jobp, pbs_net_t hostaddr, int port, int move_type, struct bat
 
 	if (move_type == MOVE_TYPE_Move_Run) {
 		post_func = post_movejob;
-		((svrinfo_t *)(pmom->mi_data))->ps_pending_replies++;
+		update_pending_reply(pmom, INCR);
 		rq_move = &request->rq_ind.rq_move;
 		rq_move->peersvr_stream = stream;
 
@@ -683,8 +683,8 @@ done:
 	return 2;
 
 send_err:
-	if (move_type == MOVE_TYPE_Move_Run && pmom)
-		((svrinfo_t *)(pmom->mi_data))->ps_pending_replies--;
+	if (move_type == MOVE_TYPE_Move_Run)
+		update_pending_reply(pmom, DECR);
 
 	free(dup_msgid);
 
