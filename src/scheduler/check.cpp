@@ -1656,9 +1656,9 @@ check_normal_node_path(status *policy, server_info *sinfo, queue_info *qinfo, re
 				msvr_pset[0] = sinfo->svr_to_psets[resresv->svr_inst_id];
 
 				/* Restrict job arrays and reservations to owner server */
-				if (resresv->is_resv || resresv->job->is_array)
+				if (resresv->is_resv || resresv->job->is_array) {
 					msvr_pset[1] = NULL;
-				else { /* If owner's nodes don't work, use all */
+				} else { /* If owner's nodes don't work, use all */
 					msvr_pset[1] = sinfo->allpart;
 					msvr_pset[2] = NULL;
 				}
@@ -1668,6 +1668,12 @@ check_normal_node_path(status *policy, server_info *sinfo, queue_info *qinfo, re
 				set_schd_error_codes(err, NOT_RUN, NO_NODE_RESOURCES);
 				return NULL;
 			}
+
+			/* This will ensure that we don't span multi-server psets.
+			 * this will ensure that for job arrays and reservations, we don't look beyond the owner server's local nodes.
+			 * we've added allpart as a pset for normal jobs, do we don't need to look at all nodes again if job can't fit there
+			 */
+			flags &= ~SPAN_PSETS;
 		}
 	}
 
