@@ -2810,9 +2810,11 @@ do_connect(char *server_out, char *retmsg)
 	refresh_dfltqsubargs();
 
 	if (pbs_errno != PBSE_NONE) {
-		if (pbs_errno == PBSE_NOSERVER)
+		if (pbs_errno == PBSE_NOSERVER) {
 			show_svr_inst_fail(sd_svr, "qsub");
-		return pbs_errno;
+			pbs_errno = PBSE_NONE;
+		} else
+			return pbs_errno;
 	}
 
 	pbs_hostvar = malloc(pbs_o_hostsize + PBS_MAXHOSTNAME + 1);

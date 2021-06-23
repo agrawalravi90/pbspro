@@ -171,7 +171,7 @@ __pbs_submit(int c, struct attropl  *attrib, char *script, char *dest, char *ext
 	int ct;
 	int start = rand;
 	int i;
-	
+
 
 	/* initialize the thread context data, if not already initialized */
 	if ((pbs_errno = pbs_client_thread_init_thread_context()) != 0)
@@ -232,13 +232,12 @@ __pbs_submit(int c, struct attropl  *attrib, char *script, char *dest, char *ext
 		if ((start = get_obj_location_hint(dest, MGR_OBJ_RESV)) == -1)
 			start = rand;
 	}
-	
+
 	/* Queue job with null string for job id
 	* attempt again with other instances if we get a queued limit error.
 	*/
 	rc = PBSE_NONE;
 	for (i = start, ct = 0; ct < nsvr; i = (i + 1) % nsvr, ct++) {
-
 		if (!svr_conns[i] || svr_conns[i]->state != SVR_CONN_STATE_UP) {
 			rc = PBSE_NOSERVER;
 			continue;
