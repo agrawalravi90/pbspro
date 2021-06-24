@@ -1669,10 +1669,7 @@ check_normal_node_path(status *policy, server_info *sinfo, queue_info *qinfo, re
 				return NULL;
 			}
 
-			/* This will ensure that we don't span multi-server psets.
-			 * this will ensure that for job arrays and reservations, we don't look beyond the owner server's local nodes.
-			 * we've added allpart as a pset for normal jobs, do we don't need to look at all nodes again if job can't fit there
-			 */
+			/* Turn spanning off when using multi-server psets */
 			flags &= ~SPAN_PSETS;
 		}
 	}
